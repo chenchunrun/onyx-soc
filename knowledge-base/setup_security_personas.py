@@ -143,6 +143,16 @@ def list_tools(base_url: str, cookie: str) -> list[dict[str, Any]]:
     return response.json()
 
 
+def get_persona(base_url: str, cookie: str, persona_id: int) -> dict[str, Any]:
+    response = requests.get(
+        f"{base_url}/persona/{persona_id}",
+        cookies={"fastapiusersauth": cookie},
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def get_db_connection(password: str | None = None):
     if password is None:
         for pwd in [
@@ -199,6 +209,29 @@ def get_builtin_tool_id_from_db(
             )
             row = cur.fetchone()
             return row[0] if row else None
+    finally:
+        conn.close()
+
+
+def attach_tools_to_persona_db(
+    persona_id: int, tool_ids: list[int], db_password: str | None = None
+) -> None:
+    if not tool_ids:
+        return
+
+    conn = get_db_connection(password=db_password)
+    try:
+        with conn.cursor() as cur:
+            for tool_id in tool_ids:
+                cur.execute(
+                    """
+                    INSERT INTO persona__tool (persona_id, tool_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT (persona_id, tool_id) DO NOTHING
+                    """,
+                    (persona_id, tool_id),
+                )
+        conn.commit()
     finally:
         conn.close()
 
@@ -294,11 +327,14 @@ def apply_personas(
             continue
 
         resolved_tools: list[int] = []
+        api_assignable_tool_ids: list[int] = []
+        db_only_tool_ids: list[int] = []
         missing_tools: list[str] = []
         for tool_name in config["tool_names"]:
             tool = tools.get(tool_name)
             if tool:
                 resolved_tools.append(tool["id"])
+                api_assignable_tool_ids.append(tool["id"])
                 continue
 
             tool_code_id = BUILTIN_TOOL_CODE_IDS.get(tool_name)
@@ -315,19 +351,22 @@ def apply_personas(
 
             if tool_id is not None:
                 resolved_tools.append(tool_id)
+                db_only_tool_ids.append(tool_id)
             else:
                 missing_tools.append(tool_name)
 
         payload = build_persona_payload(
             persona_config=config,
             document_set_id=document_set["id"],
-            tool_ids=resolved_tools,
+            tool_ids=api_assignable_tool_ids,
         )
 
         if dry_run:
             action = "update" if config["name"] in existing_personas else "create"
             print(f"  [DRY RUN] Would {action} persona: {config['name']}")
             print(f"    document_set_id={document_set['id']} tool_ids={resolved_tools}")
+            if db_only_tool_ids:
+                print(f"    db_only_tool_ids={db_only_tool_ids}")
             if missing_tools:
                 print(f"    missing_tools={missing_tools}")
             continue
@@ -335,11 +374,31 @@ def apply_personas(
         try:
             if config["name"] in existing_personas:
                 persona_id = existing_personas[config["name"]]["id"]
+                existing_persona = get_persona(base_url, cookie, persona_id)
+                existing_custom_tool_ids = [
+                    tool["id"]
+                    for tool in existing_persona.get("tools", [])
+                    if not tool.get("in_code_tool_id")
+                ]
+                payload["tool_ids"] = api_assignable_tool_ids + existing_custom_tool_ids
+                payload["users"] = existing_persona.get("users", [])
+                payload["groups"] = existing_persona.get("groups", [])
                 update_persona(base_url, cookie, persona_id, payload)
                 print(f"  [OK] Updated persona: {config['name']} (id={persona_id})")
             else:
                 result = create_persona(base_url, cookie, payload)
-                print(f"  [OK] Created persona: {config['name']} (id={result['id']})")
+                persona_id = result["id"]
+                print(f"  [OK] Created persona: {config['name']} (id={persona_id})")
+
+            if db_only_tool_ids:
+                attach_tools_to_persona_db(
+                    persona_id=persona_id,
+                    tool_ids=db_only_tool_ids,
+                    db_password=db_password,
+                )
+                print(
+                    f"  [OK] Restored DB-only tool bindings for {config['name']}: {db_only_tool_ids}"
+                )
 
             if missing_tools:
                 print(f"  [WARN] Persona created without missing tools: {missing_tools}")

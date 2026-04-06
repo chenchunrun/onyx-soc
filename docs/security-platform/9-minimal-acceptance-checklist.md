@@ -63,6 +63,7 @@ python knowledge-base/bootstrap_security_platform.py --apply
 
 ```bash
 python knowledge-base/bootstrap_security_platform.py --verify
+python knowledge-base/verify_security_platform_acceptance.py
 ```
 
 通过标准：
@@ -71,6 +72,7 @@ python knowledge-base/bootstrap_security_platform.py --verify
 - 四个安全 persona 全部存在
 - 安全工具可见
 - 安全团队用户已创建
+- 最小验收脚本返回 0
 
 
 ## 5. 数据与配置验收
@@ -170,10 +172,11 @@ pytest backend/tests/integration/tests/security_tools/ -v
 若验收失败，优先检查：
 
 1. `bootstrap --verify` 输出缺失项
-2. Onyx 登录与 API 可达性
-3. PostgreSQL 可达性
-4. 工具相关环境变量是否已配置
-5. persona 和 document set 是否被意外手工修改
+2. `verify_security_platform_acceptance.py` 输出失败项
+3. Onyx 登录与 API 可达性
+4. PostgreSQL 可达性
+5. 工具相关环境变量是否已配置
+6. persona 和 document set 是否被意外手工修改
 
 
 ## 8. 当前结论口径

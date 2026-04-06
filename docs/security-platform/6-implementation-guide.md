@@ -108,6 +108,7 @@ python knowledge-base/bootstrap_security_platform.py --apply --stage rbac
 
 ```bash
 python knowledge-base/bootstrap_security_platform.py --verify
+python knowledge-base/verify_security_platform_acceptance.py
 ```
 
 
@@ -139,6 +140,7 @@ python knowledge-base/bootstrap_security_platform.py \
 - `tools` 和 `rbac` 阶段都已改为按 persona 名称解析
 - `rbac --dry-run` 当前实际走环境预检查，而不是写库模拟
 - `knowledge-base --dry-run` 输出较长，属于当前脚本正常行为
+- `verify_security_platform_acceptance.py` 提供机器可判定的最小验收结果，适合接 CI 或部署后自动检查
 
 
 ## 9. 测试建议
@@ -155,10 +157,11 @@ python knowledge-base/bootstrap_security_platform.py \
 - `backend/tests/unit/knowledge_base/test_setup_security_document_set.py`
 - `backend/tests/unit/knowledge_base/test_setup_security_personas.py`
 - `backend/tests/unit/knowledge_base/test_bootstrap_security_platform.py`
+- `backend/tests/unit/knowledge_base/test_verify_security_platform_acceptance.py`
 
 
 ## 10. 当前未覆盖项
 
 - 真实生产 API 凭据分发
 - 独立部署资产编排
-- 完整交付验收脚本
+- 更完整的联调与回归自动化
