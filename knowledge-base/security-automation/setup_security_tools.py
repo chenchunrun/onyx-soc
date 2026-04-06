@@ -33,6 +33,14 @@ import psycopg2.extras
 import requests
 
 
+PERSONA_BINDINGS = {
+    "安全事件分析师": ["threat_intel_lookup", "create_security_ticket"],
+    "应急响应指挥官": ["send_security_alert", "create_security_ticket"],
+    "漏洞评估专家": ["threat_intel_lookup", "create_security_ticket"],
+    "合规审计员": ["create_security_ticket"],
+}
+
+
 def get_cookie(base_url: str, email: str, password: str) -> str | None:
     """Login via API and return session cookie."""
     try:
@@ -78,6 +86,13 @@ def list_personas(base_url: str, cookie: str) -> list[dict]:
         return resp.json()
     print(f"  [ERROR] Failed to list personas: {resp.status_code}")
     return []
+
+
+def get_persona_id_by_name(base_url: str, cookie: str, persona_name: str) -> int | None:
+    for persona in list_personas(base_url, cookie):
+        if persona["name"] == persona_name:
+            return persona["id"]
+    return None
 
 
 def create_tool(base_url: str, cookie: str, name: str, description: str,
@@ -339,25 +354,9 @@ def apply_tool_definitions(base_url: str, cookie: str, dry_run: bool = False) ->
         else:
             results["errors"].append(f"Failed to create tool: {tool_name}")
 
-    # Step 2: Attach tools to personas via DB
-    # 安全事件分析师 (id=2): threat_intel_lookup, create_security_ticket
-    # 应急响应指挥官 (id=3): send_security_alert, create_security_ticket
-    # 漏洞评估专家 (id=4): threat_intel_lookup, create_security_ticket
-    # 合规审计员 (id=5): create_security_ticket
-
-    persona_bindings = {
-        2: ["threat_intel_lookup", "create_security_ticket"],
-        3: ["send_security_alert", "create_security_ticket"],
-        4: ["threat_intel_lookup", "create_security_ticket"],
-        5: ["create_security_ticket"],
-    }
-
-    persona_names = {2: "安全事件分析师", 3: "应急响应指挥官",
-                     4: "漏洞评估专家", 5: "合规审计员"}
-
     if dry_run:
-        for persona_id, tool_names in persona_bindings.items():
-            print(f"  [DRY RUN] Would attach to persona {persona_id} ({persona_names.get(persona_id, '?')}): {tool_names}")
+        for persona_name, tool_names in PERSONA_BINDINGS.items():
+            print(f"  [DRY RUN] Would attach to persona {persona_name}: {tool_names}")
         return results
 
     # Get DB connection for attaching tools
@@ -367,11 +366,15 @@ def apply_tool_definitions(base_url: str, cookie: str, dry_run: bool = False) ->
         results["errors"].append(f"DB connection failed: {e}")
         return results
 
-    for persona_id, tool_names in persona_bindings.items():
+    for persona_name, tool_names in PERSONA_BINDINGS.items():
+        persona_id = get_persona_id_by_name(base_url, cookie, persona_name)
+        if persona_id is None:
+            results["errors"].append(f"Persona not found: {persona_name}")
+            continue
         for tool_name in tool_names:
             tool_id = tool_id_map.get(tool_name)
             if tool_id and attach_tool_to_persona(conn, persona_id, tool_id):
-                print(f"  [OK] Attached {tool_name} to persona {persona_id} ({persona_names.get(persona_id, '')})")
+                print(f"  [OK] Attached {tool_name} to persona {persona_name} (id={persona_id})")
                 results["personas_updated"].append(persona_id)
 
     conn.close()
@@ -405,13 +408,14 @@ def main():
     parser.add_argument("--delete-tool", action="store_true")
     args = parser.parse_args()
 
-    # Login
-    print(f"Logging in as {args.email}...")
-    cookie = get_cookie(args.url, args.email, args.password)
-    if not cookie:
-        print("[ERROR] Login failed. Check credentials.")
-        sys.exit(1)
-    print("[OK] Logged in.\n")
+    cookie = ""
+    if not args.dry_run:
+        print(f"Logging in as {args.email}...")
+        cookie = get_cookie(args.url, args.email, args.password)
+        if not cookie:
+            print("[ERROR] Login failed. Check credentials.")
+            sys.exit(1)
+        print("[OK] Logged in.\n")
 
     if args.list_templates:
         print("Available templates:")
@@ -428,11 +432,15 @@ def main():
             print(f"       {tool.get('description', '')[:100]}")
         print()
         # Get full details for security personas
-        for pid in [2, 3, 4, 5]:
-            p = get_persona(args.url, cookie, pid)
+        for persona_name in PERSONA_BINDINGS:
+            persona_id = get_persona_id_by_name(args.url, cookie, persona_name)
+            if persona_id is None:
+                print(f"  [MISSING] {persona_name}")
+                continue
+            p = get_persona(args.url, cookie, persona_id)
             if p:
                 tool_ids = [t["id"] for t in p.get("tools", [])]
-                print(f"  [{pid}] {p['name']}: tool_ids={tool_ids}")
+                print(f"  [{persona_id}] {p['name']}: tool_ids={tool_ids}")
         return
 
     if args.create_tool:

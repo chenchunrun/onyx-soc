@@ -137,13 +137,14 @@ def main():
     print(f"Found {len(md_files)} markdown files.")
     print(f"Target: {args.url}")
 
-    # Login
-    print(f"\nLogging in as {args.email}...")
-    cookie = login(args.url, args.email, args.password)
-    if not cookie:
-        print("[ERROR] Login failed. Check credentials.")
-        sys.exit(1)
-    print("[OK] Logged in successfully.")
+    cookie = None
+    if not args.dry_run:
+        print(f"\nLogging in as {args.email}...")
+        cookie = login(args.url, args.email, args.password)
+        if not cookie:
+            print("[ERROR] Login failed. Check credentials.")
+            sys.exit(1)
+        print("[OK] Logged in successfully.")
 
     if args.verify:
         # List existing documents
