@@ -103,7 +103,7 @@ python knowledge-base/bootstrap_security_platform.py --apply --stage personas
 python knowledge-base/bootstrap_security_platform.py --apply --stage tools
 python knowledge-base/bootstrap_security_platform.py --apply --stage rbac
 python knowledge-base/bootstrap_security_platform.py --verify
-python knowledge-base/verify_security_platform_acceptance.py
+python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 ```
 
 
@@ -145,7 +145,8 @@ export POSTGRES_PASSWORD=password
 - 自定义安全工具已创建
 - 安全团队账号已建立
 - `verify` 输出无关键缺失项
-- 最小验收脚本返回 0
+- `verify` 中的 `acceptance` 阶段返回成功
+- `smoke` 阶段返回成功
 
 建议结合以下清单执行：
 

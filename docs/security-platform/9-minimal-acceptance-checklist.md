@@ -63,7 +63,7 @@ python knowledge-base/bootstrap_security_platform.py --apply
 
 ```bash
 python knowledge-base/bootstrap_security_platform.py --verify
-python knowledge-base/verify_security_platform_acceptance.py
+python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 ```
 
 通过标准：
@@ -72,7 +72,8 @@ python knowledge-base/verify_security_platform_acceptance.py
 - 四个安全 persona 全部存在
 - 安全工具可见
 - 安全团队用户已创建
-- 最小验收脚本返回 0
+- `acceptance` 阶段返回成功
+- `smoke` 阶段返回成功
 
 
 ## 5. 数据与配置验收
@@ -172,11 +173,12 @@ pytest backend/tests/integration/tests/security_tools/ -v
 若验收失败，优先检查：
 
 1. `bootstrap --verify` 输出缺失项
-2. `verify_security_platform_acceptance.py` 输出失败项
+2. `bootstrap --verify` 中 `acceptance` 阶段输出失败项
 3. Onyx 登录与 API 可达性
 4. PostgreSQL 可达性
 5. 工具相关环境变量是否已配置
 6. persona 和 document set 是否被意外手工修改
+7. `smoke` 阶段输出是否提示聊天链路或工具链路异常
 
 
 ## 8. 当前结论口径

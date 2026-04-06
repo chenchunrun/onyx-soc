@@ -108,7 +108,7 @@ python knowledge-base/bootstrap_security_platform.py --apply --stage rbac
 
 ```bash
 python knowledge-base/bootstrap_security_platform.py --verify
-python knowledge-base/verify_security_platform_acceptance.py
+python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 ```
 
 
@@ -140,7 +140,9 @@ python knowledge-base/bootstrap_security_platform.py \
 - `tools` 和 `rbac` 阶段都已改为按 persona 名称解析
 - `rbac --dry-run` 当前实际走环境预检查，而不是写库模拟
 - `knowledge-base --dry-run` 输出较长，属于当前脚本正常行为
-- `verify_security_platform_acceptance.py` 提供机器可判定的最小验收结果，适合接 CI 或部署后自动检查
+- `bootstrap --verify` 现已默认包含 `acceptance` 阶段
+- `verify_security_platform_acceptance.py` 仍可单独执行，适合接 CI 或部署后自动检查
+- `bootstrap --verify --stage smoke` 可用于部署后的真实聊天/工具冒烟验证
 
 
 ## 9. 测试建议

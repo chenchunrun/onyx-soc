@@ -9,13 +9,15 @@
 
 ## 1. 目标
 
-该脚本负责串联当前已经存在的三个初始化阶段：
+该脚本负责串联当前已经存在的阶段：
 
 - 安全知识库导入
 - 安全文档集创建
 - 安全 persona 创建/更新
 - 安全工具创建与 persona 工具绑定
 - 安全团队 RBAC 初始化
+- 最小验收自动化
+- 部署后聊天/工具冒烟验证
 
 设计目标不是替换原有脚本，而是统一入口、统一参数和统一执行顺序。
 
@@ -101,6 +103,30 @@
 - 绑定 document set 和 persona 可见性
 
 
+### `acceptance`
+
+调用：
+
+- `knowledge-base/verify_security_platform_acceptance.py`
+
+职责：
+
+- 校验 document set、persona、工具、用户与 RBAC 绑定
+- 输出机器可判定的最小验收结果
+
+
+### `smoke`
+
+调用：
+
+- `knowledge-base/post_deploy_smoke_test.py`
+
+职责：
+
+- 验证安全 persona 的基础聊天链路
+- 验证只读安全工具的真实调用链路
+
+
 ## 4. 运行模式
 
 ### 4.1 预演模式
@@ -136,6 +162,7 @@ python knowledge-base/bootstrap_security_platform.py --verify
 说明：
 
 - 校验已导入文档、已创建工具和 RBAC 配置状态
+- 默认会在最后执行 `acceptance` 阶段
 
 
 ## 5. 按阶段执行
@@ -156,6 +183,18 @@ python knowledge-base/bootstrap_security_platform.py --apply --stage tools --sta
 
 ```bash
 python knowledge-base/bootstrap_security_platform.py --dry-run --stage rbac
+```
+
+只执行最小验收：
+
+```bash
+python knowledge-base/bootstrap_security_platform.py --verify --stage acceptance
+```
+
+只执行部署后冒烟：
+
+```bash
+python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 ```
 
 
@@ -195,7 +234,7 @@ python knowledge-base/bootstrap_security_platform.py \
 
 - 先确认环境和参数
 - 再分别完成数据、工具、权限初始化
-- 最后统一校验结果
+- 最后统一校验结果，并执行最小验收
 
 
 ## 8. 已知限制
@@ -204,6 +243,8 @@ python knowledge-base/bootstrap_security_platform.py \
 - `knowledge-base` 阶段的预演输出较长，因为会列出所有 markdown 文件
 - `personas` 阶段依赖 Onyx API 可访问
 - `document-set` 阶段当前会创建一个空 document set，不会自动绑定 connector/cc pair
+- `acceptance` 阶段不支持 `--dry-run`
+- `smoke` 阶段依赖真实聊天链路和工具链路可用，执行时间明显长于 `acceptance`
 
 
 ## 9. 相关脚本
@@ -213,3 +254,5 @@ python knowledge-base/bootstrap_security_platform.py \
 - [setup_security_personas.py](/Users/newmba/Downloads/onyx-main/knowledge-base/setup_security_personas.py)
 - [setup_security_tools.py](/Users/newmba/Downloads/onyx-main/knowledge-base/security-automation/setup_security_tools.py)
 - [provision_security_team.py](/Users/newmba/Downloads/onyx-main/knowledge-base/sso-rbac/provision_security_team.py)
+- [verify_security_platform_acceptance.py](/Users/newmba/Downloads/onyx-main/knowledge-base/verify_security_platform_acceptance.py)
+- [post_deploy_smoke_test.py](/Users/newmba/Downloads/onyx-main/knowledge-base/post_deploy_smoke_test.py)
