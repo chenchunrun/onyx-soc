@@ -36,6 +36,28 @@
 本指南不重复定义新的主平台部署方式。
 
 
+### 4.1.1 Helm values 示例
+
+如果使用 Helm 部署，可以直接叠加仓库内提供的安全底座示例 values：
+
+`deployment/helm/charts/onyx/values.security-platform.yaml`
+
+示例：
+
+```bash
+cd deployment/helm/charts/onyx
+helm upgrade --install onyx . -n onyx --create-namespace \
+  -f values.yaml \
+  -f values.security-platform.yaml
+```
+
+该示例主要补充：
+
+- 安全工具相关 URL 配置
+- 安全工具相关 Secret 映射
+- `WEB_DOMAIN` 示例值
+
+
 ### 4.2 准备基础资源
 
 部署完成后，至少确认以下资源存在：
@@ -132,11 +154,10 @@ export POSTGRES_PASSWORD=password
 
 ## 8. 当前限制
 
-- 尚未提供专属 Helm values 示例
 - 真实环境密钥管理仍需结合现有部署体系完成
 
 
 ## 9. 推荐后续增强
 
 - 增加生产与演示环境配置模板
-- 增加 Helm 对应的安全底座 values 示例
+- 增加更贴近生产环境的 Helm values 样例

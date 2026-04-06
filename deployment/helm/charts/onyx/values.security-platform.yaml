@@ -1,0 +1,32 @@
+# Example Helm values overlay for the Onyx security-platform customization.
+#
+# Usage:
+#   helm upgrade --install onyx ./charts/onyx \
+#     -n onyx --create-namespace \
+#     -f values.yaml \
+#     -f values.security-platform.yaml
+#
+# Replace the placeholder values below before using this overlay in a real
+# environment.
+
+configMap:
+  # Optional public-facing URL for the deployed Onyx instance.
+  WEB_DOMAIN: "https://onyx.example.com"
+
+  # Security tool integration endpoints.
+  SECURITY_TICKET_API_URL: "https://your-company.atlassian.net/rest/api/3"
+  THREAT_INTEL_API_URL: "https://www.virustotal.com/api/v3"
+
+auth:
+  securityPlatform:
+    enabled: true
+    secretName: "onyx-security-platform"
+    existingSecret: ""
+    secretKeys:
+      SECURITY_ALERT_WEBHOOK_URL: security_alert_webhook_url
+      SECURITY_TICKET_API_KEY: security_ticket_api_key
+      THREAT_INTEL_API_KEY: threat_intel_api_key
+    values:
+      security_alert_webhook_url: "https://hooks.slack.com/services/replace-me"
+      security_ticket_api_key: "replace-me"
+      threat_intel_api_key: "replace-me"

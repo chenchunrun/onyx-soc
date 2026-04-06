@@ -36,6 +36,27 @@
     * k -n onyx delete pvc vespa-storage-da-vespa-0
   * If you didn't disable Postgres persistence earlier, you may want to delete that PVC too.
 
+## Security platform overlay
+If you are deploying the security-platform customization from `knowledge-base/`,
+you can layer the provided example values file on top of the base chart values:
+
+```bash
+cd charts/onyx
+helm upgrade --install onyx . -n onyx --create-namespace \
+  -f values.yaml \
+  -f values.security-platform.yaml
+```
+
+The overlay adds example env vars and secret mappings for:
+- `SECURITY_ALERT_WEBHOOK_URL`
+- `SECURITY_TICKET_API_URL`
+- `SECURITY_TICKET_API_KEY`
+- `THREAT_INTEL_API_URL`
+- `THREAT_INTEL_API_KEY`
+
+After the chart is deployed, run the bootstrap and verification steps described
+in `docs/security-platform/7-deployment.md`.
+
 ## Run as non-root user
 By default, some onyx containers run as root. If you'd like to explicitly run the onyx containers as a non-root user, update the values.yaml file for the following components:
   * `celery_shared`, `api`, `webserver`, `indexCapability`, `inferenceCapability`
