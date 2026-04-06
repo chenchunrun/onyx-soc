@@ -22,9 +22,32 @@ from typing import Any
 import requests
 
 
+PERSONA_SMOKE_SCENARIOS = [
+    {
+        "persona_name": "安全事件分析师",
+        "token": "SMOKE_OK_ANALYST",
+        "prompt": "你是安全事件分析师。请直接回复字符串 SMOKE_OK_ANALYST，不要添加任何其他内容。",
+    },
+    {
+        "persona_name": "应急响应指挥官",
+        "token": "SMOKE_OK_COMMANDER",
+        "prompt": "你是应急响应指挥官。请直接回复字符串 SMOKE_OK_COMMANDER，不要添加任何其他内容。",
+    },
+    {
+        "persona_name": "漏洞评估专家",
+        "token": "SMOKE_OK_VULN",
+        "prompt": "你是漏洞评估专家。请直接回复字符串 SMOKE_OK_VULN，不要添加任何其他内容。",
+    },
+    {
+        "persona_name": "合规审计员",
+        "token": "SMOKE_OK_COMPLIANCE",
+        "prompt": "你是合规审计员。请直接回复字符串 SMOKE_OK_COMPLIANCE，不要添加任何其他内容。",
+    },
+]
+
 ANALYST_PERSONA_NAME = "安全事件分析师"
 THREAT_INTEL_TOOL_NAME = "threat_intel_lookup"
-SMOKE_TOKEN = "SMOKE_OK_ANALYST"
+SMOKE_PROBE_TOKEN = "SMOKE_OK_ANALYST"
 
 
 def get_cookie(base_url: str, email: str, password: str) -> str | None:
@@ -161,19 +184,24 @@ def _try_mock_llm_roundtrip(base_url: str, cookie: str, persona_id: int) -> bool
             cookie,
             chat_session_id,
             "mock probe",
-            mock_llm_response=SMOKE_TOKEN,
+            mock_llm_response=SMOKE_PROBE_TOKEN,
         )
     except requests.HTTPError:
         return False
-    return result["error"] is None and SMOKE_TOKEN in result["full_message"]
+    return result["error"] is None and SMOKE_PROBE_TOKEN in result["full_message"]
 
 
 def run_smoke_test(base_url: str, cookie: str) -> dict[str, Any]:
     personas = {persona["name"]: persona for persona in list_personas(base_url, cookie)}
-    analyst = personas.get(ANALYST_PERSONA_NAME)
-    if analyst is None:
-        return {"ok": False, "failures": [f"Missing persona: {ANALYST_PERSONA_NAME}"]}
+    missing_personas = [
+        scenario["persona_name"]
+        for scenario in PERSONA_SMOKE_SCENARIOS
+        if scenario["persona_name"] not in personas
+    ]
+    if missing_personas:
+        return {"ok": False, "failures": [f"Missing personas: {', '.join(missing_personas)}"]}
 
+    analyst = personas[ANALYST_PERSONA_NAME]
     analyst_detail = get_persona(base_url, cookie, int(analyst["id"]))
     threat_intel_tool = next(
         (tool for tool in analyst_detail.get("tools", []) if tool.get("name") == THREAT_INTEL_TOOL_NAME),
@@ -184,33 +212,41 @@ def run_smoke_test(base_url: str, cookie: str) -> dict[str, Any]:
 
     use_mock_llm = _try_mock_llm_roundtrip(base_url, cookie, int(analyst["id"]))
     failures: list[str] = []
+    persona_chat_previews: dict[str, str] = {}
 
-    basic_session_id = create_chat_session(
-        base_url,
-        cookie,
-        int(analyst["id"]),
-        description=f"smoke-basic-{uuid.uuid4()}",
-    )
-    if use_mock_llm:
-        basic_result = send_chat_message(
+    for scenario in PERSONA_SMOKE_SCENARIOS:
+        persona = personas[scenario["persona_name"]]
+        basic_session_id = create_chat_session(
             base_url,
             cookie,
-            basic_session_id,
-            "请回复 smoke token",
-            mock_llm_response=SMOKE_TOKEN,
+            int(persona["id"]),
+            description=f"smoke-basic-{uuid.uuid4()}",
         )
-    else:
-        basic_result = send_chat_message(
-            base_url,
-            cookie,
-            basic_session_id,
-            f"请直接回复字符串 {SMOKE_TOKEN}，不要添加其他内容。",
-        )
+        if use_mock_llm:
+            basic_result = send_chat_message(
+                base_url,
+                cookie,
+                basic_session_id,
+                scenario["prompt"],
+                mock_llm_response=scenario["token"],
+            )
+        else:
+            basic_result = send_chat_message(
+                base_url,
+                cookie,
+                basic_session_id,
+                scenario["prompt"],
+            )
 
-    if basic_result["error"] is not None:
-        failures.append(f"Basic chat returned error: {basic_result['error']}")
-    elif SMOKE_TOKEN not in basic_result["full_message"]:
-        failures.append("Basic chat did not return the expected smoke token")
+        persona_chat_previews[scenario["persona_name"]] = basic_result["full_message"][:200]
+        if basic_result["error"] is not None:
+            failures.append(
+                f"Persona {scenario['persona_name']} basic chat returned error: {basic_result['error']}"
+            )
+        elif scenario["token"] not in basic_result["full_message"]:
+            failures.append(
+                f"Persona {scenario['persona_name']} did not return expected smoke token"
+            )
 
     tool_session_id = create_chat_session(
         base_url,
@@ -259,10 +295,10 @@ def run_smoke_test(base_url: str, cookie: str) -> dict[str, Any]:
         "ok": not failures,
         "failures": failures,
         "summary": {
-            "persona": ANALYST_PERSONA_NAME,
+            "personas": [scenario["persona_name"] for scenario in PERSONA_SMOKE_SCENARIOS],
             "tool": THREAT_INTEL_TOOL_NAME,
             "use_mock_llm": use_mock_llm,
-            "basic_chat_preview": basic_result["full_message"][:200],
+            "persona_chat_previews": persona_chat_previews,
             "tool_response_preview": tool_result["full_message"][:400],
             "tool_call_debug": tool_result["tool_call_debug"],
         },
@@ -271,10 +307,12 @@ def run_smoke_test(base_url: str, cookie: str) -> dict[str, Any]:
 
 def print_human_result(result: dict[str, Any]) -> None:
     print("=== Post-Deploy Smoke Test ===")
-    print(f"Persona: {result['summary']['persona']}")
+    print("Personas:")
+    for persona_name in result["summary"]["personas"]:
+        preview = result["summary"]["persona_chat_previews"].get(persona_name, "[empty]")
+        print(f"  - {persona_name}: {preview or '[empty]'}")
     print(f"Tool: {result['summary']['tool']}")
     print(f"Mock LLM mode: {'ON' if result['summary']['use_mock_llm'] else 'OFF'}")
-    print(f"Basic chat preview: {result['summary']['basic_chat_preview'] or '[empty]'}")
     print(f"Tool response preview: {result['summary']['tool_response_preview'] or '[empty]'}")
     if result["summary"]["tool_call_debug"]:
         print(f"Tool call debug: {result['summary']['tool_call_debug'][0]}")
