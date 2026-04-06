@@ -131,3 +131,39 @@ def test_apply_personas_dry_run_reports_create_and_update_actions(
     assert f"Would update persona: {module.SECURITY_PERSONAS[0]['name']}" in output
     assert f"Would create persona: {module.SECURITY_PERSONAS[1]['name']}" in output
     assert "document_set_id=3" in output
+
+
+def test_apply_personas_dry_run_falls_back_to_db_for_missing_builtin_tools(
+    monkeypatch, capsys
+) -> None:
+    module = _load_module()
+
+    monkeypatch.setattr(module, "list_personas", lambda base_url, cookie: [])
+    monkeypatch.setattr(
+        module,
+        "list_document_sets",
+        lambda base_url, cookie: [{"id": 3, "name": "安全知识库"}],
+    )
+    monkeypatch.setattr(
+        module,
+        "list_tools",
+        lambda base_url, cookie: [
+            {"id": 1, "display_name": "Internal Search"},
+            {"id": 3, "display_name": "Open URL"},
+            {"id": 4, "display_name": "Code Interpreter"},
+        ],
+    )
+    monkeypatch.setattr(
+        module,
+        "get_builtin_tool_id_from_db",
+        lambda tool_code_id, db_password=None: 9
+        if tool_code_id == "WebSearchTool"
+        else None,
+    )
+
+    result = module.apply_personas("http://example.com", "cookie", dry_run=True)
+    output = capsys.readouterr().out
+
+    assert result == 0
+    assert "missing_tools=['Web Search']" not in output
+    assert "tool_ids=[1, 9, 3]" in output

@@ -14,8 +14,16 @@ import argparse
 import os
 from typing import Any
 
+import psycopg2
 import requests
 
+
+BUILTIN_TOOL_CODE_IDS = {
+    "Internal Search": "SearchTool",
+    "Web Search": "WebSearchTool",
+    "Open URL": "OpenURLTool",
+    "Code Interpreter": "PythonTool",
+}
 
 SECURITY_PERSONAS = [
     {
@@ -135,6 +143,66 @@ def list_tools(base_url: str, cookie: str) -> list[dict[str, Any]]:
     return response.json()
 
 
+def get_db_connection(password: str | None = None):
+    if password is None:
+        for pwd in [
+            os.environ.get("POSTGRES_PASSWORD", ""),
+            "password",
+            "postgres",
+            "onyx",
+            "",
+        ]:
+            if not pwd:
+                continue
+            try:
+                conn = psycopg2.connect(
+                    host="localhost",
+                    port=5432,
+                    database="postgres",
+                    user="postgres",
+                    password=pwd,
+                    connect_timeout=3,
+                )
+                conn.close()
+                password = pwd
+                break
+            except Exception:
+                continue
+
+        if password is None:
+            raise RuntimeError("Could not connect to PostgreSQL with known passwords")
+
+    return psycopg2.connect(
+        host="localhost",
+        port=5432,
+        database="postgres",
+        user="postgres",
+        password=password,
+    )
+
+
+def get_builtin_tool_id_from_db(
+    tool_code_id: str, db_password: str | None = None
+) -> int | None:
+    conn = get_db_connection(password=db_password)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id
+                FROM tool
+                WHERE in_code_tool_id = %s
+                ORDER BY enabled DESC, id ASC
+                LIMIT 1
+                """,
+                (tool_code_id,),
+            )
+            row = cur.fetchone()
+            return row[0] if row else None
+    finally:
+        conn.close()
+
+
 def build_persona_payload(
     persona_config: dict[str, Any],
     document_set_id: int,
@@ -205,7 +273,9 @@ def verify_personas(base_url: str, cookie: str) -> int:
     return 1 if missing else 0
 
 
-def apply_personas(base_url: str, cookie: str, dry_run: bool) -> int:
+def apply_personas(
+    base_url: str, cookie: str, dry_run: bool, db_password: str | None = None
+) -> int:
     existing_personas = {
         persona["name"]: persona for persona in list_personas(base_url, cookie)
     }
@@ -229,6 +299,22 @@ def apply_personas(base_url: str, cookie: str, dry_run: bool) -> int:
             tool = tools.get(tool_name)
             if tool:
                 resolved_tools.append(tool["id"])
+                continue
+
+            tool_code_id = BUILTIN_TOOL_CODE_IDS.get(tool_name)
+            if not tool_code_id:
+                missing_tools.append(tool_name)
+                continue
+
+            try:
+                tool_id = get_builtin_tool_id_from_db(tool_code_id, db_password=db_password)
+            except Exception as exc:
+                print(f"    [WARN] Failed DB lookup for tool {tool_name}: {exc}")
+                missing_tools.append(tool_name)
+                continue
+
+            if tool_id is not None:
+                resolved_tools.append(tool_id)
             else:
                 missing_tools.append(tool_name)
 
@@ -281,6 +367,10 @@ def main() -> int:
         "--password",
         default=os.environ.get("ONYX_PASSWORD", "admin123"),
     )
+    parser.add_argument(
+        "--db-password",
+        default=os.environ.get("POSTGRES_PASSWORD"),
+    )
     args = parser.parse_args()
 
     print(f"Logging in as {args.email}...")
@@ -293,7 +383,9 @@ def main() -> int:
     if args.verify:
         return verify_personas(args.url, cookie)
 
-    return apply_personas(args.url, cookie, dry_run=args.dry_run)
+    return apply_personas(
+        args.url, cookie, dry_run=args.dry_run, db_password=args.db_password
+    )
 
 
 if __name__ == "__main__":
