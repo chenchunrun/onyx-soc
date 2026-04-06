@@ -32,13 +32,25 @@ STAGE_DOCUMENT_SET = "document-set"
 STAGE_PERSONAS = "personas"
 STAGE_TOOLS = "tools"
 STAGE_RBAC = "rbac"
+STAGE_ACCEPTANCE = "acceptance"
+STAGE_SMOKE = "smoke"
 ALL_STAGES = [
     STAGE_KNOWLEDGE_BASE,
     STAGE_DOCUMENT_SET,
     STAGE_PERSONAS,
     STAGE_TOOLS,
     STAGE_RBAC,
+    STAGE_ACCEPTANCE,
+    STAGE_SMOKE,
 ]
+DEFAULT_STAGES_APPLY = [
+    STAGE_KNOWLEDGE_BASE,
+    STAGE_DOCUMENT_SET,
+    STAGE_PERSONAS,
+    STAGE_TOOLS,
+    STAGE_RBAC,
+]
+DEFAULT_STAGES_VERIFY = DEFAULT_STAGES_APPLY + [STAGE_ACCEPTANCE]
 
 
 @dataclass
@@ -133,10 +145,23 @@ def build_rbac_command(args: argparse.Namespace) -> list[str]:
     return command
 
 
+def build_acceptance_command(args: argparse.Namespace) -> list[str]:
+    command = [get_python_executable(), str(ROOT / "verify_security_platform_acceptance.py")]
+    if args.db_password:
+        command.extend(["--db-password", args.db_password])
+    return command
+
+
+def build_smoke_command(args: argparse.Namespace) -> list[str]:
+    return [get_python_executable(), str(ROOT / "post_deploy_smoke_test.py")]
+
+
 def select_stages(args: argparse.Namespace) -> list[str]:
     if args.stage:
         return args.stage
-    return ALL_STAGES
+    if args.verify:
+        return DEFAULT_STAGES_VERIFY
+    return DEFAULT_STAGES_APPLY
 
 
 def print_plan(args: argparse.Namespace, stages: list[str]) -> None:
@@ -231,6 +256,16 @@ def main() -> int:
             result = run_stage(stage, build_tools_command(args), env)
         elif stage == STAGE_RBAC:
             result = run_stage(stage, build_rbac_command(args), env)
+        elif stage == STAGE_ACCEPTANCE:
+            if args.dry_run:
+                print("[ERROR] The acceptance stage is only available with --apply or --verify.")
+                return 1
+            result = run_stage(stage, build_acceptance_command(args), env)
+        elif stage == STAGE_SMOKE:
+            if args.dry_run:
+                print("[ERROR] The smoke stage is only available with --apply or --verify.")
+                return 1
+            result = run_stage(stage, build_smoke_command(args), env)
         else:
             print(f"[ERROR] Unknown stage: {stage}")
             return 1

@@ -25,7 +25,9 @@ def _load_module():
 def test_select_stages_defaults_to_full_order() -> None:
     module = _load_module()
 
-    stages = module.select_stages(Namespace(stage=None))
+    stages = module.select_stages(
+        Namespace(stage=None, verify=False, dry_run=False)
+    )
 
     assert stages == [
         module.STAGE_KNOWLEDGE_BASE,
@@ -33,6 +35,23 @@ def test_select_stages_defaults_to_full_order() -> None:
         module.STAGE_PERSONAS,
         module.STAGE_TOOLS,
         module.STAGE_RBAC,
+    ]
+
+
+def test_select_stages_includes_acceptance_for_verify_mode() -> None:
+    module = _load_module()
+
+    stages = module.select_stages(
+        Namespace(stage=None, verify=True, dry_run=False)
+    )
+
+    assert stages == [
+        module.STAGE_KNOWLEDGE_BASE,
+        module.STAGE_DOCUMENT_SET,
+        module.STAGE_PERSONAS,
+        module.STAGE_TOOLS,
+        module.STAGE_RBAC,
+        module.STAGE_ACCEPTANCE,
     ]
 
 
@@ -70,3 +89,24 @@ def test_build_document_set_command_uses_expected_mode_flags() -> None:
     args = Namespace(verify=True, dry_run=False)
     command = module.build_document_set_command(args)
     assert command[-1] == "--verify"
+
+
+def test_build_acceptance_command_passes_db_password() -> None:
+    module = _load_module()
+
+    command = module.build_acceptance_command(
+        Namespace(db_password="secret", verify=True, dry_run=False)
+    )
+
+    assert command[-2:] == ["--db-password", "secret"]
+    assert command[1].endswith("verify_security_platform_acceptance.py")
+
+
+def test_build_smoke_command_targets_post_deploy_smoke_test() -> None:
+    module = _load_module()
+
+    command = module.build_smoke_command(
+        Namespace(db_password=None, verify=True, dry_run=False)
+    )
+
+    assert command[1].endswith("post_deploy_smoke_test.py")
