@@ -99,6 +99,10 @@ export POSTGRES_PASSWORD=password
 - 安全团队账号已建立
 - `verify` 输出无关键缺失项
 
+建议结合以下清单执行：
+
+- `docs/security-platform/9-minimal-acceptance-checklist.md`
+
 
 ## 8. 当前限制
 
@@ -109,6 +113,5 @@ export POSTGRES_PASSWORD=password
 
 ## 9. 推荐后续增强
 
-- 增加 document set 自动创建步骤
 - 增加部署后验收脚本
 - 增加生产与演示环境配置模板

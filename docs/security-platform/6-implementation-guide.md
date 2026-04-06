@@ -19,7 +19,6 @@
 - Onyx 服务已可访问
 - 仓库 `.venv` 已准备完成
 - PostgreSQL 可从执行机访问
-- 已存在名为 `安全知识库` 的 document set
 
 
 ## 4. 核心脚本
@@ -153,13 +152,13 @@ python knowledge-base/bootstrap_security_platform.py \
 
 当前已补充的单测包括：
 
+- `backend/tests/unit/knowledge_base/test_setup_security_document_set.py`
 - `backend/tests/unit/knowledge_base/test_setup_security_personas.py`
 - `backend/tests/unit/knowledge_base/test_bootstrap_security_platform.py`
 
 
 ## 10. 当前未覆盖项
 
-- 自动创建 `安全知识库` document set
 - 真实生产 API 凭据分发
 - 独立部署资产编排
 - 完整交付验收脚本
