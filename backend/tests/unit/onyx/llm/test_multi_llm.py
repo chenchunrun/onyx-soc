@@ -24,6 +24,7 @@ from onyx.llm.models import ReasoningEffort
 from onyx.llm.models import ToolCall
 from onyx.llm.models import UserMessage
 from onyx.llm.multi_llm import LitellmLLM
+from onyx.llm.multi_llm import _get_env_api_key_for_api_base
 from onyx.llm.utils import get_max_input_tokens
 
 VERTEX_OPUS_MODELS_REJECTING_OUTPUT_CONFIG = [
@@ -1670,3 +1671,27 @@ def test_bifrost_claude_includes_allowed_openai_params() -> None:
         assert kwargs["base_url"] == "https://bifrost.example.com/v1"
         assert kwargs["custom_llm_provider"] == "openai"
         assert kwargs["allowed_openai_params"] == ["tool_choice"]
+
+
+def test_get_env_api_key_for_api_base_exact_hostname_match() -> None:
+    with patch.dict(os.environ, {"BIGMODEL_API_KEY": "secret-bigmodel"}, clear=False):
+        key = _get_env_api_key_for_api_base("https://bigmodel.cn/v1")
+        assert key == "secret-bigmodel"
+
+
+def test_get_env_api_key_for_api_base_subdomain_match() -> None:
+    with patch.dict(os.environ, {"BIGMODEL_API_KEY": "secret-bigmodel"}, clear=False):
+        key = _get_env_api_key_for_api_base("https://open.bigmodel.cn/v1")
+        assert key == "secret-bigmodel"
+
+
+def test_get_env_api_key_for_api_base_suffix_attack_not_matched() -> None:
+    with patch.dict(os.environ, {"BIGMODEL_API_KEY": "secret-bigmodel"}, clear=False):
+        key = _get_env_api_key_for_api_base("https://bigmodel.cn.evil.example/v1")
+        assert key is None
+
+
+def test_get_env_api_key_for_api_base_invalid_url_returns_none() -> None:
+    with patch.dict(os.environ, {"BIGMODEL_API_KEY": "secret-bigmodel"}, clear=False):
+        key = _get_env_api_key_for_api_base("not a url")
+        assert key is None

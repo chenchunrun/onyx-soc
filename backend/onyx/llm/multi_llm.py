@@ -7,6 +7,7 @@ from typing import Any
 from typing import cast
 from typing import TYPE_CHECKING
 from typing import Union
+from urllib.parse import urlparse
 
 from onyx.configs.app_configs import MOCK_LLM_RESPONSE
 from onyx.configs.chat_configs import LLM_SOCKET_READ_TIMEOUT
@@ -66,12 +67,20 @@ _KNOWN_LITELLM_API_KEYS: dict[str, str] = {
 def _get_env_api_key_for_api_base(api_base: str) -> str | None:
     """Look up an env var API key for a known litellm_proxy provider.
 
-    Checks if the API base URL matches any known provider (by domain substring)
+    Checks if the API base URL matches any known provider hostname
     and returns the value of the corresponding environment variable, if set.
     """
-    base_lower = api_base.lower()
+    api_base = api_base.strip()
+    if not api_base:
+        return None
+
+    parsed = urlparse(api_base if "://" in api_base else f"https://{api_base}")
+    hostname = (parsed.hostname or "").lower().strip(".")
+    if not hostname:
+        return None
+
     for domain, env_var in _KNOWN_LITELLM_API_KEYS.items():
-        if domain in base_lower:
+        if hostname == domain or hostname.endswith(f".{domain}"):
             key = os.environ.get(env_var)
             if key:
                 return key

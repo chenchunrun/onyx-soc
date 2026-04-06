@@ -1,8 +1,11 @@
 import os
+import socket
+from ipaddress import ip_address
 from collections import defaultdict
 from datetime import datetime
 from datetime import timezone
 from typing import Any
+from urllib.parse import urlparse
 
 import boto3
 import httpx
@@ -103,6 +106,95 @@ def _mask_string(value: str) -> str:
     if len(value) <= 8:
         return "****"
     return value[:4] + "****" + value[-4:]
+
+
+def _is_private_or_special_ip(raw_ip: str) -> bool:
+    try:
+        addr = ip_address(raw_ip)
+    except ValueError:
+        return False
+
+    return (
+        addr.is_private
+        or addr.is_loopback
+        or addr.is_link_local
+        or addr.is_reserved
+        or addr.is_multicast
+        or addr.is_unspecified
+    )
+
+
+def _hostname_resolves_to_private_or_special_ip(hostname: str) -> bool:
+    normalized_hostname = hostname.strip().strip(".").lower()
+    if not normalized_hostname:
+        return True
+
+    if normalized_hostname in {"localhost", "localhost.localdomain"}:
+        return True
+
+    if _is_private_or_special_ip(normalized_hostname):
+        return True
+
+    try:
+        resolved = socket.getaddrinfo(
+            normalized_hostname,
+            None,
+            family=socket.AF_UNSPEC,
+            type=socket.SOCK_STREAM,
+        )
+    except socket.gaierror:
+        # Let downstream request handling produce the user-facing connectivity error.
+        return False
+
+    for entry in resolved:
+        sockaddr = entry[4]
+        if not sockaddr:
+            continue
+        ip = sockaddr[0]
+        if isinstance(ip, str) and _is_private_or_special_ip(ip):
+            return True
+
+    return False
+
+
+def _validate_and_normalize_api_base(
+    *,
+    api_base: str,
+    source_name: str,
+) -> str:
+    cleaned_api_base = api_base.strip().rstrip("/")
+    if not cleaned_api_base:
+        raise OnyxError(
+            OnyxErrorCode.VALIDATION_ERROR,
+            f"API base URL is required to fetch {source_name} models.",
+        )
+
+    parsed = urlparse(
+        cleaned_api_base if "://" in cleaned_api_base else f"https://{cleaned_api_base}"
+    )
+    if parsed.scheme not in {"http", "https"}:
+        raise OnyxError(
+            OnyxErrorCode.VALIDATION_ERROR,
+            "API base URL must use http or https.",
+        )
+    if not parsed.hostname:
+        raise OnyxError(
+            OnyxErrorCode.VALIDATION_ERROR,
+            "API base URL must include a valid hostname.",
+        )
+    if parsed.username or parsed.password:
+        raise OnyxError(
+            OnyxErrorCode.VALIDATION_ERROR,
+            "API base URL must not contain embedded credentials.",
+        )
+
+    if MULTI_TENANT and _hostname_resolves_to_private_or_special_ip(parsed.hostname):
+        raise OnyxError(
+            OnyxErrorCode.VALIDATION_ERROR,
+            "API base URL points to a private or local network address, which is not allowed in multi-tenant mode.",
+        )
+
+    return cleaned_api_base
 
 
 def _sync_fetched_models(
@@ -1147,7 +1239,9 @@ def get_ollama_available_models(
 
 def _get_openrouter_models_response(api_base: str, api_key: str) -> dict:
     """Perform GET to OpenRouter /models and return parsed JSON."""
-    cleaned_api_base = api_base.strip().rstrip("/")
+    cleaned_api_base = _validate_and_normalize_api_base(
+        api_base=api_base, source_name="OpenRouter"
+    )
     url = f"{cleaned_api_base}/models"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -1259,15 +1353,12 @@ def get_lm_studio_available_models(
     rich metadata including capabilities (vision, reasoning),
     display names, and context lengths.
     """
-    cleaned_api_base = request.api_base.strip().rstrip("/")
+    cleaned_api_base = _validate_and_normalize_api_base(
+        api_base=request.api_base, source_name="LM Studio"
+    )
     # Strip /v1 suffix that users may copy from OpenAI-compatible tool configs;
     # the native metadata endpoint lives at /api/v1/models, not /v1/api/v1/models.
     cleaned_api_base = cleaned_api_base.removesuffix("/v1")
-    if not cleaned_api_base:
-        raise OnyxError(
-            OnyxErrorCode.VALIDATION_ERROR,
-            "API base URL is required to fetch LM Studio models.",
-        )
 
     # If provider_name is given and the api_key hasn't been changed by the user,
     # fall back to the stored API key from the database (the form value is masked).
@@ -1457,7 +1548,9 @@ def get_litellm_available_models(
 
 def _get_litellm_models_response(api_key: str, api_base: str) -> dict:
     """Perform GET to Litellm proxy /api/v1/models and return parsed JSON."""
-    cleaned_api_base = api_base.strip().rstrip("/")
+    cleaned_api_base = _validate_and_normalize_api_base(
+        api_base=api_base, source_name="LiteLLM proxy"
+    )
     url = f"{cleaned_api_base}/v1/models"
 
     return _get_openai_compatible_models_response(
@@ -1494,12 +1587,12 @@ def _get_openai_compatible_models_response(
         elif e.response.status_code == 404:
             raise OnyxError(
                 OnyxErrorCode.VALIDATION_ERROR,
-                f"{source_name} models endpoint not found at {url}. Please verify the API base URL.",
+                f"{source_name} models endpoint not found. Please verify the API base URL.",
             )
         else:
             raise OnyxError(
                 OnyxErrorCode.BAD_GATEWAY,
-                f"Failed to fetch {source_name} models: {e}",
+                f"Failed to fetch {source_name} models.",
             )
     except httpx.RequestError as e:
         logger.warning(
@@ -1509,7 +1602,7 @@ def _get_openai_compatible_models_response(
         )
         raise OnyxError(
             OnyxErrorCode.BAD_GATEWAY,
-            f"Failed to fetch {source_name} models: {e}",
+            f"Failed to fetch {source_name} models.",
         )
     except ValueError as e:
         logger.warning(
@@ -1519,7 +1612,7 @@ def _get_openai_compatible_models_response(
         )
         raise OnyxError(
             OnyxErrorCode.BAD_GATEWAY,
-            f"Failed to fetch {source_name} models: {e}",
+            f"Failed to fetch {source_name} models.",
         )
 
 
@@ -1599,7 +1692,9 @@ def get_bifrost_available_models(
 
 def _get_bifrost_models_response(api_base: str, api_key: str | None = None) -> dict:
     """Perform GET to Bifrost /v1/models and return parsed JSON."""
-    cleaned_api_base = api_base.strip().rstrip("/")
+    cleaned_api_base = _validate_and_normalize_api_base(
+        api_base=api_base, source_name="Bifrost"
+    )
     # Ensure we hit /v1/models
     if cleaned_api_base.endswith("/v1"):
         url = f"{cleaned_api_base}/models"

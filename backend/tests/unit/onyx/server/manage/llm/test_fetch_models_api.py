@@ -24,6 +24,13 @@ from onyx.server.manage.llm.models import OpenRouterFinalModelResponse
 from onyx.server.manage.llm.models import OpenRouterModelsRequest
 
 
+@pytest.fixture(autouse=True)
+def _mock_is_embedding_model() -> None:
+    """Keep tests focused on fetch endpoint behavior, not LiteLLM metadata internals."""
+    with patch("onyx.server.manage.llm.api.is_embedding_model", return_value=False):
+        yield
+
+
 class TestGetOllamaAvailableModels:
     """Tests for the Ollama model fetch endpoint."""
 
@@ -902,6 +909,105 @@ class TestGetLitellmAvailableModels:
             )
             with pytest.raises(OnyxError, match="endpoint not found"):
                 get_litellm_available_models(request, MagicMock(), mock_session)
+
+    def test_invalid_scheme_rejected_before_network_call(self) -> None:
+        """Test that non-http(s) schemes are rejected."""
+        from onyx.server.manage.llm.api import get_litellm_available_models
+
+        mock_session = MagicMock()
+        request = LitellmModelsRequest(
+            api_base="ftp://example.com",
+            api_key="test-key",
+        )
+
+        with (
+            patch("onyx.server.manage.llm.api.httpx.get") as mock_get,
+            pytest.raises(OnyxError, match="must use http or https"),
+        ):
+            get_litellm_available_models(request, MagicMock(), mock_session)
+        mock_get.assert_not_called()
+
+    def test_embedded_credentials_rejected_before_network_call(self) -> None:
+        """Test that api_base with userinfo is rejected."""
+        from onyx.server.manage.llm.api import get_litellm_available_models
+
+        mock_session = MagicMock()
+        request = LitellmModelsRequest(
+            api_base="https://user:pass@example.com",
+            api_key="test-key",
+        )
+
+        with (
+            patch("onyx.server.manage.llm.api.httpx.get") as mock_get,
+            pytest.raises(OnyxError, match="must not contain embedded credentials"),
+        ):
+            get_litellm_available_models(request, MagicMock(), mock_session)
+        mock_get.assert_not_called()
+
+    @patch("onyx.server.manage.llm.api.MULTI_TENANT", True)
+    def test_private_host_rejected_in_multi_tenant(self) -> None:
+        """Test that private/local addresses are blocked in multi-tenant mode."""
+        from onyx.server.manage.llm.api import get_litellm_available_models
+
+        mock_session = MagicMock()
+        request = LitellmModelsRequest(
+            api_base="http://127.0.0.1:4000",
+            api_key="test-key",
+        )
+
+        with (
+            patch("onyx.server.manage.llm.api.httpx.get") as mock_get,
+            pytest.raises(OnyxError, match="private or local network address"),
+        ):
+            get_litellm_available_models(request, MagicMock(), mock_session)
+        mock_get.assert_not_called()
+
+    @patch("onyx.server.manage.llm.api.MULTI_TENANT", True)
+    @patch(
+        "onyx.server.manage.llm.api._hostname_resolves_to_private_or_special_ip",
+        return_value=False,
+    )
+    def test_public_host_allowed_in_multi_tenant(
+        self, _mock_private_check: MagicMock
+    ) -> None:
+        """Test that a public host is allowed in multi-tenant mode."""
+        from onyx.server.manage.llm.api import get_litellm_available_models
+
+        mock_session = MagicMock()
+        mock_response = {
+            "data": [
+                {
+                    "id": "gpt-4o",
+                    "object": "model",
+                    "created": 1700000000,
+                    "owned_by": "openai",
+                }
+            ]
+        }
+
+        with patch("onyx.server.manage.llm.api.httpx.get") as mock_get:
+            response = MagicMock()
+            response.json.return_value = mock_response
+            response.raise_for_status = MagicMock()
+            mock_get.return_value = response
+
+            request = LitellmModelsRequest(
+                api_base="https://api.example.com",
+                api_key="test-key",
+            )
+            results = get_litellm_available_models(request, MagicMock(), mock_session)
+
+            assert len(results) == 1
+            assert results[0].model_name == "gpt-4o"
+            mock_get.assert_called_once_with(
+                "https://api.example.com/v1/models",
+                headers={
+                    "Authorization": "Bearer test-key",
+                    "HTTP-Referer": "https://onyx.app",
+                    "X-Title": "Onyx",
+                },
+                timeout=10.0,
+            )
 
 
 class TestGetBifrostAvailableModels:
