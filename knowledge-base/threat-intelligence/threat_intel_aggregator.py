@@ -12,13 +12,17 @@ Usage:
     python threat_intel_aggregator.py --dry-run
 
 Sources:
-    - CISA KEV: Known Exploited Vulnerabilities catalog
-    - NVD: National Vulnerability Database (CVEs)
-    - CVE Details: CVE information
-    - CISA: CISA advisories
+    - CISA KEV: Known Exploited Vulnerabilities catalog (confirmed active)
+    - NVD API: National Vulnerability Database (via NIST REST API)
+      - nvd_security_advisories: Recent security advisories via keyword search
+      - nvd_ics_advisories: ICS/OT/SCADA vulnerabilities
+      - nvd_medical_advisories: Medical/healthcare device vulnerabilities
+
+NOTE: CISA advisories, ICS, and medical JSON feeds are HTTP 404 (federal funding lapse).
+      Replaced with NVD API keyword-based search feeds.
 
 Requirements:
-    pip install requests tqdm
+    pip install requests
 """
 
 import argparse
@@ -38,65 +42,344 @@ if venv_path.exists():
 
 # ─── Feed Definitions ─────────────────────────────────────────────────────────
 
-# NOTE: As of April 2026, only cisa_kev is confirmed available.
-# Other CISA feeds may have been deprecated (HTTP 404). The script gracefully
-# skips unavailable feeds.
+# CISA KEV is confirmed active (HTTP 200 as of April 2026).
+# CISA advisories/ICS/medical feeds return HTTP 404 (federal funding lapse).
+# NVD API (https://services.nvd.nist.gov/rest/json/cves/2.0) is used as replacement.
+# Rate limit: 10 req/30s without API key, 50 req/30s with API key.
+# Set NVD_API_KEY env var for higher rate limits.
+
+# NVD API base URL
+CVE_API_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
 FEEDS = {
+    # CISA KEV - CONFIRMED ACTIVE
     "cisa_kev": {
         "name": "CISA Known Exploited Vulnerabilities (ACTIVE)",
         "url": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json",
-        "description": "CISA catalog of known exploited vulnerabilities requiring remediation",
+        "description": "CISA catalog of known exploited vulnerabilities (1557+ entries, updated daily)",
         "category": "Known Exploited",
         "tags": ["CISA", "KEV", "exploited", "CVE"],
+        "source": "CISA",
     },
+
+    # NVD-based feeds (replacements for deprecated CISA feeds)
+    "nvd_security_advisories": {
+        "name": "NVD Security Advisories (via NIST API)",
+        "url": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+        "description": "Recent security vulnerability advisories from NIST National Vulnerability Database",
+        "category": "Advisories",
+        "tags": ["NIST", "NVD", "CVE", "vulnerability", "advisory"],
+        "source": "NVD",
+        "nvd_keyword": "vulnerability security patch exploit",
+        "nvd_max_results": 500,
+    },
+    "nvd_ics_advisories": {
+        "name": "NVD ICS/OT Security Advisories (via NIST API)",
+        "url": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+        "description": "Industrial Control Systems, SCADA, and OT security vulnerabilities from NVD",
+        "category": "ICS Security",
+        "tags": ["NVD", "ICS", "SCADA", "OT", "industrial", "control"],
+        "source": "NVD",
+        "nvd_keyword": "SCADA",
+        "nvd_max_results": 200,
+    },
+    "nvd_medical_advisories": {
+        "name": "NVD Medical/Healthcare Advisories (via NIST API)",
+        "url": "https://services.nvd.nist.gov/rest/json/cves/2.0",
+        "description": "Medical device, healthcare, and hospital security vulnerabilities from NVD",
+        "category": "Healthcare Security",
+        "tags": ["NVD", "medical", "healthcare", "hospital", "device"],
+        "source": "NVD",
+        "nvd_keyword": "medical device",
+        "nvd_max_results": 200,
+    },
+
+    # DEPRECATED - kept for reference, will be skipped
     "cisa_advisories": {
-        "name": "CISA Cybersecurity Advisories (may be deprecated)",
+        "name": "CISA Cybersecurity Advisories (DEPRECATED - 404)",
         "url": "https://www.cisa.gov/sites/default/files/feeds/cybersecurity_advisories.json",
-        "description": "CISA operational directives and cybersecurity advisories",
+        "description": "DEPRECATED: CISA operational directives. Use nvd_security_advisories instead.",
         "category": "Advisories",
         "tags": ["CISA", "advisory", "directive"],
+        "source": "CISA",
+        "deprecated": True,
     },
     "cisa_ics_advisories": {
-        "name": "CISA ICS Advisories (may be deprecated)",
+        "name": "CISA ICS Advisories (DEPRECATED - 404)",
         "url": "https://www.cisa.gov/sites/default/files/feeds/ics_advisories.json",
-        "description": "Industrial Control Systems cybersecurity advisories",
+        "description": "DEPRECATED: CISA ICS advisories. Use nvd_ics_advisories instead.",
         "category": "ICS Security",
         "tags": ["CISA", "ICS", "SCADA", "OT"],
+        "source": "CISA",
+        "deprecated": True,
     },
     "cisa_medical_advisories": {
-        "name": "CISA Medical Advisories (may be deprecated)",
+        "name": "CISA Medical Advisories (DEPRECATED - 404)",
         "url": "https://www.cisa.gov/sites/default/files/feeds/medical_advisories.json",
-        "description": "Healthcare and medical device cybersecurity advisories",
+        "description": "DEPRECATED: CISA medical advisories. Use nvd_medical_advisories instead.",
         "category": "Healthcare Security",
         "tags": ["CISA", "medical", "healthcare", "FDA"],
+        "source": "CISA",
+        "deprecated": True,
     },
 }
 
-# CVE Search API (free tier)
-CVE_API_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+# ─── NVD API Fetcher ─────────────────────────────────────────────────────────
 
+def fetch_nvd_feed(
+    keyword: str,
+    max_results: int = 500,
+    api_key: str | None = None,
+    timeout: int = 30,
+) -> list[dict]:
+    """
+    Fetch CVEs from NVD API using keyword search.
+    Handles pagination automatically within rate limits.
 
-def fetch_cisa_feed(feed_key: str, timeout: int = 30) -> dict | None:
-    """Fetch a CISA feed."""
-    feed = FEEDS.get(feed_key)
-    if not feed:
-        print(f"  [ERROR] Unknown feed: {feed_key}")
-        return None
+    Args:
+        keyword: Search keyword(s) for CVE matching
+        max_results: Maximum number of results to fetch
+        api_key: NVD API key for higher rate limits (optional)
+        timeout: Request timeout in seconds
 
-    print(f"  Fetching {feed['name']}...")
-    try:
-        resp = requests.get(feed["url"], timeout=timeout)
-        if resp.status_code == 200:
+    Returns:
+        List of CVE vulnerability dictionaries
+    """
+    api_key = api_key or os.environ.get("NVD_API_KEY")
+
+    headers = {"Accept": "application/json"}
+    if api_key:
+        headers["apiKey"] = api_key
+
+    # NVD returns max 2000 per request; use 500 per page for reasonable chunks
+    page_size = min(500, max_results)
+
+    headers_req = dict(headers)  # copy for mutation
+    all_vulnerabilities = []
+    start_index = 0
+
+    print(f"  Searching NVD for: '{keyword}' (max {max_results})")
+    if api_key:
+        print(f"  [INFO] Using NVD API key (50 req/30s)")
+    else:
+        print(f"  [INFO] No API key (10 req/30s) - will add delays")
+
+    while len(all_vulnerabilities) < max_results:
+        remaining = max_results - len(all_vulnerabilities)
+        current_page_size = min(page_size, remaining)
+
+        params = {
+            "keywordSearch": keyword,
+            "resultsPerPage": current_page_size,
+            "startIndex": start_index,
+        }
+
+        try:
+            resp = requests.get(
+                CVE_API_BASE,
+                params=params,
+                headers=headers_req,
+                timeout=timeout
+            )
+
+            if resp.status_code != 200:
+                print(f"  [ERROR] NVD API HTTP {resp.status_code}: {resp.text[:100]}")
+                break
+
             data = resp.json()
-            print(f"  [OK] Fetched {len(data.get('vulnerabilities', data.get('advisories', [])))} entries")
-            return data
-        else:
-            print(f"  [ERROR] HTTP {resp.status_code}")
-            return None
-    except Exception as e:
-        print(f"  [ERROR] {e}")
-        return None
+            vulns = data.get("vulnerabilities", [])
+            total = data.get("totalResults", 0)
+
+            if start_index == 0:
+                print(f"  [OK] NVD reports {total} total matches")
+
+            all_vulnerabilities.extend(vulns)
+
+            fetched = len(all_vulnerabilities)
+            print(f"  Fetched {fetched}/{min(total, max_results)} CVEs...")
+
+            # Check if we've reached the end
+            if fetched >= total or len(vulns) < current_page_size:
+                break
+
+            start_index += current_page_size
+
+            # Rate limiting: 10 req/30s without key, 50 req/30s with key
+            if api_key:
+                pass  # no delay needed
+            else:
+                time.sleep(3.5)  # 3.5s between requests (slightly conservative)
+
+        except Exception as e:
+            print(f"  [ERROR] NVD API request failed: {e}")
+            break
+
+    print(f"  [OK] Fetched {len(all_vulnerabilities)} CVEs from NVD")
+    return all_vulnerabilities[:max_results]
+
+
+def parse_nvd_cve(vuln: dict) -> dict:
+    """
+    Parse a single NVD CVE record into a structured dict for markdown generation.
+
+    Args:
+        vuln: Raw vulnerability dict from NVD API
+
+    Returns:
+        Dict with cve_id, title, content (markdown), and metadata
+    """
+    cve_data = vuln.get("cve", {})
+
+    cve_id = cve_data.get("id", "Unknown")
+    published = cve_data.get("published", "")[:10]
+    last_modified = cve_data.get("lastModified", "")[:10]
+    vuln_status = cve_data.get("vulnStatus", "Unknown")
+
+    # Description (English preferred)
+    descriptions = cve_data.get("descriptions", [])
+    description = ""
+    for desc in descriptions:
+        if desc.get("lang") == "en":
+            description = desc.get("value", "")
+            break
+    if not description:
+        description = descriptions[0].get("value", "No description available.") if descriptions else "No description available."
+
+    # CVSS scores
+    cvss_v31 = None
+    cvss_v30 = None
+    cvss_v2 = None
+    metrics = cve_data.get("metrics", {})
+    if metrics.get("cvssMetricV31"):
+        v31 = metrics["cvssMetricV31"]
+        if v31:
+            cvss_v31 = v31[0].get("cvssData", {})
+    if metrics.get("cvssMetricV30"):
+        v30 = metrics["cvssMetricV30"]
+        if v30:
+            cvss_v30 = v30[0].get("cvssData", {})
+    if metrics.get("cvssMetricV2"):
+        v2 = metrics["cvssMetricV2"]
+        if v2:
+            cvss_v2 = v2[0].get("cvssData", {})
+
+    cvss_str = ""
+    if cvss_v31:
+        score = cvss_v31.get("baseScore", "N/A")
+        severity = cvss_v31.get("baseSeverity", "N/A")
+        vector = cvss_v31.get("vectorString", "")
+        cvss_str = f"CVSS 3.1: {score} ({severity}) {vector}"
+    elif cvss_v30:
+        score = cvss_v30.get("baseScore", "N/A")
+        severity = cvss_v30.get("baseSeverity", "N/A")
+        cvss_str = f"CVSS 3.0: {score} ({severity})"
+    elif cvss_v2:
+        score = cvss_v2.get("baseScore", "N/A")
+        cvss_str = f"CVSS 2.0: {score}"
+
+    # CPE configurations (affected products)
+    cpes = []
+    for config in cve_data.get("configurations", []):
+        for node in config.get("nodes", []):
+            for cpe_match in node.get("cpeMatch", []):
+                if cpe_match.get("vulnerable", False):
+                    cpes.append(cpe_match.get("criteria", ""))
+
+    # References
+    references = []
+    for ref in cve_data.get("references", [])[:10]:
+        references.append(f"- [{ref.get('url', 'N/A')}]({ref.get('url', '')}) - {ref.get('sourceIdentifier', '')}")
+
+    # CWE
+    weaknesses = cve_data.get("weaknesses", [])
+    cwe_list = []
+    for weakness in weaknesses:
+        for cwe in weakness.get("value", []):
+            if cwe.startswith("CWE-"):
+                cwe_list.append(cwe)
+
+    # Build markdown
+    content = f"""# {cve_id}: {description[:100]}{"..." if len(description) > 100 else ""}
+
+## Basic Information
+- **CVE ID**: {cve_id}
+- **Published**: {published}
+- **Last Modified**: {last_modified}
+- **Status**: {vuln_status}
+- **CVSS Score**: {cvss_str}
+
+## Description
+{description}
+
+"""
+
+    if cwe_list:
+        content += f"""## CWE Classifications
+{', '.join(cwe_list)}
+
+"""
+
+    if cvss_str:
+        base_score = (cvss_v31.get("baseScore") if cvss_v31 else None) or (cvss_v30.get("baseScore") if cvss_v30 else None) or (cvss_v2.get("baseScore") if cvss_v2 else None) or "N/A"
+        if cvss_v31:
+            content += f"""## CVSS Details
+- **Base Score**: {base_score}
+- **Base Severity**: {cvss_v31.get('baseSeverity', cvss_v30.get('baseSeverity', 'N/A') if cvss_v30 else 'N/A')}
+"""
+            if cvss_v31.get("vectorString"):
+                content += f"- **Vector**: {cvss_v31['vectorString']}\n"
+            if cvss_v31.get("attackVector"):
+                content += f"- **Attack Vector**: {cvss_v31.get('attackVector', 'N/A')}\n"
+            if cvss_v31.get("attackComplexity"):
+                content += f"- **Attack Complexity**: {cvss_v31.get('attackComplexity', 'N/A')}\n"
+            if cvss_v31.get("privilegesRequired"):
+                content += f"- **Privileges Required**: {cvss_v31.get('privilegesRequired', 'N/A')}\n"
+            if cvss_v31.get("userInteraction"):
+                content += f"- **User Interaction**: {cvss_v31.get('userInteraction', 'N/A')}\n"
+            if cvss_v31.get("confidentialityImpact"):
+                content += f"- **Confidentiality Impact**: {cvss_v31.get('confidentialityImpact', 'N/A')}\n"
+            if cvss_v31.get("integrityImpact"):
+                content += f"- **Integrity Impact**: {cvss_v31.get('integrityImpact', 'N/A')}\n"
+            if cvss_v31.get("availabilityImpact"):
+                content += f"- **Availability Impact**: {cvss_v31.get('availabilityImpact', 'N/A')}\n"
+            content += "\n"
+
+    if cpes[:10]:
+        content += f"""## Affected Products (CPE)
+"""
+        for cpe in cpes[:10]:
+            content += f"- `{cpe}`\n"
+        if len(cpes) > 10:
+            content += f"- ... and {len(cpes) - 10} more affected products\n"
+        content += "\n"
+
+    if references:
+        content += f"""## References
+"""
+        for ref in references:
+            content += f"{ref}\n"
+
+    content += f"""
+---
+*Source: NIST National Vulnerability Database (NVD)*
+*Retrieved: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}*
+"""
+
+    return {
+        "cve_id": cve_id,
+        "title": f"{cve_id}: {description[:100]}{'...' if len(description) > 100 else ''}",
+        "content": content,
+        "category": "NVD",
+        "severity": (cvss_v31 or {}).get("baseSeverity") or (cvss_v30 or {}).get("baseSeverity") or (cvss_v2 or {}).get("baseSeverity") or "N/A",
+        "cvss_score": (cvss_v31 or {}).get("baseScore", (cvss_v30 or {}).get("baseScore", (cvss_v2 or {}).get("baseScore"))),
+        "published_date": published,
+        "tags": ["NVD", "CVE", "NIST"] + cwe_list[:3],
+        "source": "NVD",
+        "doc_updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+# ─── CISA KEV Parser ───────────────────────────────────────────────────────────
 
 
 def fetch_cve_info(cve_id: str, api_key: str | None = None, timeout: int = 30) -> dict | None:
@@ -376,6 +659,100 @@ def build_advisory_summary(data: dict, feed_key: str) -> str:
     return content
 
 
+def build_nvd_summary(records: list[dict], feed: dict) -> str:
+    """Build a summary document for NVD-based feeds."""
+    total = len(records)
+
+    # Count by severity
+    severities: dict[str, int] = {}
+    # Count by year
+    years: dict[str, int] = {}
+    # Count by CVSS score range
+    critical_count = 0
+    high_count = 0
+    medium_count = 0
+    low_count = 0
+    none_na_count = 0
+
+    for record in records:
+        sev = record.get("severity", "N/A")
+        if sev in ("CRITICAL", "CRITICAL"):
+            critical_count += 1
+        elif sev == "HIGH":
+            high_count += 1
+        elif sev == "MEDIUM":
+            medium_count += 1
+        elif sev == "LOW":
+            low_count += 1
+        else:
+            none_na_count += 1
+
+        pub_date = record.get("published_date", "")
+        if pub_date and len(pub_date) >= 4:
+            year = pub_date[:4]
+            years[year] = years.get(year, 0) + 1
+
+    content = f"""# {feed['name']} Summary
+
+## Overview
+- **Total Records**: {total}
+- **Source**: NIST National Vulnerability Database (NVD) API
+- **Search Keywords**: {feed.get('nvd_keyword', 'N/A')}
+- **Retrieved**: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}
+
+## Severity Distribution
+- **CRITICAL**: {critical_count}
+- **HIGH**: {high_count}
+- **MEDIUM**: {medium_count}
+- **LOW**: {low_count}
+- **N/A**: {none_na_count}
+
+"""
+
+    if years:
+        content += "## Records by Publication Year\n"
+        for year in sorted(years.keys(), reverse=True):
+            content += f"- **{year}**: {years[year]} vulnerabilities\n"
+        content += "\n"
+
+    content += f"""## Top CVEs (by CVSS score)
+
+"""
+    # Show top 10 by CVSS score
+    scored = [(r.get("cvss_score"), r) for r in records if r.get("cvss_score") is not None]
+    scored.sort(key=lambda x: x[0] or 0, reverse=True)
+    for score, record in scored[:10]:
+        content += f"- **{record['cve_id']}** — CVSS {score}: {record.get('title', '')[:80]}\n"
+
+    content += f"""
+## How to Use This Data
+
+1. **Prioritize** by CVSS score — focus on CRITICAL and HIGH severity items
+2. **Cross-reference** CVE IDs with your software inventory
+3. **Check affected products** (CPE) in individual records
+4. **Review references** for patches and mitigation guidance
+5. **Track** new vulnerabilities via regular feed updates
+
+## Remediation Guidance
+
+- **CRITICAL/HIGH**: Apply patches within 24–72 hours
+- **MEDIUM**: Apply patches within 30 days
+- **LOW**: Plan remediation within 90 days
+- **No patch available**: Implement compensating controls (network segmentation, WAF, IDS)
+
+## Related Documents
+
+- Individual CVE detail documents in this knowledge base
+- NIST SP 800-40 Enterprise Patch Management Guide
+- CISA KEV Catalog (known exploited vulnerabilities)
+
+---
+*Source: NIST National Vulnerability Database (NVD)*
+*Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}*
+"""
+    return content
+
+
 # ─── Onyx Upload ───────────────────────────────────────────────────────────────
 
 def login(base_url: str, email: str, password: str) -> str | None:
@@ -547,18 +924,69 @@ def main():
     total_uploaded = 0
 
     for feed_key in feeds_to_process:
-        print(f"\n{'='*60}")
-        print(f"Processing: {FEEDS[feed_key]['name']}")
-        print(f"{'='*60}")
+        feed = FEEDS[feed_key]
 
-        # Fetch data
-        data = fetch_cisa_feed(feed_key)
-        if not data:
-            print(f"  [SKIP] Could not fetch {feed_key}")
+        # Skip deprecated feeds
+        if feed.get("deprecated"):
+            # Map old CISA feed keys to NVD replacements
+            replacements = {
+                "cisa_advisories": "nvd_security_advisories",
+                "cisa_ics_advisories": "nvd_ics_advisories",
+                "cisa_medical_advisories": "nvd_medical_advisories",
+            }
+            replacement = replacements.get(feed_key, feed_key.replace("cisa_", "nvd_"))
+            print(f"\n{'='*60}")
+            print(f"Skipping deprecated feed: {feed['name']}")
+            print(f"  Use '--feed {replacement}' instead")
+            print(f"{'='*60}")
             continue
 
-        # Parse into records
-        if feed_key == "cisa_kev":
+        print(f"\n{'='*60}")
+        print(f"Processing: {feed['name']}")
+        print(f"{'='*60}")
+
+        # ── NVD-based feeds ──────────────────────────────────────────────
+        if feed_key.startswith("nvd_"):
+            api_key = os.environ.get("NVD_API_KEY")
+            vulns = fetch_nvd_feed(
+                keyword=feed["nvd_keyword"],
+                max_results=feed.get("nvd_max_results", 500),
+                api_key=api_key,
+            )
+            if not vulns:
+                print(f"  [SKIP] Could not fetch {feed_key}")
+                continue
+
+            records = [parse_nvd_cve(v) for v in vulns]
+
+            # Build summary
+            summary_content = build_nvd_summary(records, feed)
+            summary_record = {
+                "semantic_identifier": f"{feed_key.upper()}_Summary",
+                "title": f"{feed['name']} Summary",
+                "content": summary_content,
+                "category": feed["category"],
+                "severity": "HIGH",
+                "tags": feed["tags"],
+                "source": "threat-intelligence",
+                "doc_updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+
+        # ── CISA KEV ────────────────────────────────────────────────────
+        elif feed_key == "cisa_kev":
+            print(f"  Fetching CISA KEV catalog...")
+            try:
+                resp = requests.get(feed["url"], timeout=60)
+                if resp.status_code != 200:
+                    print(f"  [ERROR] HTTP {resp.status_code}")
+                    continue
+                data = resp.json()
+                vuln_count = len(data.get("vulnerabilities", []))
+                print(f"  [OK] Fetched {vuln_count} CISA KEV entries")
+            except Exception as e:
+                print(f"  [ERROR] {e}")
+                continue
+
             records = parse_cisa_kev(data)
 
             # Also build summary
@@ -573,20 +1001,7 @@ def main():
                 "source": "threat-intelligence",
                 "doc_updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
-        elif feed_key in ("cisa_advisories", "cisa_ics_advisories", "cisa_medical_advisories"):
-            records = parse_cisa_advisories(data)
 
-            summary_content = build_advisory_summary(data, feed_key)
-            summary_record = {
-                "semantic_identifier": f"{feed_key.upper()}_Summary",
-                "title": f"{FEEDS[feed_key]['name']} Summary",
-                "content": summary_content,
-                "category": FEEDS[feed_key]["category"],
-                "severity": "HIGH",
-                "tags": FEEDS[feed_key]["tags"],
-                "source": "threat-intelligence",
-                "doc_updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            }
         else:
             print(f"  [SKIP] No parser for {feed_key}")
             continue
@@ -594,7 +1009,7 @@ def main():
         print(f"\n  Parsed {len(records)} vulnerability records")
 
         # Save locally
-        saved = save_to_kb_dir(records, FEEDS[feed_key]["category"], dry_run=args.dry_run)
+        saved = save_to_kb_dir(records, feed["category"], dry_run=args.dry_run)
         print(f"  Saved {saved} new files locally")
 
         # Upload summary
