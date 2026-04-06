@@ -1,0 +1,607 @@
+#!/usr/bin/env python3
+"""
+Security Team Provisioning Script for Onyx Security Knowledge Base
+
+Creates security team users, configures persona access control, and sets up
+document set permissions.
+
+Usage:
+    python provision_security_team.py --dry-run [--url URL] [--email EMAIL] [--password PASSWORD]
+    python provision_security_team.py --apply [--url URL] [--email EMAIL] [--password PASSWORD]
+    python provision_security_team.py --verify
+    python provision_security_team.py --list-users
+    python provision_security_team.py --reset-persona-visibility
+"""
+
+import argparse
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+import uuid
+
+import psycopg2
+import psycopg2.extras
+import requests
+from passlib.context import CryptContext
+
+venv_path = Path(__file__).parent.parent / ".venv"
+if venv_path.exists():
+    sys.path.insert(0, str(venv_path / "lib" / "python3.12" / "site-packages"))
+
+
+# Password hashing
+pwd_ctx = CryptContext(schemes=["argon2"], deprecated="auto")
+
+# Security team configuration
+SECURITY_TEAM = [
+    {
+        "name": "应急响应指挥官",
+        "email": "commander@security.local",
+        "role": "ADMIN",
+        "persona_id": 3,
+        "description": "应急响应指挥官 - Full admin access for crisis management",
+    },
+    {
+        "name": "安全事件分析师",
+        "email": "analyst@security.local",
+        "role": "BASIC",
+        "persona_id": 2,
+        "description": "安全事件分析师 - Standard analyst access",
+    },
+    {
+        "name": "漏洞评估专家",
+        "email": "vuln_expert@security.local",
+        "role": "BASIC",
+        "persona_id": 4,
+        "description": "漏洞评估专家 - Vulnerability assessment access",
+    },
+    {
+        "name": "合规审计员",
+        "email": "auditor@security.local",
+        "role": "BASIC",
+        "persona_id": 5,
+        "description": "合规审计员 - Compliance audit access",
+    },
+]
+
+# Default password for initial setup (MUST be changed after first login)
+DEFAULT_PASSWORD = "SecurityTeam123!"
+
+# Document set ID for 安全知识库
+DOCUMENT_SET_ID = 1
+
+
+def get_db_connection(password: str | None = None):
+    """Get database connection to Onyx PostgreSQL."""
+    if password is None:
+        # Try common passwords used by Onyx docker-compose
+        for pwd in [
+            os.environ.get("POSTGRES_PASSWORD", ""),
+            "password",
+            "postgres",
+            "onyx",
+            "",
+        ]:
+            if not pwd:
+                continue
+            try:
+                conn = psycopg2.connect(
+                    host="localhost", port=5432, database="postgres",
+                    user="postgres", password=pwd, connect_timeout=3
+                )
+                conn.close()  # Test connection
+                password = pwd
+                break
+            except Exception:
+                continue
+
+        if password is None:
+            raise RuntimeError("Could not connect to PostgreSQL with known passwords")
+
+    return psycopg2.connect(
+        host="localhost", port=5432, database="postgres",
+        user="postgres", password=password
+    )
+
+
+def get_cookie(base_url: str, email: str, password: str) -> str | None:
+    """Login via API and return session cookie."""
+    try:
+        resp = requests.post(
+            f"{base_url}/auth/login",
+            data={"username": email, "password": password},
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=10
+        )
+        if resp.status_code == 204:
+            cookie = resp.headers.get("set-cookie", "")
+            for part in cookie.split(","):
+                part = part.strip()
+                if "fastapiusersauth=" in part:
+                    return part.split(";")[0].split("=")[1]
+        return None
+    except Exception as e:
+        print(f"  [WARN] Login failed: {e}")
+        return None
+
+
+def hash_password(password: str) -> str:
+    """Hash a password using Argon2."""
+    return pwd_ctx.hash(password)
+
+
+def check_persona_visibility(cur: "psycopg2.extensions.cursor") -> dict:
+    """Check current persona visibility settings."""
+    cur.execute(
+        "SELECT id, name, is_public, is_listed FROM persona WHERE id BETWEEN 2 AND 5 ORDER BY id"
+    )
+    return {row[0]: {"name": row[1], "is_public": row[2], "is_listed": row[3]}
+            for row in cur.fetchall()}
+
+
+def check_persona_user_links(cur: "psycopg2.extensions.cursor") -> dict:
+    """Check existing persona__user links."""
+    cur.execute(
+        "SELECT persona_id, user_id FROM persona__user ORDER BY persona_id"
+    )
+    return {(row[0], str(row[1])) for row in cur.fetchall()}
+
+
+def check_existing_users(cur: "psycopg2.extensions.cursor") -> dict:
+    """Check existing security team users."""
+    emails = [m["email"] for m in SECURITY_TEAM]
+    cur.execute(
+        "SELECT id, email, role FROM \"user\" WHERE email = ANY(%s)",
+        (emails,)
+    )
+    return {row[1]: {"id": str(row[0]), "role": row[2]} for row in cur.fetchall()}
+
+
+def check_document_set_links(cur: "psycopg2.extensions.cursor", user_ids: list[str]) -> set:
+    """Check existing document_set__user links."""
+    if not user_ids:
+        return set()
+    cur.execute(
+        "SELECT document_set_id, user_id FROM document_set__user WHERE user_id::text = ANY(%s)",
+        (user_ids,)
+    )
+    return {(row[0], str(row[1])) for row in cur.fetchall()}
+
+
+def check_visible_assistants(cur: "psycopg2.extensions.cursor", user_ids: list[str]) -> dict:
+    """Check visible_assistants for users."""
+    if not user_ids:
+        return {}
+    cur.execute(
+        "SELECT id, email, visible_assistants FROM \"user\" WHERE id::text = ANY(%s)",
+        (user_ids,)
+    )
+    return {str(row[0]): {"email": row[1], "visible_assistants": row[2]}
+            for row in cur.fetchall()}
+
+
+def reset_persona_visibility(conn, make_public: bool = True) -> dict:
+    """
+    Reset persona visibility: set security personas to private (is_public=False)
+    so only linked users can access them.
+    """
+    cur = conn.cursor()
+    if make_public:
+        # Make all security personas public (default state)
+        cur.execute(
+            "UPDATE persona SET is_public = true WHERE id BETWEEN 2 AND 5"
+        )
+        # Remove all persona__user links
+        cur.execute("DELETE FROM persona__user WHERE persona_id BETWEEN 2 AND 5")
+        conn.commit()
+        cur.close()
+        return {"is_public": True, "persona__user_links_removed": True}
+
+    # Make security personas private (restricted access)
+    cur.execute(
+        "UPDATE persona SET is_public = false WHERE id BETWEEN 2 AND 5"
+    )
+    conn.commit()
+    cur.close()
+    return {"is_public": False}
+
+
+def provision_security_team(conn, dry_run: bool = False) -> dict:
+    """
+    Provision security team users with proper roles and persona access.
+
+    Steps:
+    1. Reset persona visibility (is_public=False for security personas)
+    2. Create security team users
+    3. Link users to 安全知识库 document set
+    4. Set visible_assistants to pre-select security personas
+    5. Create Persona__User links for access control
+    """
+    results = {
+        "persona_visibility": None,
+        "users_created": [],
+        "users_updated": [],
+        "document_set_links": [],
+        "persona_user_links": [],
+        "visible_assistants_set": [],
+        "errors": [],
+    }
+
+    cur = conn.cursor()
+
+    # Step 0: Verify persona existence
+    cur.execute("SELECT id, name FROM persona WHERE id BETWEEN 2 AND 5 ORDER BY id")
+    personas = {row[0]: row[1] for row in cur.fetchall()}
+    expected = {2, 3, 4, 5}
+    missing = expected - set(personas.keys())
+    if missing:
+        results["errors"].append(f"Missing personas: {missing}")
+        return results
+
+    if dry_run:
+        print("  [DRY RUN] Would set persona visibility: is_public=False for personas 2-5")
+        results["persona_visibility"] = {"is_public": False, "dry_run": True}
+
+        for member in SECURITY_TEAM:
+            email = member["email"]
+            cur.execute('SELECT id FROM "user" WHERE email = %s', (email,))
+            row = cur.fetchone()
+            if row:
+                print(f"  [DRY RUN] Would update user {email} -> role={member['role']}, "
+                      f"visible_assistants=[{member['persona_id']}], "
+                      f"chosen_assistants=[{member['persona_id']}]")
+                results["users_updated"].append(email)
+            else:
+                print(f"  [DRY RUN] Would create user {email} -> role={member['role']}")
+                results["users_created"].append(email)
+
+        print(f"  [DRY RUN] Would link all users to document_set_id={DOCUMENT_SET_ID}")
+        print(f"  [DRY RUN] Would create persona__user links for all users")
+        return results
+
+    # Step 1: Reset persona visibility (private)
+    cur.execute(
+        "UPDATE persona SET is_public = false WHERE id BETWEEN 2 AND 5"
+    )
+    results["persona_visibility"] = {"is_public": False}
+
+    # Step 2: Create/update security team users
+    for member in SECURITY_TEAM:
+        email = member["email"]
+        role = member["role"]
+        persona_id = member["persona_id"]
+        hashed_pw = hash_password(DEFAULT_PASSWORD)
+
+        cur.execute('SELECT id, role FROM "user" WHERE email = %s', (email,))
+        row = cur.fetchone()
+
+        now = datetime.now(timezone.utc)
+
+        if row:
+            # Update existing user
+            user_id = str(row[0])
+            current_role = row[1]
+            if current_role != role:
+                cur.execute(
+                    'UPDATE "user" SET role = %s WHERE id = %s',
+                    (role, user_id)
+                )
+                print(f"  [OK] Updated role for {email}: {current_role} -> {role}")
+            results["users_updated"].append(email)
+
+            # Update visible_assistants and chosen_assistants
+            visible = [persona_id]
+            chosen = [persona_id]
+
+            cur.execute(
+                'UPDATE "user" SET visible_assistants = %s, '
+                'chosen_assistants = %s, updated_at = %s '
+                'WHERE id = %s',
+                (psycopg2.extras.Json(visible),
+                 psycopg2.extras.Json(chosen),
+                 now, user_id)
+            )
+            results["visible_assistants_set"].append(email)
+        else:
+            # Create new user
+            user_id = str(uuid.uuid4())
+            try:
+                cur.execute(
+                    'INSERT INTO "user" (id, email, hashed_password, is_active, '
+                    'is_superuser, is_verified, role, visible_assistants, '
+                    'hidden_assistants, chosen_assistants, shortcut_enabled, '
+                    'default_app_mode, use_memories, created_at, updated_at) '
+                    'VALUES (%s, %s, %s, true, false, true, %s, %s, %s, %s, '
+                    'false, %s, true, %s, %s)',
+                    (
+                        user_id, email, hashed_pw, role,
+                        psycopg2.extras.Json([persona_id]),  # visible_assistants
+                        psycopg2.extras.Json([]),             # hidden_assistants
+                        psycopg2.extras.Json([persona_id]),  # chosen_assistants
+                        "CHAT",
+                        now, now
+                    )
+                )
+                print(f"  [OK] Created user: {email} (role={role}, persona_id={persona_id})")
+                results["users_created"].append(email)
+            except Exception as e:
+                results["errors"].append(f"Failed to create {email}: {e}")
+                print(f"  [ERROR] Failed to create {email}: {e}")
+                continue
+
+        # Step 3: Link user to document set
+        cur.execute(
+            'SELECT 1 FROM document_set__user WHERE document_set_id = %s AND user_id = %s',
+            (DOCUMENT_SET_ID, user_id)
+        )
+        if not cur.fetchone():
+            try:
+                cur.execute(
+                    'INSERT INTO document_set__user (document_set_id, user_id) VALUES (%s, %s)',
+                    (DOCUMENT_SET_ID, user_id)
+                )
+                print(f"  [OK] Linked {email} to document_set_id={DOCUMENT_SET_ID}")
+                results["document_set_links"].append(email)
+            except psycopg2.IntegrityError:
+                results["document_set_links"].append(f"{email} (already linked)")
+
+        # Step 4: Create Persona__User link for access control
+        cur.execute(
+            'SELECT 1 FROM persona__user WHERE persona_id = %s AND user_id = %s',
+            (persona_id, user_id)
+        )
+        if not cur.fetchone():
+            try:
+                cur.execute(
+                    'INSERT INTO persona__user (persona_id, user_id) VALUES (%s, %s)',
+                    (persona_id, user_id)
+                )
+                print(f"  [OK] Created persona__user link: persona_id={persona_id} -> user_id={user_id}")
+                results["persona_user_links"].append(email)
+            except psycopg2.IntegrityError:
+                pass
+
+    conn.commit()
+    cur.close()
+    return results
+
+
+def list_security_users(conn) -> None:
+    """List all security team users and their configuration."""
+    cur = conn.cursor()
+    emails = [m["email"] for m in SECURITY_TEAM]
+
+    cur.execute(
+        'SELECT id, email, role, visible_assistants, chosen_assistants, is_active '
+        'FROM "user" WHERE email = ANY(%s) ORDER BY email',
+        (emails,)
+    )
+    rows = cur.fetchall()
+
+    if not rows:
+        print("No security team users found.")
+        return
+
+    print("\nSecurity Team Users:")
+    print(f"{'Email':<35} {'Role':<8} {'Active':<7} {'Visible':<12} {'Chosen':<12}")
+    print("-" * 80)
+    for row in rows:
+        visible = str(row[3]) if row[3] else "[]"
+        chosen = str(row[4]) if row[4] else "[]"
+        print(f"{row[1]:<35} {row[2]:<8} {str(row[5]):<7} {visible:<12} {chosen:<12}")
+
+    # Check persona visibility
+    print("\nPersona Visibility:")
+    cur.execute(
+        "SELECT id, name, is_public, is_listed FROM persona WHERE id BETWEEN 2 AND 5 ORDER BY id"
+    )
+    print(f"{'ID':<5} {'Name':<20} {'Public':<8} {'Listed':<8}")
+    print("-" * 45)
+    for row in cur.fetchall():
+        print(f"{row[0]:<5} {row[1]:<20} {str(row[2]):<8} {str(row[3]):<8}")
+
+    # Check document set links
+    print("\nDocument Set Links (document_set_id=1):")
+    user_ids = [str(row[0]) for row in rows]
+    if user_ids:
+        cur.execute(
+            'SELECT u.email, ds.name FROM document_set__user dsu '
+            'JOIN "user" u ON u.id = dsu.user_id '
+            'JOIN document_set ds ON ds.id = dsu.document_set_id '
+            'WHERE dsu.user_id::text = ANY(%s) ORDER BY u.email',
+            (user_ids,)
+        )
+        for row in cur.fetchall():
+            print(f"  - {row[0]} -> {row[1]}")
+
+    # Check persona__user links
+    print("\nPersona__User Links:")
+    cur.execute(
+        'SELECT p.name, u.email FROM persona__user pu '
+        'JOIN persona p ON p.id = pu.persona_id '
+        'JOIN "user" u ON u.id = pu.user_id '
+        'WHERE pu.persona_id BETWEEN 2 AND 5 '
+        'ORDER BY pu.persona_id'
+    )
+    rows = cur.fetchall()
+    if rows:
+        for row in rows:
+            print(f"  - {row[0]} <- {row[1]}")
+    else:
+        print("  (none - personas are public to all users)")
+
+    cur.close()
+
+
+def verify(conn) -> dict:
+    """Verify the security team configuration."""
+    cur = conn.cursor()
+    result = {
+        "personas_public": [],
+        "personas_private": [],
+        "users_found": [],
+        "users_missing": [],
+        "doc_set_links": 0,
+        "persona_user_links": 0,
+    }
+
+    # Check personas
+    cur.execute(
+        "SELECT id, name, is_public FROM persona WHERE id BETWEEN 2 AND 5 ORDER BY id"
+    )
+    for row in cur.fetchall():
+        if row[2]:
+            result["personas_public"].append({"id": row[0], "name": row[1]})
+        else:
+            result["personas_private"].append({"id": row[0], "name": row[1]})
+
+    # Check users
+    emails = [m["email"] for m in SECURITY_TEAM]
+    cur.execute('SELECT email, role FROM "user" WHERE email = ANY(%s)', (emails,))
+    found = {row[0]: row[1] for row in cur.fetchall()}
+    for member in SECURITY_TEAM:
+        if member["email"] in found:
+            result["users_found"].append({
+                "email": member["email"],
+                "role": found[member["email"]],
+                "persona_id": member["persona_id"]
+            })
+        else:
+            result["users_missing"].append(member["email"])
+
+    # Check document set links
+    cur.execute("SELECT COUNT(*) FROM document_set__user WHERE document_set_id = %s", (DOCUMENT_SET_ID,))
+    result["doc_set_links"] = cur.fetchone()[0]
+
+    # Check persona__user links
+    cur.execute("SELECT COUNT(*) FROM persona__user WHERE persona_id BETWEEN 2 AND 5")
+    result["persona_user_links"] = cur.fetchone()[0]
+
+    cur.close()
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Provision security team users and configure RBAC in Onyx"
+    )
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Show what would be done without making changes")
+    parser.add_argument("--apply", action="store_true",
+                        help="Apply changes (creates users, configures access)")
+    parser.add_argument("--verify", action="store_true",
+                        help="Verify current security team configuration")
+    parser.add_argument("--list-users", action="store_true",
+                        help="List security team users and their configuration")
+    parser.add_argument("--reset-persona-visibility", action="store_true",
+                        help="Reset persona visibility (use --make-public to reverse)")
+    parser.add_argument("--make-public", action="store_true",
+                        help="Make personas public instead of private (use with --reset-persona-visibility)")
+    parser.add_argument("--db-password", default=None,
+                        help="PostgreSQL password (auto-detected if not provided)")
+    args = parser.parse_args()
+
+    # Try to connect
+    try:
+        conn = get_db_connection(password=args.db_password)
+    except Exception as e:
+        print(f"[ERROR] Cannot connect to database: {e}")
+        print("Make sure the Onyx PostgreSQL container is running:")
+        print("  docker ps | grep onyx-relational_db")
+        sys.exit(1)
+
+    if args.list_users:
+        print("Listing security team users...")
+        list_security_users(conn)
+        conn.close()
+        return
+
+    if args.verify:
+        print("Verifying security team configuration...")
+        result = verify(conn)
+        print(f"\nPersonas set to PUBLIC (visible to all users): {len(result['personas_public'])}")
+        for p in result["personas_public"]:
+            print(f"  - [{p['id']}] {p['name']}")
+        print(f"\nPersonas set to PRIVATE (access controlled): {len(result['personas_private'])}")
+        for p in result["personas_private"]:
+            print(f"  - [{p['id']}] {p['name']}")
+        print(f"\nSecurity team users: {len(result['users_found'])}/{len(SECURITY_TEAM)} found")
+        for u in result["users_found"]:
+            print(f"  - {u['email']} (role={u['role']}, persona_id={u['persona_id']})")
+        if result["users_missing"]:
+            print(f"\nMissing users:")
+            for email in result["users_missing"]:
+                print(f"  - {email}")
+        print(f"\nDocument set links (doc_set_id={DOCUMENT_SET_ID}): {result['doc_set_links']}")
+        print(f"Persona__user links: {result['persona_user_links']}")
+
+        if result["personas_public"] and not result["personas_private"]:
+            print("\n[NOTE] All security personas are PUBLIC. "
+                  "Run with --reset-persona-visibility to restrict access.")
+        elif result["personas_private"]:
+            print("\n[OK] Security personas are PRIVATE and access-controlled.")
+
+        conn.close()
+        return
+
+    if args.reset_persona_visibility:
+        print(f"Resetting persona visibility (make_public={args.make_public})...")
+        result = reset_persona_visibility(conn, make_public=args.make_public)
+        if args.make_public:
+            print("[OK] Security personas are now PUBLIC (visible to all users)")
+        else:
+            print("[OK] Security personas are now PRIVATE (only linked users can access)")
+        print("\nTo provision users, run: python provision_security_team.py --apply")
+        conn.close()
+        return
+
+    if args.dry_run:
+        print("Dry run - showing what would be done:\n")
+        print("This script will:")
+        print("  1. Set is_public=False for security personas (ids 2-5)")
+        print("  2. Create 4 security team users:")
+        for m in SECURITY_TEAM:
+            print(f"     - {m['email']} ({m['role']}) -> persona_id={m['persona_id']}")
+        print("  3. Link all users to document_set_id=1 (安全知识库)")
+        print("  4. Set visible_assistants and chosen_assistants for each user")
+        print("  5. Create Persona__User links for access control")
+        print()
+
+        result = provision_security_team(conn, dry_run=True)
+        print(f"\nWould have: {len(result['users_created'])} created, "
+              f"{len(result['users_updated'])} updated")
+        conn.close()
+        return
+
+    if args.apply:
+        print("Provisioning security team...\n")
+        result = provision_security_team(conn, dry_run=False)
+        print()
+        if result["errors"]:
+            print(f"Errors: {len(result['errors'])}")
+            for err in result["errors"]:
+                print(f"  - {err}")
+        else:
+            print("[OK] Provisioning complete!")
+            print(f"  Users created: {len(result['users_created'])}")
+            print(f"  Users updated: {len(result['users_updated'])}")
+            print(f"  Doc set links: {len(result['document_set_links'])}")
+            print(f"  Persona links: {len(result['persona_user_links'])}")
+            print(f"\n  Default password for all users: {DEFAULT_PASSWORD}")
+            print("  [IMPORTANT] Change passwords after first login!")
+        conn.close()
+        return
+
+    # Default: show help
+    parser.print_help()
+    print("\nExamples:")
+    print("  python provision_security_team.py --dry-run")
+    print("  python provision_security_team.py --apply")
+    print("  python provision_security_team.py --verify")
+    print("  python provision_security_team.py --list-users")
+    print("  python provision_security_team.py --reset-persona-visibility")
+
+
+if __name__ == "__main__":
+    main()

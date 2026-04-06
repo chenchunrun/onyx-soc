@@ -1,0 +1,133 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Threat Intelligence Lookup API",
+    "description": "威胁情报查询集成 (VirusTotal, AbuseIPDB, AlienVault OTX, Shodan)",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "{API_BASE_URL}",
+      "description": "威胁情报 API 基础 URL",
+      "variables": {
+        "API_BASE_URL": {
+          "default": "https://www.virustotal.com/api/v3"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/ip_addresses/{ip}": {
+      "get": {
+        "operationId": "lookupIP",
+        "summary": "IP 地址威胁情报查询",
+        "description": "查询 IP 地址的威胁情报 (VirusTotal)",
+        "security": [{"apiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "ip",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "要查询的 IP 地址"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "attributes": {
+                          "type": "object",
+                          "properties": {
+                            "country": {"type": "string"},
+                            "as_owner": {"type": "string"},
+                            "last_analysis_stats": {
+                              "type": "object",
+                              "properties": {
+                                "malicious": {"type": "integer"},
+                                "suspicious": {"type": "integer"},
+                                "harmless": {"type": "integer"},
+                                "undetected": {"type": "integer"}
+                              }
+                            },
+                            "reputation": {"type": "integer"},
+                            "tags": {"type": "array", "items": {"type": "string"}}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {"description": "未找到数据"},
+          "401": {"description": "API Key 无效"},
+          "429": {"description": "速率限制"}
+        }
+      }
+    },
+    "/domains/{domain}": {
+      "get": {
+        "operationId": "lookupDomain",
+        "summary": "域名威胁情报查询",
+        "description": "查询域名的威胁情报",
+        "security": [{"apiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "domain",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "要查询的域名"
+          }
+        ],
+        "responses": {
+          "200": {"description": "查询成功"},
+          "404": {"description": "未找到数据"},
+          "401": {"description": "API Key 无效"},
+          "429": {"description": "速率限制"}
+        }
+      }
+    },
+    "/files/{hash}": {
+      "get": {
+        "operationId": "lookupFileHash",
+        "summary": "文件哈希威胁情报查询",
+        "description": "查询文件哈希(MD5/SHA1/SHA256)的威胁情报",
+        "security": [{"apiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "hash",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "文件哈希值"
+          }
+        ],
+        "responses": {
+          "200": {"description": "查询成功"},
+          "404": {"description": "未找到数据"},
+          "401": {"description": "API Key 无效"},
+          "429": {"description": "速率限制"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-apikey"
+      }
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Security Alert Webhook API",
+    "description": "发送安全告警通知到 Slack/Microsoft Teams/PagerDuty 等渠道",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "{WEBHOOK_URL}",
+      "description": "Webhook endpoint URL",
+      "variables": {
+        "WEBHOOK_URL": {
+          "default": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/": {
+      "post": {
+        "operationId": "sendSecurityAlert",
+        "summary": "发送安全告警",
+        "description": "向 Slack 或 Teams 发送结构化安全告警消息",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "alert_type": {
+                    "type": "string",
+                    "enum": ["PHISHING", "MALWARE", "DATA_BREACH", "UNAUTHORIZED_ACCESS", "DDoS", "VULNERABILITY", "COMPLIANCE_VIOLATION", "INSIDER_THREAT", "OTHER"],
+                    "description": "告警类型"
+                  },
+                  "severity": {
+                    "type": "string",
+                    "enum": ["P0", "P1", "P2", "P3", "P4"],
+                    "description": "严重等级: P0=紧急, P1=高, P2=中, P3=低, P4=信息"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "告警标题",
+                    "maxLength": 150
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "告警详细描述"
+                  },
+                  "source_system": {
+                    "type": "string",
+                    "description": "告警来源系统 (如 SIEM, EDR, Firewall)"
+                  },
+                  "affected_assets": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "受影响的资产列表"
+                  },
+                  "indicators": {
+                    "type": "object",
+                    "properties": {
+                      "ips": {"type": "array", "items": {"type": "string"}, "description": "相关 IP 地址"},
+                      "domains": {"type": "array", "items": {"type": "string"}, "description": "相关域名"},
+                      "file_hashes": {"type": "array", "items": {"type": "string"}, "description": "相关文件哈希"},
+                      "urls": {"type": "array", "items": {"type": "string"}, "description": "相关 URL"}
+                    },
+                    "description": "威胁指标 (IoCs)"
+                  },
+                  "recommended_actions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "建议的响应措施"
+                  },
+                  "ticket_id": {
+                    "type": "string",
+                    "description": "关联的工单 ID"
+                  },
+                  "analyst_notes": {
+                    "type": "string",
+                    "description": "分析师备注"
+                  }
+                },
+                "required": ["alert_type", "severity", "title", "description"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "告警发送成功"
+          },
+          "400": {
+            "description": "请求参数错误"
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "429": {
+            "description": "请求频率超限"
+          },
+          "500": {
+            "description": "服务器内部错误"
+          }
+        }
+      }
+    }
+  }
+}

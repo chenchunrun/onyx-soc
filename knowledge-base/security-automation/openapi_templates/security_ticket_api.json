@@ -1,0 +1,183 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Security Ticket Management API",
+    "description": "安全工单管理集成 (Jira, Linear, ServiceNow)",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "{API_BASE_URL}",
+      "description": "工单系统 API 基础 URL",
+      "variables": {
+        "API_BASE_URL": {
+          "default": "https://your-company.atlassian.net/rest/api/3"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/issue": {
+      "post": {
+        "operationId": "createSecurityTicket",
+        "summary": "创建安全工单",
+        "description": "在 Jira/Linear/ServiceNow 中创建安全事件工单",
+        "security": [
+          {"apiKeyAuth": []},
+          {"basicAuth": []}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "type": "string",
+                    "description": "工单标题",
+                    "maxLength": 255
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "工单详细描述 (支持 Markdown)"
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"],
+                    "description": "优先级"
+                  },
+                  "issue_type": {
+                    "type": "string",
+                    "enum": ["Bug", "Story", "Task", "Epic"],
+                    "description": "问题类型"
+                  },
+                  "labels": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "标签 (如 security, incident, triage)"
+                  },
+                  "project_key": {
+                    "type": "string",
+                    "description": "项目键 (如 SEC, SOC, INFOSEC)"
+                  },
+                  "assignee": {
+                    "type": "string",
+                    "description": "处理人邮箱或用户名"
+                  },
+                  "reporter": {
+                    "type": "string",
+                    "description": "报告人"
+                  },
+                  "linked_alert_id": {
+                    "type": "string",
+                    "description": "关联的告警 ID"
+                  },
+                  "mitre_tactics": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "MITRE ATT&CK 战术 ID (如 TA0001, TA0002)"
+                  },
+                  "mitre_techniques": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "MITRE ATT&CK 技术 ID (如 T1566, T1059)"
+                  },
+                  "cvss_score": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 10,
+                    "description": "CVSS 评分"
+                  },
+                  "affected_systems": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "受影响系统"
+                  }
+                },
+                "required": ["summary", "description", "priority", "project_key"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "工单创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {"type": "string", "description": "工单 ID"},
+                    "key": {"type": "string", "description": "工单键 (如 SEC-123)"},
+                    "self": {"type": "string", "description": "工单 URL"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {"description": "参数错误"},
+          "401": {"description": "认证失败"},
+          "403": {"description": "权限不足"},
+          "429": {"description": "请求频率超限"}
+        }
+      }
+    },
+    "/issue/{issueKey}/comment": {
+      "post": {
+        "operationId": "addTicketComment",
+        "summary": "添加工单评论",
+        "description": "向已有工单添加评论",
+        "security": [{"apiKeyAuth": []}, {"basicAuth": []}],
+        "parameters": [
+          {
+            "name": "issueKey",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "工单键 (如 SEC-123)"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "description": "评论内容"
+                  },
+                  "visibility": {
+                    "type": "string",
+                    "enum": ["ROLE", "GROUP"],
+                    "description": "可见性类型"
+                  }
+                },
+                "required": ["body"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {"description": "评论添加成功"},
+          "404": {"description": "工单不存在"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization"
+      },
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    }
+  }
+}
