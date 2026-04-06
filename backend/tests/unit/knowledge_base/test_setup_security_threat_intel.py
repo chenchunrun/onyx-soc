@@ -67,11 +67,13 @@ def test_dry_run_reports_discovered_files(monkeypatch, capsys) -> None:
         "discover_feed_files",
         lambda limit=None: [Path("one.md"), Path("two.md")],
     )
+    monkeypatch.setattr(module, "print_manifest_summary", lambda strict_local=False: ([], []))
     monkeypatch.setattr(
         module,
         "semantic_identifier_for_feed_file",
         lambda path: f"id:{path.stem}",
     )
+    monkeypatch.setattr(module, "print_curation_summary", lambda strict_promotion_candidates=False: [])
 
     result = module.dry_run(
         Namespace(limit=None, refresh=False, feed=None)
@@ -90,9 +92,18 @@ def test_verify_threat_intel_local_only_passes_with_files(monkeypatch, capsys) -
         "discover_feed_files",
         lambda limit=None: [Path("CVE_2024_1234.md")],
     )
+    monkeypatch.setattr(module, "print_manifest_summary", lambda strict_local=False: ([], []))
+    monkeypatch.setattr(module, "print_curation_summary", lambda strict_promotion_candidates=False: [])
 
     result = module.verify_threat_intel(
-        Namespace(limit=None, local_only=True, url="http://example.com", email="a", password="b")
+        Namespace(
+            limit=None,
+            local_only=True,
+            strict_local_corpus=False,
+            url="http://example.com",
+            email="a",
+            password="b",
+        )
     )
     output = capsys.readouterr().out
 
@@ -107,16 +118,86 @@ def test_verify_threat_intel_detects_missing_ingestion_docs(monkeypatch, capsys)
         "discover_feed_files",
         lambda limit=None: [Path("CVE_2024_1234.md")],
     )
+    monkeypatch.setattr(module, "print_manifest_summary", lambda strict_local=False: ([], []))
+    monkeypatch.setattr(module, "print_curation_summary", lambda strict_promotion_candidates=False: [])
     monkeypatch.setattr(module, "get_cookie", lambda *args, **kwargs: "cookie")
     monkeypatch.setattr(module, "list_ingestion_documents", lambda *args, **kwargs: [])
 
     result = module.verify_threat_intel(
-        Namespace(limit=None, local_only=False, url="http://example.com", email="a", password="b")
+        Namespace(
+            limit=None,
+            local_only=False,
+            strict_local_corpus=False,
+            url="http://example.com",
+            email="a",
+            password="b",
+        )
     )
     output = capsys.readouterr().out
 
     assert result == 1
     assert "Missing threat-intel docs" in output
+
+
+def test_verify_threat_intel_fails_on_manifest_drift(monkeypatch, capsys) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "discover_feed_files",
+        lambda limit=None: [Path("CVE_2024_1234.md")],
+    )
+    monkeypatch.setattr(
+        module,
+        "print_manifest_summary",
+        lambda strict_local=False: (["Manifest summary does not match current governed feed corpus"], []),
+    )
+    monkeypatch.setattr(module, "print_curation_summary", lambda strict_promotion_candidates=False: [])
+
+    result = module.verify_threat_intel(
+        Namespace(
+            limit=None,
+            local_only=True,
+            strict_local_corpus=False,
+            url="http://example.com",
+            email="a",
+            password="b",
+        )
+    )
+    output = capsys.readouterr().out
+
+    assert result == 1
+    assert "Manifest summary does not match current governed feed corpus" in output
+
+
+def test_verify_threat_intel_fails_on_unpromoted_candidates(monkeypatch, capsys) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "discover_feed_files",
+        lambda limit=None: [Path("CVE_2024_1234.md")],
+    )
+    monkeypatch.setattr(module, "print_manifest_summary", lambda strict_local=False: ([], []))
+    monkeypatch.setattr(
+        module,
+        "print_curation_summary",
+        lambda strict_promotion_candidates=False: ["Unpromoted threat-intel candidates remain: CVE-2024-1234"],
+    )
+
+    result = module.verify_threat_intel(
+        Namespace(
+            limit=None,
+            local_only=True,
+            strict_local_corpus=False,
+            strict_promotion_candidates=True,
+            url="http://example.com",
+            email="a",
+            password="b",
+        )
+    )
+    output = capsys.readouterr().out
+
+    assert result == 1
+    assert "Unpromoted threat-intel candidates remain" in output
 
 
 def test_due_feeds_marks_never_synced_feed_as_due() -> None:

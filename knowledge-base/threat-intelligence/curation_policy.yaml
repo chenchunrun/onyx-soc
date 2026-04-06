@@ -1,0 +1,19 @@
+version: 1
+promotion_rules:
+  allow_sources:
+    - NIST National Vulnerability Database (NVD)
+  require_fields:
+    - source
+    - retrieved_at
+    - title
+  reject_if_text_contains:
+    - No description available.
+review_rules:
+  low_quality_sources:
+    - CISA Known Exploited Vulnerabilities Catalog
+  low_quality_markers:
+    - No description available.
+    - "*Last Updated: *"
+    - "*Retrieved: *"
+output:
+  report_path: knowledge-base/threat-intelligence/unmanaged_feed_report.json

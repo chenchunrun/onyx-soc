@@ -55,6 +55,8 @@
 主要职责：
 
 - 管理 `knowledge-base/威胁情报/feeds` 下的本地威胁情报 feed
+- 通过 `feed_manifest.json` 固化 Git 已纳管的正式情报内容包
+- 将本地额外 feed 识别为未纳管运行态资产，而不是静默混入正式知识包
 - 将本地 threat-intel 文档同步到 Onyx ingestion
 - 按需从上游源刷新本地 feed
 - 为 bootstrap 提供 `dry-run / apply / verify` 标准入口

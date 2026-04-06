@@ -73,6 +73,8 @@ python knowledge-base/bootstrap_security_platform.py --apply --stage threat-inte
 
 ```bash
 python knowledge-base/setup_security_threat_intel.py --show-sync-plan
+python knowledge-base/build_threat_intel_manifest.py --show-summary
+python knowledge-base/curate_threat_intel_corpus.py --show-summary
 python knowledge-base/setup_security_threat_intel.py --run-scheduled-sync --url http://127.0.0.1:3000/api
 ```
 
@@ -180,13 +182,20 @@ python knowledge-base/bootstrap_security_platform.py --apply --deployment-profil
 - 周期化同步策略定义在 `knowledge-base/threat-intelligence/sync_plan.yaml`
 - 最近一次成功刷新状态记录在 `knowledge-base/threat-intelligence/sync_state.json`
 - 情报源模式定义在 `knowledge-base/threat-intelligence/source_profiles.yaml`
+- Git 已纳管的正式 threat-intel 内容包定义在 `knowledge-base/threat-intelligence/feed_manifest.json`
+- 本地额外 feed 会在 `setup_security_threat_intel.py --verify` 中以 `Unmanaged local feeds` 形式显示，默认只告警不阻断
+- 如需把“存在本地未纳管 feed”视为失败条件，可加 `--strict-local-corpus`
+- 未纳管 feed 的分级结果可通过 `curate_threat_intel_corpus.py` 查看，其中 `promotion_candidate` 表示应考虑纳入正式知识包
+- 如需把“存在未晋升候选 feed”视为失败条件，可加 `--strict-promotion-candidates`
 - 演示或离线环境可使用 `THREAT_INTEL_SOURCE_PROFILE=mock`，仅消费本地 feed，不访问外网
 - 高层部署 profile 定义在 `docs/security-platform/deployment-profiles.yaml`
 - `bootstrap --deployment-profile demo` 会统一派生 `THREAT_INTEL_SOURCE_PROFILE=mock` 和 `SECURITY_TOOLS_PROFILE=mock`
+- deployment profile 现在还定义 `required_env` 和 `expectations`，用于约束环境变量完整性和验收预期
 - `document-set` 阶段会确保 `安全知识库` 存在
 - `tools` 阶段的工具定义不再硬编码在脚本中，而是来自 `docs/security-platform/5-integrations/`
 - `tools` 阶段支持 `SECURITY_TOOLS_PROFILE=live/mock` 环境分层
 - `acceptance` 输出会显示 `Security tools profile`，以及 `create_security_ticket / send_security_alert / threat_intel_lookup` 的 `server / headers` 摘要
+- `acceptance` 输出会显示 `Deployment profile`，并校验 threat-intel/tools 实际 profile 是否符合该 deployment profile 的预期
 - `tools` 和 `rbac` 阶段都已改为按 persona 名称解析
 - `rbac --dry-run` 当前实际走环境预检查，而不是写库模拟
 - `knowledge-base --dry-run` 输出较长，属于当前脚本正常行为

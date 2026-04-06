@@ -26,12 +26,26 @@ from typing import Any
 import requests
 import yaml
 
-ROOT = Path(__file__).resolve().parent
+MODULE_DIR = Path(__file__).resolve().parent
+if str(MODULE_DIR) not in sys.path:
+    sys.path.insert(0, str(MODULE_DIR))
+
+from build_threat_intel_manifest import DEFAULT_MANIFEST_PATH
+from build_threat_intel_manifest import compare_manifests
+from build_threat_intel_manifest import load_manifest
+from build_threat_intel_manifest import manifest_summary_lines
+from build_threat_intel_manifest import unmanaged_local_feed_paths
+from build_threat_intel_manifest import write_manifest
+from build_threat_intel_manifest import build_manifest as build_feed_manifest
+from curate_threat_intel_corpus import build_unmanaged_report
+
+ROOT = MODULE_DIR
 THREAT_INTEL_DIR = ROOT / "威胁情报" / "feeds"
 AGGREGATOR_PATH = ROOT / "threat-intelligence" / "threat_intel_aggregator.py"
 SYNC_PLAN_PATH = ROOT / "threat-intelligence" / "sync_plan.yaml"
 SYNC_STATE_PATH = ROOT / "threat-intelligence" / "sync_state.json"
 SOURCE_PROFILES_PATH = ROOT / "threat-intelligence" / "source_profiles.yaml"
+MANIFEST_PATH = DEFAULT_MANIFEST_PATH
 VENV_PYTHON = ROOT.parent / ".venv" / "bin" / "python"
 THREAT_INTEL_SOURCE = "threat-intelligence"
 
@@ -182,6 +196,45 @@ def discover_feed_files(limit: int | None = None) -> list[Path]:
     if limit is not None:
         return files[:limit]
     return files
+
+
+def verify_governed_feed_manifest(strict_local: bool = False) -> tuple[list[str], list[str]]:
+    expected = load_manifest(MANIFEST_PATH)
+    actual = build_feed_manifest(tracked_only=True)
+    mismatches = compare_manifests(expected, actual)
+    unmanaged_paths = unmanaged_local_feed_paths(expected)
+    if strict_local and unmanaged_paths:
+        preview = ", ".join(unmanaged_paths[:5])
+        suffix = " ..." if len(unmanaged_paths) > 5 else ""
+        mismatches.append(f"Unmanaged local threat-intel feeds detected: {preview}{suffix}")
+    return mismatches, unmanaged_paths
+
+
+def print_manifest_summary(strict_local: bool = False) -> tuple[list[str], list[str]]:
+    manifest = load_manifest(MANIFEST_PATH)
+    print(f"Threat-intel manifest: {MANIFEST_PATH}")
+    for line in manifest_summary_lines(manifest):
+        print(f"  {line}")
+    mismatches, unmanaged_paths = verify_governed_feed_manifest(strict_local=strict_local)
+    print(f"  Unmanaged local feeds: {len(unmanaged_paths)}")
+    return mismatches, unmanaged_paths
+
+
+def print_curation_summary(strict_promotion_candidates: bool = False) -> list[str]:
+    report = build_unmanaged_report(MANIFEST_PATH)
+    summary = report["summary"]
+    print(
+        "  Unmanaged feed curation: "
+        f"promotion_candidates={summary['promotion_candidate_total']}, "
+        f"manual_review={summary['manual_review_total']}, "
+        f"keep_runtime_only={summary['keep_runtime_only_total']}"
+    )
+    mismatches: list[str] = []
+    if strict_promotion_candidates and report["promotion_candidates"]:
+        preview = ", ".join(item["cve_id"] for item in report["promotion_candidates"][:5])
+        suffix = " ..." if len(report["promotion_candidates"]) > 5 else ""
+        mismatches.append(f"Unpromoted threat-intel candidates remain: {preview}{suffix}")
+    return mismatches
 
 
 
@@ -409,6 +462,20 @@ def dry_run(args: argparse.Namespace) -> int:
     print(f"Directory: {THREAT_INTEL_DIR}")
     print(f"Feeds profile: {', '.join(selected_feeds(args))}")
     print(f"Source profile: {profile_name}")
+    try:
+        mismatches, _ = print_manifest_summary(
+            strict_local=bool(getattr(args, "strict_local_corpus", False))
+        )
+    except FileNotFoundError:
+        print(f"[WARN] Threat-intel manifest not found: {MANIFEST_PATH}")
+        mismatches = []
+    curation_mismatches = print_curation_summary(
+        strict_promotion_candidates=bool(getattr(args, "strict_promotion_candidates", False))
+    )
+    if mismatches:
+        print("[WARN] Governed threat-intel manifest drift detected during dry-run.")
+    if curation_mismatches:
+        print("[WARN] Threat-intel curation gate would fail in current state.")
     if args.refresh:
         if profile["allow_upstream_refresh"]:
             print("Would refresh local threat-intel feeds before upload.")
@@ -478,6 +545,24 @@ def verify_threat_intel(args: argparse.Namespace) -> int:
         return 1
 
     print(f"Local threat-intel feed files: {len(files)}")
+    try:
+        mismatches, _ = print_manifest_summary(
+            strict_local=bool(getattr(args, "strict_local_corpus", False))
+        )
+    except FileNotFoundError:
+        print(f"[ERROR] Threat-intel manifest not found: {MANIFEST_PATH}")
+        return 1
+    curation_mismatches = print_curation_summary(
+        strict_promotion_candidates=bool(getattr(args, "strict_promotion_candidates", False))
+    )
+    if mismatches:
+        for mismatch in mismatches[:10]:
+            print(f"[ERROR] {mismatch}")
+        return 1
+    if curation_mismatches:
+        for mismatch in curation_mismatches[:10]:
+            print(f"[ERROR] {mismatch}")
+        return 1
 
     if args.local_only:
         print("[OK] Local verification only")
@@ -532,6 +617,21 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--limit", type=int, default=None, help="Limit number of local files to process or verify")
     parser.add_argument("--local-only", action="store_true", help="Verify only local feed files without Onyx checks")
+    parser.add_argument(
+        "--strict-local-corpus",
+        action="store_true",
+        help="Fail verification if local threat-intel feed files exist outside the governed manifest.",
+    )
+    parser.add_argument(
+        "--strict-promotion-candidates",
+        action="store_true",
+        help="Fail verification if unmanaged feeds contain promotion candidates that should be curated into the governed package.",
+    )
+    parser.add_argument(
+        "--write-manifest",
+        action="store_true",
+        help="Refresh the governed feed manifest before executing the selected mode.",
+    )
     parser.add_argument("--url", default=os.environ.get("ONYX_URL", "http://localhost:8080"))
     parser.add_argument("--email", default=os.environ.get("ONYX_EMAIL", "security-admin@onyx.local"))
     parser.add_argument("--password", default=os.environ.get("ONYX_PASSWORD", "admin123"))
@@ -541,6 +641,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    if args.write_manifest:
+        write_manifest(build_feed_manifest(tracked_only=True), MANIFEST_PATH)
+        print(f"[OK] Refreshed threat-intel manifest: {MANIFEST_PATH}")
     if args.show_sync_plan:
         return show_sync_plan()
     if args.run_scheduled_sync:

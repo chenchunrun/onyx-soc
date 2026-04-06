@@ -76,6 +76,7 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - `acceptance` 阶段返回成功
 - `acceptance` 输出包含 threat-intel sync 的 `profile / last_run / status`
 - `acceptance` 输出包含 security tools 的 `profile` 以及 3 个安全工具的 `server / headers` 摘要
+- `acceptance` 输出包含 `Deployment profile`
 - `smoke` 阶段返回成功
 
 
@@ -118,11 +119,15 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 
 - 输出包含 `Threat-intel sync`
 - 输出包含 `Security tools profile`
+- 输出包含 `Deployment profile`
 - 输出包含 `create_security_ticket / send_security_alert / threat_intel_lookup` 的端点摘要
 - 能看到当前 `profile`
 - 能看到最近一次 `last_run`
 - 能看到当前 `status`
 - 演示或离线环境下，`profile=mock` 符合预期
+- `setup_security_threat_intel.py --verify --local-only` 能显示 `Governed feeds` 与 `Unmanaged local feeds`
+- `curate_threat_intel_corpus.py --show-summary` 能显示 `Promotion candidates / Keep runtime only`
+- 如本环境要求只使用 Git 已纳管内容包，则 `--strict-local-corpus` 也应通过
 
 
 ### 5.4 安全工具
@@ -196,6 +201,7 @@ pytest backend/tests/integration/tests/security_tools/ -v
 2. `bootstrap --verify` 中 `acceptance` 阶段输出失败项
 3. `Threat-intel sync` 中的 `profile / last_run / status` 是否符合预期
 4. `Security tools profile` 是否与部署档位一致，3 个工具的 `server / headers` 是否符合当前环境
+5. `Deployment profile` 是否与本次部署选择一致
 4. Onyx 登录与 API 可达性
 5. PostgreSQL 可达性
 6. 工具相关环境变量是否已配置

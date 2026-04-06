@@ -67,6 +67,7 @@ helm upgrade --install onyx . -n onyx --create-namespace \
 - 目标 document set：`安全知识库`
 - 本地 threat-intel feed 目录：`knowledge-base/威胁情报/feeds`
 - threat-intel 同步计划：`knowledge-base/threat-intelligence/sync_plan.yaml`
+- threat-intel 正式内容清单：`knowledge-base/threat-intelligence/feed_manifest.json`
 
 
 ### 4.2.1 Docker Compose 覆盖配置
@@ -122,6 +123,14 @@ bash deployment/scripts/run_security_platform_threat_intel_sync.sh \
   deployment/docker_compose/env.security-platform
 ```
 
+如需单独校验威胁情报内容包是否与 Git 已纳管清单一致，可执行：
+
+```bash
+python knowledge-base/build_threat_intel_manifest.py --verify
+python knowledge-base/curate_threat_intel_corpus.py --show-summary
+python knowledge-base/setup_security_threat_intel.py --verify --local-only
+```
+
 其中：
 
 - Docker Compose 示例 cron 在 `deployment/docker_compose/security-platform-threat-intel.crontab.example`
@@ -146,6 +155,14 @@ export ONYX_PASSWORD=admin123
 export POSTGRES_PASSWORD=password
 export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 ```
+
+说明：
+
+- 具体 deployment profile 定义在 `docs/security-platform/deployment-profiles.yaml`
+- 每个 profile 现在包含：
+  - `env`
+  - `required_env`
+  - `expectations`
 
 
 ## 6. 工具相关额外配置
@@ -183,12 +200,15 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 
 - 安全知识已导入
 - 威胁情报文档已同步
+- threat-intel manifest 校验通过，且 `Unmanaged local feeds` 数量符合本次环境预期
+- 如本次交付要求只交付 Git 已纳管正式知识包，则 `Promotion candidates` 应为 `0`，或在评审中明确说明暂不纳管原因
 - 四个安全 persona 已存在
 - persona 可正常查看并选择
 - 自定义安全工具已创建
 - 安全团队账号已建立
 - `verify` 输出无关键缺失项
 - `verify` 中的 `acceptance` 阶段返回成功
+- `acceptance` 输出中的 `Deployment profile` 与本次部署选择一致
 - `acceptance` 输出中的 `Security tools profile` 与当前部署档位一致
 - `acceptance` 输出中的 3 个安全工具 `server / headers` 摘要符合当前环境
 - `smoke` 阶段返回成功
