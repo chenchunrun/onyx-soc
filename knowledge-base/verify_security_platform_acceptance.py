@@ -15,21 +15,31 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 from typing import Any
 
 import psycopg2
 import requests
 import yaml
 
+MODULE_DIR = Path(__file__).resolve().parent
+if str(MODULE_DIR) not in sys.path:
+    sys.path.insert(0, str(MODULE_DIR))
+
+from curate_threat_intel_corpus import build_unmanaged_report
+
 
 SECURITY_DOCUMENT_SET_NAME = "安全知识库"
-ROOT = Path(__file__).resolve().parent
+ROOT = MODULE_DIR
 THREAT_INTEL_SYNC_PLAN_PATH = ROOT / "threat-intelligence" / "sync_plan.yaml"
 THREAT_INTEL_SYNC_STATE_PATH = ROOT / "threat-intelligence" / "sync_state.json"
+THREAT_INTEL_MANIFEST_PATH = ROOT / "threat-intelligence" / "feed_manifest.json"
+THREAT_INTEL_CURATION_REPORT_PATH = ROOT / "threat-intelligence" / "unmanaged_feed_report.json"
 SECURITY_TOOL_INTEGRATIONS_DIR = (
     ROOT.parent / "docs" / "security-platform" / "5-integrations"
 )
 SECURITY_TOOL_PROFILES_PATH = SECURITY_TOOL_INTEGRATIONS_DIR / "profiles.yaml"
+DEPLOYMENT_PROFILES_PATH = ROOT.parent / "docs" / "security-platform" / "deployment-profiles.yaml"
 
 SECURITY_PERSONA_TOOL_REQUIREMENTS = {
     "安全事件分析师": {
@@ -135,6 +145,37 @@ def load_threat_intel_sync_summary() -> dict[str, Any]:
     }
 
 
+def load_threat_intel_curation_summary() -> dict[str, Any]:
+    manifest_summary: dict[str, Any] = {}
+    curation_summary: dict[str, Any] = {}
+
+    try:
+        with open(THREAT_INTEL_MANIFEST_PATH, "r", encoding="utf-8") as handle:
+            manifest_doc = json.load(handle) or {}
+    except Exception:
+        manifest_doc = {}
+
+    if isinstance(manifest_doc, dict):
+        manifest_summary = manifest_doc.get("summary", {}) or {}
+
+    try:
+        curation_doc = build_unmanaged_report(THREAT_INTEL_MANIFEST_PATH)
+    except Exception:
+        curation_doc = {}
+
+    if isinstance(curation_doc, dict):
+        curation_summary = curation_doc.get("summary", {}) or {}
+
+    return {
+        "governed_feeds": int(manifest_summary.get("total_feeds", 0) or 0),
+        "governed_source_counts": manifest_summary.get("source_counts", {}) or {},
+        "unmanaged_local_feeds": int(curation_summary.get("unmanaged_total", 0) or 0),
+        "promotion_candidates": int(curation_summary.get("promotion_candidate_total", 0) or 0),
+        "manual_review": int(curation_summary.get("manual_review_total", 0) or 0),
+        "keep_runtime_only": int(curation_summary.get("keep_runtime_only_total", 0) or 0),
+    }
+
+
 def load_security_tool_configs() -> list[dict[str, Any]]:
     configs: list[dict[str, Any]] = []
     if not SECURITY_TOOL_INTEGRATIONS_DIR.exists():
@@ -234,6 +275,33 @@ def load_security_tool_profile_summary(
         "profile": profile_name,
         "tools": tool_summaries,
         "mismatches": mismatches,
+    }
+
+
+def load_deployment_profile_summary() -> dict[str, Any]:
+    deployment_profile = os.environ.get("SECURITY_PLATFORM_DEPLOYMENT_PROFILE", "live")
+    try:
+        with open(DEPLOYMENT_PROFILES_PATH, "r", encoding="utf-8") as handle:
+            profiles_doc = yaml.safe_load(handle) or {}
+    except Exception:
+        profiles_doc = {}
+
+    profiles = profiles_doc.get("profiles", {}) if isinstance(profiles_doc, dict) else {}
+    profile = profiles.get(deployment_profile, {}) if isinstance(profiles, dict) else {}
+    expectations = profile.get("expectations", {}) if isinstance(profile, dict) else {}
+    if not isinstance(expectations, dict):
+        expectations = {}
+    required_env = profile.get("required_env", []) if isinstance(profile, dict) else []
+    if not isinstance(required_env, list):
+        required_env = []
+
+    return {
+        "deployment_profile": deployment_profile,
+        "expected_threat_intel_source_profile": expectations.get(
+            "threat_intel_source_profile"
+        ),
+        "expected_security_tools_profile": expectations.get("security_tools_profile"),
+        "required_env": [str(env_name) for env_name in required_env if str(env_name).strip()],
     }
 
 
@@ -510,7 +578,9 @@ def evaluate_acceptance(
     ingestion_docs: list[dict[str, Any]],
     db_state: dict[str, Any],
     threat_intel_sync_summary: dict[str, Any],
+    threat_intel_curation_summary: dict[str, Any],
     security_tool_profile_summary: dict[str, Any],
+    deployment_profile_summary: dict[str, Any],
 ) -> dict[str, Any]:
     failures: list[str] = []
 
@@ -528,6 +598,25 @@ def evaluate_acceptance(
     tool_profile_mismatches = security_tool_profile_summary.get("mismatches", [])
     if tool_profile_mismatches:
         failures.extend(tool_profile_mismatches)
+    expected_threat_profile = deployment_profile_summary.get(
+        "expected_threat_intel_source_profile"
+    )
+    if (
+        expected_threat_profile
+        and threat_intel_sync_summary.get("source_profile") != expected_threat_profile
+    ):
+        failures.append(
+            "Threat-intel source profile mismatch: "
+            f"expected {expected_threat_profile}, got {threat_intel_sync_summary.get('source_profile')}"
+        )
+    expected_tools_profile = deployment_profile_summary.get(
+        "expected_security_tools_profile"
+    )
+    if expected_tools_profile and security_tool_profile_summary.get("profile") != expected_tools_profile:
+        failures.append(
+            "Security tools profile mismatch: "
+            f"expected {expected_tools_profile}, got {security_tool_profile_summary.get('profile')}"
+        )
 
     threat_intel_doc_ids = {
         str(doc.get("semantic_id") or doc.get("semantic_identifier") or "")
@@ -536,6 +625,13 @@ def evaluate_acceptance(
     }
     if not threat_intel_doc_ids:
         failures.append("Missing threat-intel ingestion documents")
+    if threat_intel_curation_summary.get("governed_feeds", 0) <= 0:
+        failures.append("Threat-intel governed feed manifest is empty or missing")
+    if threat_intel_curation_summary.get("promotion_candidates", 0) > 0:
+        failures.append(
+            "Threat-intel promotion candidates remain: "
+            f"{threat_intel_curation_summary.get('promotion_candidates', 0)}"
+        )
 
     persona_map = {persona["name"]: persona for persona in personas}
     missing_personas = sorted(
@@ -611,6 +707,8 @@ def evaluate_acceptance(
         "failures": failures,
         "summary": {
             "document_set": SECURITY_DOCUMENT_SET_NAME if document_set else None,
+            "deployment_profile": deployment_profile_summary["deployment_profile"],
+            "deployment_required_env": deployment_profile_summary["required_env"],
             "openapi_tools_found": sorted(openapi_tool_names & EXPECTED_OPENAPI_TOOLS),
             "security_tools_profile": security_tool_profile_summary["profile"],
             "security_tools_summary": security_tool_profile_summary["tools"],
@@ -619,6 +717,11 @@ def evaluate_acceptance(
             "threat_intel_last_sync_run_at": threat_intel_sync_summary["last_sync_run_at"],
             "threat_intel_due_status": threat_intel_sync_summary["due_status"],
             "threat_intel_due_feeds": threat_intel_sync_summary["due_feeds"],
+            "threat_intel_governed_feeds": threat_intel_curation_summary["governed_feeds"],
+            "threat_intel_unmanaged_local_feeds": threat_intel_curation_summary["unmanaged_local_feeds"],
+            "threat_intel_promotion_candidates": threat_intel_curation_summary["promotion_candidates"],
+            "threat_intel_manual_review": threat_intel_curation_summary["manual_review"],
+            "threat_intel_keep_runtime_only": threat_intel_curation_summary["keep_runtime_only"],
             "personas_found": sorted(persona_map.keys() & set(SECURITY_PERSONA_TOOL_REQUIREMENTS.keys())),
             "security_users_found": sorted(user_rows.keys() & SECURITY_USERS),
             "persona_tool_summary": persona_tool_summary,
@@ -631,6 +734,7 @@ def evaluate_acceptance(
 def print_human_result(result: dict[str, Any]) -> None:
     print("=== Minimal Acceptance Check ===")
     print(f"Document set: {result['summary']['document_set'] or 'MISSING'}")
+    print(f"Deployment profile: {result['summary']['deployment_profile']}")
     print(
         "OpenAPI tools: "
         + ", ".join(result["summary"]["openapi_tools_found"])
@@ -650,6 +754,14 @@ def print_human_result(result: dict[str, Any]) -> None:
         f"Threat-intel sync: profile={result['summary']['threat_intel_source_profile']}, "
         f"last_run={result['summary']['threat_intel_last_sync_run_at'] or 'never'}, "
         f"status={result['summary']['threat_intel_due_status']}"
+    )
+    print(
+        "Threat-intel corpus: "
+        f"governed={result['summary']['threat_intel_governed_feeds']}, "
+        f"unmanaged={result['summary']['threat_intel_unmanaged_local_feeds']}, "
+        f"promotion_candidates={result['summary']['threat_intel_promotion_candidates']}, "
+        f"manual_review={result['summary']['threat_intel_manual_review']}, "
+        f"keep_runtime_only={result['summary']['threat_intel_keep_runtime_only']}"
     )
     if result["summary"]["threat_intel_due_feeds"]:
         print(
@@ -714,7 +826,9 @@ def main() -> int:
         ingestion_docs=list_ingestion_documents(args.url, cookie),
         db_state=fetch_db_state(db_password=args.db_password),
         threat_intel_sync_summary=load_threat_intel_sync_summary(),
+        threat_intel_curation_summary=load_threat_intel_curation_summary(),
         security_tool_profile_summary=load_security_tool_profile_summary(openapi_tools),
+        deployment_profile_summary=load_deployment_profile_summary(),
     )
 
     if args.json:

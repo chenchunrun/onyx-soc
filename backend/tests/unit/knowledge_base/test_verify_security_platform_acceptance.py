@@ -124,6 +124,17 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
             "due_status": "WAIT",
             "due_feeds": [],
         },
+        threat_intel_curation_summary={
+            "governed_feeds": 1902,
+            "governed_source_counts": {
+                "CISA Known Exploited Vulnerabilities Catalog": 1553,
+                "NIST National Vulnerability Database (NVD)": 349,
+            },
+            "unmanaged_local_feeds": 1,
+            "promotion_candidates": 0,
+            "manual_review": 0,
+            "keep_runtime_only": 1,
+        },
         security_tool_profile_summary={
             "profile": "mock",
             "tools": {
@@ -148,16 +159,25 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
             },
             "mismatches": [],
         },
+        deployment_profile_summary={
+            "deployment_profile": "demo",
+            "expected_threat_intel_source_profile": "mock",
+            "expected_security_tools_profile": "mock",
+            "required_env": ["SECURITY_TOOLS_MOCK_SERVER_URL", "SECURITY_TOOLS_MOCK_API_KEY"],
+        },
     )
 
     assert result["ok"] is True
     assert result["failures"] == []
+    assert result["summary"]["deployment_profile"] == "demo"
     assert result["summary"]["security_tools_profile"] == "mock"
     assert result["summary"]["security_tools_summary"]["threat_intel_lookup"]["configured_header_keys"] == [
         "x-apikey"
     ]
     assert result["summary"]["threat_intel_source_profile"] == "mock"
     assert result["summary"]["threat_intel_due_status"] == "WAIT"
+    assert result["summary"]["threat_intel_governed_feeds"] == 1902
+    assert result["summary"]["threat_intel_promotion_candidates"] == 0
 
 
 def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
@@ -190,12 +210,26 @@ def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
             "due_status": "DUE",
             "due_feeds": ["cisa_kev"],
         },
+        threat_intel_curation_summary={
+            "governed_feeds": 1557,
+            "governed_source_counts": {},
+            "unmanaged_local_feeds": 346,
+            "promotion_candidates": 345,
+            "manual_review": 0,
+            "keep_runtime_only": 1,
+        },
         security_tool_profile_summary={
             "profile": "live",
             "tools": {},
             "mismatches": [
                 "Tool threat_intel_lookup server_url mismatch: expected https://example.com, got http://localhost:9999"
             ],
+        },
+        deployment_profile_summary={
+            "deployment_profile": "demo",
+            "expected_threat_intel_source_profile": "mock",
+            "expected_security_tools_profile": "mock",
+            "required_env": ["SECURITY_TOOLS_MOCK_SERVER_URL"],
         },
     )
 
@@ -208,6 +242,9 @@ def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
     assert any("Missing security users" in failure for failure in result["failures"])
     assert any("must be private" in failure for failure in result["failures"])
     assert any("server_url mismatch" in failure for failure in result["failures"])
+    assert any("Threat-intel source profile mismatch" in failure for failure in result["failures"])
+    assert any("Security tools profile mismatch" in failure for failure in result["failures"])
+    assert any("Threat-intel promotion candidates remain: 345" in failure for failure in result["failures"])
 
 
 def test_load_threat_intel_sync_summary_reports_due_feeds(
@@ -234,6 +271,52 @@ def test_load_threat_intel_sync_summary_reports_due_feeds(
     assert result["source_profile"] == "mock"
     assert result["due_status"] == "DUE"
     assert result["due_feeds"] == ["cisa_kev"]
+
+
+def test_load_threat_intel_curation_summary_reads_manifest_and_report(
+    monkeypatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    manifest_path = tmp_path / "feed_manifest.json"
+    manifest_path.write_text(
+        (
+            "{\n"
+            '  "summary": {\n'
+            '    "total_feeds": 1902,\n'
+            '    "source_counts": {\n'
+            '      "NIST National Vulnerability Database (NVD)": 349\n'
+            "    }\n"
+            "  }\n"
+            "}\n"
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "THREAT_INTEL_MANIFEST_PATH", manifest_path)
+    monkeypatch.setattr(
+        module,
+        "build_unmanaged_report",
+        lambda manifest_path: {
+            "summary": {
+                "unmanaged_total": 1,
+                "promotion_candidate_total": 0,
+                "manual_review_total": 0,
+                "keep_runtime_only_total": 1,
+            }
+        },
+    )
+
+    summary = module.load_threat_intel_curation_summary()
+
+    assert summary == {
+        "governed_feeds": 1902,
+        "governed_source_counts": {
+            "NIST National Vulnerability Database (NVD)": 349,
+        },
+        "unmanaged_local_feeds": 1,
+        "promotion_candidates": 0,
+        "manual_review": 0,
+        "keep_runtime_only": 1,
+    }
 
 
 def test_load_security_tool_profile_summary_uses_mock_profile(
@@ -292,3 +375,33 @@ def test_load_security_tool_profile_summary_uses_mock_profile(
     assert summary["tools"]["create_security_ticket"]["expected_header_keys"] == [
         "Authorization"
     ]
+
+
+def test_load_deployment_profile_summary_reads_expectations(
+    monkeypatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    deployment_profiles_path = tmp_path / "deployment-profiles.yaml"
+    deployment_profiles_path.write_text(
+        (
+            "profiles:\n"
+            "  demo:\n"
+            "    required_env:\n"
+            "      - SECURITY_TOOLS_MOCK_SERVER_URL\n"
+            "    expectations:\n"
+            "      threat_intel_source_profile: mock\n"
+            "      security_tools_profile: mock\n"
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "DEPLOYMENT_PROFILES_PATH", deployment_profiles_path)
+    monkeypatch.setenv("SECURITY_PLATFORM_DEPLOYMENT_PROFILE", "demo")
+
+    summary = module.load_deployment_profile_summary()
+
+    assert summary == {
+        "deployment_profile": "demo",
+        "expected_threat_intel_source_profile": "mock",
+        "expected_security_tools_profile": "mock",
+        "required_env": ["SECURITY_TOOLS_MOCK_SERVER_URL"],
+    }
