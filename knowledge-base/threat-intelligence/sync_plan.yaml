@@ -1,0 +1,9 @@
+feeds:
+  - name: cisa_kev
+    min_refresh_interval_hours: 24
+  - name: nvd_security_advisories
+    min_refresh_interval_hours: 24
+  - name: nvd_ics_advisories
+    min_refresh_interval_hours: 48
+  - name: nvd_medical_advisories
+    min_refresh_interval_hours: 48

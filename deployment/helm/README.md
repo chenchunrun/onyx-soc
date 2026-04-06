@@ -57,6 +57,19 @@ The overlay adds example env vars and secret mappings for:
 After the chart is deployed, run the bootstrap and verification steps described
 in `docs/security-platform/7-deployment.md`.
 
+### Threat-intel scheduled sync
+
+Threat-intel periodic sync is currently executed as an external operations job.
+Use the repo helper script from an ops runner, CI job, or bastion host that can
+reach the deployed Onyx endpoint:
+
+```bash
+bash deployment/scripts/run_security_platform_threat_intel_sync.sh
+```
+
+Provide `ONYX_URL`, `ONYX_EMAIL`, `ONYX_PASSWORD`, and optional
+`THREAT_INTEL_SYNC_LIMIT` / `THREAT_INTEL_SOURCE_PROFILE` via environment variables before invoking it.
+
 ## Run as non-root user
 By default, some onyx containers run as root. If you'd like to explicitly run the onyx containers as a non-root user, update the values.yaml file for the following components:
   * `celery_shared`, `api`, `webserver`, `indexCapability`, `inferenceCapability`

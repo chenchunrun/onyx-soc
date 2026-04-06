@@ -31,6 +31,7 @@ def test_select_stages_defaults_to_full_order() -> None:
 
     assert stages == [
         module.STAGE_KNOWLEDGE_BASE,
+        module.STAGE_THREAT_INTEL,
         module.STAGE_DOCUMENT_SET,
         module.STAGE_PERSONAS,
         module.STAGE_TOOLS,
@@ -47,6 +48,7 @@ def test_select_stages_includes_acceptance_for_verify_mode() -> None:
 
     assert stages == [
         module.STAGE_KNOWLEDGE_BASE,
+        module.STAGE_THREAT_INTEL,
         module.STAGE_DOCUMENT_SET,
         module.STAGE_PERSONAS,
         module.STAGE_TOOLS,
@@ -91,6 +93,22 @@ def test_build_document_set_command_uses_expected_mode_flags() -> None:
     assert command[-1] == "--verify"
 
 
+def test_build_threat_intel_command_uses_expected_mode_flags() -> None:
+    module = _load_module()
+
+    args = Namespace(verify=False, dry_run=True, threat_intel_limit=None)
+    command = module.build_threat_intel_command(args)
+    assert command[-1] == "--dry-run"
+
+    args = Namespace(verify=True, dry_run=False, threat_intel_limit=5)
+    command = module.build_threat_intel_command(args)
+    assert command[-3:] == ["--verify", "--limit", "5"]
+
+    args = Namespace(verify=False, dry_run=False, threat_intel_limit=None)
+    command = module.build_threat_intel_command(args)
+    assert command[-1] == "--apply"
+
+
 def test_build_acceptance_command_passes_db_password() -> None:
     module = _load_module()
 
@@ -110,3 +128,39 @@ def test_build_smoke_command_targets_post_deploy_smoke_test() -> None:
     )
 
     assert command[1].endswith("post_deploy_smoke_test.py")
+
+
+def test_build_env_applies_deployment_profile_env(monkeypatch) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "selected_deployment_profile",
+        lambda args: {
+            "env": {
+                "THREAT_INTEL_SOURCE_PROFILE": "mock",
+                "SECURITY_TOOLS_PROFILE": "mock",
+            }
+        },
+    )
+
+    env = module.build_env(
+        Namespace(
+            url="http://example.com",
+            email="a@example.com",
+            password="secret",
+            db_password="pg",
+            deployment_profile="demo",
+        )
+    )
+
+    assert env["ONYX_URL"] == "http://example.com"
+    assert env["THREAT_INTEL_SOURCE_PROFILE"] == "mock"
+    assert env["SECURITY_TOOLS_PROFILE"] == "mock"
+
+
+def test_selected_deployment_profile_name_defaults_to_live() -> None:
+    module = _load_module()
+
+    result = module.selected_deployment_profile_name(Namespace(deployment_profile="live"))
+
+    assert result == "live"

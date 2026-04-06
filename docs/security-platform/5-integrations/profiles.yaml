@@ -1,0 +1,12 @@
+profiles:
+  live:
+    description: Use real security integration endpoints configured via standard env vars.
+    env_overrides: {}
+  mock:
+    description: Route security tools to the local mock server for demo and offline environments.
+    env_overrides:
+      SECURITY_ALERT_WEBHOOK_URL: SECURITY_TOOLS_MOCK_SERVER_URL
+      SECURITY_TICKET_API_URL: SECURITY_TOOLS_MOCK_SERVER_URL
+      SECURITY_TICKET_API_KEY: SECURITY_TOOLS_MOCK_API_KEY
+      THREAT_INTEL_API_URL: SECURITY_TOOLS_MOCK_SERVER_URL
+      THREAT_INTEL_API_KEY: SECURITY_TOOLS_MOCK_API_KEY

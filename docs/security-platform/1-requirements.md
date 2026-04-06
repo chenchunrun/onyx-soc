@@ -14,6 +14,7 @@
 - 支持告警、工单、威胁情报等安全工具联动
 - 支持安全团队账号、可见性和权限初始化
 - 支持通过统一脚本完成首次初始化
+- 支持将威胁情报 feed 同步到 Onyx
 
 
 ## 3. 当前范围
@@ -24,6 +25,7 @@
 - 知识库导入脚本
 - 四个标准安全 persona 初始化
 - OpenAPI 安全工具创建与绑定
+- 威胁情报 feed 同步与校验
 - 安全团队 RBAC 初始化
 - 统一 bootstrap 编排脚本
 - 部分集成测试与新增单元测试
@@ -68,6 +70,7 @@
 - 支持安全工单创建
 - 支持威胁情报查询
 - 工具可按 persona 绑定
+- 工具定义与 persona 绑定关系应通过声明式配置管理
 
 
 ### 5.4 权限与团队初始化
@@ -97,6 +100,7 @@
 ## 7. 当前交付物
 
 - `knowledge-base/bootstrap_security_platform.py`
+- `knowledge-base/setup_security_threat_intel.py`
 - `knowledge-base/setup_security_personas.py`
 - `knowledge-base/upload_to_onyx.py`
 - `knowledge-base/security-automation/setup_security_tools.py`
@@ -110,5 +114,5 @@
 
 - agent 定义文档尚未全部补齐
 - 部署资产仍以主仓部署方式为主
-- 真实环境下的完整验收链路仍需补充
+- 威胁情报上游刷新仍依赖外部网络与源站可用性
 - 商业情报源和生产化审计策略仍未完善

@@ -24,10 +24,12 @@
 ## 4. 核心脚本
 
 - `knowledge-base/upload_to_onyx.py`
+- `knowledge-base/setup_security_threat_intel.py`
 - `knowledge-base/setup_security_personas.py`
 - `knowledge-base/security-automation/setup_security_tools.py`
 - `knowledge-base/sso-rbac/provision_security_team.py`
 - `knowledge-base/bootstrap_security_platform.py`
+- `docs/security-platform/5-integrations/`
 
 
 ## 5. 推荐实施顺序
@@ -56,7 +58,26 @@ python knowledge-base/bootstrap_security_platform.py --apply --stage knowledge-b
 - 将 `knowledge-base/` 中的 markdown 文档导入 Onyx
 
 
-### 步骤 3：初始化 persona
+### 步骤 3：同步威胁情报
+
+```bash
+python knowledge-base/bootstrap_security_platform.py --apply --stage threat-intel
+```
+
+目标：
+
+- 将 `knowledge-base/威胁情报/feeds` 下的本地情报文档同步到 Onyx
+- 为安全 persona 提供可检索的 threat-intel 内容
+
+如需按同步策略执行而不是手工指定 `--refresh`：
+
+```bash
+python knowledge-base/setup_security_threat_intel.py --show-sync-plan
+python knowledge-base/setup_security_threat_intel.py --run-scheduled-sync --url http://127.0.0.1:3000/api
+```
+
+
+### 步骤 4：初始化 document set
 
 ```bash
 python knowledge-base/bootstrap_security_platform.py --apply --stage document-set
@@ -67,7 +88,7 @@ python knowledge-base/bootstrap_security_platform.py --apply --stage document-se
 - 创建 `安全知识库` document set
 
 
-### 步骤 4：初始化 persona
+### 步骤 5：初始化 persona
 
 ```bash
 python knowledge-base/bootstrap_security_platform.py --apply --stage personas
@@ -79,7 +100,7 @@ python knowledge-base/bootstrap_security_platform.py --apply --stage personas
 - 绑定基础工具和 `安全知识库`
 
 
-### 步骤 5：创建安全工具
+### 步骤 6：创建安全工具
 
 ```bash
 python knowledge-base/bootstrap_security_platform.py --apply --stage tools
@@ -89,9 +110,22 @@ python knowledge-base/bootstrap_security_platform.py --apply --stage tools
 
 - 创建安全 OpenAPI 工具
 - 将工具按 persona 绑定
+- 按 `docs/security-platform/5-integrations/*.yaml` 的声明式配置执行
+
+如需在执行前仅校验工具配置：
+
+```bash
+python knowledge-base/security-automation/setup_security_tools.py --validate-configs
+```
+
+如需在演示或离线环境使用 mock 工具端点：
+
+```bash
+python knowledge-base/security-automation/setup_security_tools.py --apply --profile mock
+```
 
 
-### 步骤 6：初始化 RBAC
+### 步骤 7：初始化 RBAC
 
 ```bash
 python knowledge-base/bootstrap_security_platform.py --apply --stage rbac
@@ -104,7 +138,7 @@ python knowledge-base/bootstrap_security_platform.py --apply --stage rbac
 - 绑定用户与 document set
 
 
-### 步骤 7：结果校验
+### 步骤 8：结果校验
 
 ```bash
 python knowledge-base/bootstrap_security_platform.py --verify
@@ -132,11 +166,27 @@ python knowledge-base/bootstrap_security_platform.py \
   --db-password password
 ```
 
+如需统一切换为演示/离线模式：
+
+```bash
+python knowledge-base/bootstrap_security_platform.py --apply --deployment-profile demo
+```
+
 
 ## 8. 实施注意事项
 
 - `personas` 阶段会按名称更新已有 persona，不再依赖固定 ID
+- `threat-intel` 阶段默认同步本地 feed；需要上游刷新时再显式使用 `setup_security_threat_intel.py --apply --refresh`
+- 周期化同步策略定义在 `knowledge-base/threat-intelligence/sync_plan.yaml`
+- 最近一次成功刷新状态记录在 `knowledge-base/threat-intelligence/sync_state.json`
+- 情报源模式定义在 `knowledge-base/threat-intelligence/source_profiles.yaml`
+- 演示或离线环境可使用 `THREAT_INTEL_SOURCE_PROFILE=mock`，仅消费本地 feed，不访问外网
+- 高层部署 profile 定义在 `docs/security-platform/deployment-profiles.yaml`
+- `bootstrap --deployment-profile demo` 会统一派生 `THREAT_INTEL_SOURCE_PROFILE=mock` 和 `SECURITY_TOOLS_PROFILE=mock`
 - `document-set` 阶段会确保 `安全知识库` 存在
+- `tools` 阶段的工具定义不再硬编码在脚本中，而是来自 `docs/security-platform/5-integrations/`
+- `tools` 阶段支持 `SECURITY_TOOLS_PROFILE=live/mock` 环境分层
+- `acceptance` 输出会显示 `Security tools profile`，以及 `create_security_ticket / send_security_alert / threat_intel_lookup` 的 `server / headers` 摘要
 - `tools` 和 `rbac` 阶段都已改为按 persona 名称解析
 - `rbac --dry-run` 当前实际走环境预检查，而不是写库模拟
 - `knowledge-base --dry-run` 输出较长，属于当前脚本正常行为
@@ -157,6 +207,7 @@ python knowledge-base/bootstrap_security_platform.py \
 当前已补充的单测包括：
 
 - `backend/tests/unit/knowledge_base/test_setup_security_document_set.py`
+- `backend/tests/unit/knowledge_base/test_setup_security_threat_intel.py`
 - `backend/tests/unit/knowledge_base/test_setup_security_personas.py`
 - `backend/tests/unit/knowledge_base/test_bootstrap_security_platform.py`
 - `backend/tests/unit/knowledge_base/test_verify_security_platform_acceptance.py`

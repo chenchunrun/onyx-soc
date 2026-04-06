@@ -38,6 +38,7 @@
 - persona 工具绑定是否正确
 - 安全工具是否存在
 - 安全用户与 RBAC 绑定是否存在
+- threat-intel 的 profile、最近同步时间与到期状态
 
 对应入口：
 
@@ -56,6 +57,7 @@
 当前验收结果：
 
 - `Result: OK`
+- `acceptance` 已可显示 `Threat-intel sync: profile / last_run / status`
 
 
 ### 2.4 正式交付文档已成型

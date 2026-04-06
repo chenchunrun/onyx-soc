@@ -1,0 +1,9 @@
+# Example host-level cron entry for periodic security-platform threat-intel sync.
+#
+# Usage:
+# 1. Copy deployment/docker_compose/env.security-platform.template to env.security-platform
+# 2. Adjust ONYX_URL / ONYX_EMAIL / ONYX_PASSWORD and optional THREAT_INTEL_SYNC_LIMIT
+# 3. Install a cron entry like the one below from the repository root host
+#
+# Every 30 minutes:
+# */30 * * * * cd /path/to/onyx-main && bash deployment/scripts/run_security_platform_threat_intel_sync.sh deployment/docker_compose/env.security-platform >> /var/log/onyx-threat-intel-sync.log 2>&1

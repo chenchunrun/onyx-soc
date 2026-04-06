@@ -1,0 +1,23 @@
+{
+  "feeds": {
+    "cisa_kev": {
+      "last_success_at": "2026-04-06T22:19:16.339731Z"
+    },
+    "nvd_ics_advisories": {
+      "last_success_at": "2026-04-06T22:19:16.339731Z"
+    },
+    "nvd_medical_advisories": {
+      "last_success_at": "2026-04-06T22:19:16.339731Z"
+    },
+    "nvd_security_advisories": {
+      "last_success_at": "2026-04-06T22:19:16.339731Z"
+    }
+  },
+  "last_refreshed_feeds": [
+    "cisa_kev",
+    "nvd_security_advisories",
+    "nvd_ics_advisories",
+    "nvd_medical_advisories"
+  ],
+  "last_sync_run_at": "2026-04-06T22:19:16.339731Z"
+}

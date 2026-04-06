@@ -1,0 +1,11 @@
+profiles:
+  live:
+    description: Production-like profile using real threat-intel refresh and real security integration endpoints.
+    env:
+      THREAT_INTEL_SOURCE_PROFILE: live
+      SECURITY_TOOLS_PROFILE: live
+  demo:
+    description: Demo/offline profile using local threat-intel corpus and mock security tool endpoints.
+    env:
+      THREAT_INTEL_SOURCE_PROFILE: mock
+      SECURITY_TOOLS_PROFILE: mock

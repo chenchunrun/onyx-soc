@@ -11,6 +11,7 @@
 
 - bootstrap 初始化链路
 - 安全文档集
+- threat-intel 同步状态
 - 安全 persona
 - 安全工具
 - RBAC 初始化
@@ -73,6 +74,8 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - 安全工具可见
 - 安全团队用户已创建
 - `acceptance` 阶段返回成功
+- `acceptance` 输出包含 threat-intel sync 的 `profile / last_run / status`
+- `acceptance` 输出包含 security tools 的 `profile` 以及 3 个安全工具的 `server / headers` 摘要
 - `smoke` 阶段返回成功
 
 
@@ -105,7 +108,24 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - persona 绑定了 `安全知识库`
 
 
-### 5.3 安全工具
+### 5.3 Threat-Intel 同步状态
+
+检查项：
+
+- `verify_security_platform_acceptance.py` 或 `bootstrap --verify` 的 `acceptance` 输出
+
+通过标准：
+
+- 输出包含 `Threat-intel sync`
+- 输出包含 `Security tools profile`
+- 输出包含 `create_security_ticket / send_security_alert / threat_intel_lookup` 的端点摘要
+- 能看到当前 `profile`
+- 能看到最近一次 `last_run`
+- 能看到当前 `status`
+- 演示或离线环境下，`profile=mock` 符合预期
+
+
+### 5.4 安全工具
 
 检查项：
 
@@ -119,7 +139,7 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - persona 上能看到对应工具绑定关系
 
 
-### 5.4 安全团队用户
+### 5.5 安全团队用户
 
 检查项：
 
@@ -174,11 +194,13 @@ pytest backend/tests/integration/tests/security_tools/ -v
 
 1. `bootstrap --verify` 输出缺失项
 2. `bootstrap --verify` 中 `acceptance` 阶段输出失败项
-3. Onyx 登录与 API 可达性
-4. PostgreSQL 可达性
-5. 工具相关环境变量是否已配置
-6. persona 和 document set 是否被意外手工修改
-7. `smoke` 阶段输出是否提示聊天链路或工具链路异常
+3. `Threat-intel sync` 中的 `profile / last_run / status` 是否符合预期
+4. `Security tools profile` 是否与部署档位一致，3 个工具的 `server / headers` 是否符合当前环境
+4. Onyx 登录与 API 可达性
+5. PostgreSQL 可达性
+6. 工具相关环境变量是否已配置
+7. persona 和 document set 是否被意外手工修改
+8. `smoke` 阶段输出是否提示聊天链路或工具链路异常
 
 
 ## 8. 当前结论口径

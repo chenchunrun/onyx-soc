@@ -20,14 +20,19 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 
 ROOT = Path(__file__).resolve().parent
 SECURITY_AUTOMATION_DIR = ROOT / "security-automation"
 SSO_RBAC_DIR = ROOT / "sso-rbac"
 VENV_PYTHON = ROOT.parent / ".venv" / "bin" / "python"
+DEPLOYMENT_PROFILES_PATH = ROOT.parent / "docs" / "security-platform" / "deployment-profiles.yaml"
 
 STAGE_KNOWLEDGE_BASE = "knowledge-base"
+STAGE_THREAT_INTEL = "threat-intel"
 STAGE_DOCUMENT_SET = "document-set"
 STAGE_PERSONAS = "personas"
 STAGE_TOOLS = "tools"
@@ -36,6 +41,7 @@ STAGE_ACCEPTANCE = "acceptance"
 STAGE_SMOKE = "smoke"
 ALL_STAGES = [
     STAGE_KNOWLEDGE_BASE,
+    STAGE_THREAT_INTEL,
     STAGE_DOCUMENT_SET,
     STAGE_PERSONAS,
     STAGE_TOOLS,
@@ -45,6 +51,7 @@ ALL_STAGES = [
 ]
 DEFAULT_STAGES_APPLY = [
     STAGE_KNOWLEDGE_BASE,
+    STAGE_THREAT_INTEL,
     STAGE_DOCUMENT_SET,
     STAGE_PERSONAS,
     STAGE_TOOLS,
@@ -74,7 +81,48 @@ def build_env(args: argparse.Namespace) -> dict[str, str]:
         env["ONYX_PASSWORD"] = args.password
     if args.db_password:
         env["POSTGRES_PASSWORD"] = args.db_password
+    for key, value in selected_deployment_profile(args).get("env", {}).items():
+        env[str(key)] = str(value)
     return env
+
+
+def load_deployment_profiles() -> dict[str, Any]:
+    with open(DEPLOYMENT_PROFILES_PATH, "r", encoding="utf-8") as handle:
+        profiles = yaml.safe_load(handle)
+    if not isinstance(profiles, dict):
+        raise ValueError(f"Invalid deployment profiles: {DEPLOYMENT_PROFILES_PATH}")
+    defined_profiles = profiles.get("profiles")
+    if not isinstance(defined_profiles, dict) or not defined_profiles:
+        raise ValueError(
+            f"Deployment profiles {DEPLOYMENT_PROFILES_PATH} must define profiles"
+        )
+    return profiles
+
+
+def selected_deployment_profile_name(args: argparse.Namespace) -> str:
+    return str(
+        getattr(args, "deployment_profile", None)
+        or os.environ.get("SECURITY_PLATFORM_DEPLOYMENT_PROFILE", "live")
+    )
+
+
+def selected_deployment_profile(args: argparse.Namespace) -> dict[str, Any]:
+    profiles = load_deployment_profiles()["profiles"]
+    profile_name = selected_deployment_profile_name(args)
+    if profile_name not in profiles:
+        supported = ", ".join(sorted(profiles))
+        raise ValueError(
+            f"Unsupported deployment profile: {profile_name}. Supported: {supported}"
+        )
+    profile = profiles[profile_name]
+    if not isinstance(profile, dict):
+        raise ValueError(f"Invalid deployment profile config for {profile_name}")
+    env_mapping = profile.get("env", {})
+    if env_mapping is None:
+        profile["env"] = {}
+    elif not isinstance(env_mapping, dict):
+        raise ValueError(f"Deployment profile {profile_name} must define env as a mapping")
+    return profile
 
 
 def run_stage(name: str, command: list[str], env: dict[str, str]) -> StageResult:
@@ -107,6 +155,19 @@ def build_tools_command(args: argparse.Namespace) -> list[str]:
         command.append("--dry-run")
     else:
         command.append("--apply")
+    return command
+
+
+def build_threat_intel_command(args: argparse.Namespace) -> list[str]:
+    command = [get_python_executable(), str(ROOT / "setup_security_threat_intel.py")]
+    if args.verify:
+        command.append("--verify")
+    elif args.dry_run:
+        command.append("--dry-run")
+    else:
+        command.append("--apply")
+    if getattr(args, "threat_intel_limit", None):
+        command.extend(["--limit", str(args.threat_intel_limit)])
     return command
 
 
@@ -173,6 +234,7 @@ def print_plan(args: argparse.Namespace, stages: list[str]) -> None:
         mode = "apply"
     print(f"Bootstrap mode: {mode}")
     print(f"Stages: {', '.join(stages)}")
+    print(f"Deployment profile: {selected_deployment_profile_name(args)}")
     if args.url:
         print(f"Onyx URL: {args.url}")
     if args.email:
@@ -234,6 +296,18 @@ def parse_args() -> argparse.Namespace:
         default=os.environ.get("POSTGRES_PASSWORD"),
         help="PostgreSQL password for the RBAC provisioning stage",
     )
+    parser.add_argument(
+        "--threat-intel-limit",
+        type=int,
+        default=None,
+        help="Limit the number of threat-intel feed files processed by the threat-intel stage",
+    )
+    parser.add_argument(
+        "--deployment-profile",
+        choices=["live", "demo"],
+        default=os.environ.get("SECURITY_PLATFORM_DEPLOYMENT_PROFILE", "live"),
+        help="High-level deployment profile. 'demo' switches both threat-intel and tool integrations to local/mock-friendly modes.",
+    )
     return parser.parse_args()
 
 
@@ -248,6 +322,8 @@ def main() -> int:
     for stage in stages:
         if stage == STAGE_KNOWLEDGE_BASE:
             result = run_stage(stage, build_knowledge_base_command(args), env)
+        elif stage == STAGE_THREAT_INTEL:
+            result = run_stage(stage, build_threat_intel_command(args), env)
         elif stage == STAGE_DOCUMENT_SET:
             result = run_stage(stage, build_document_set_command(args), env)
         elif stage == STAGE_PERSONAS:

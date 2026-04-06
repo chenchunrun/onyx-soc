@@ -65,6 +65,8 @@ helm upgrade --install onyx . -n onyx --create-namespace \
 - 可登录的管理员账号
 - 可访问的 PostgreSQL
 - 目标 document set：`安全知识库`
+- 本地 threat-intel feed 目录：`knowledge-base/威胁情报/feeds`
+- threat-intel 同步计划：`knowledge-base/threat-intelligence/sync_plan.yaml`
 
 
 ### 4.2.1 Docker Compose 覆盖配置
@@ -98,6 +100,7 @@ docker compose \
 ```bash
 python knowledge-base/bootstrap_security_platform.py --dry-run
 python knowledge-base/bootstrap_security_platform.py --apply --stage knowledge-base
+python knowledge-base/bootstrap_security_platform.py --apply --stage threat-intel
 python knowledge-base/bootstrap_security_platform.py --apply --stage document-set
 python knowledge-base/bootstrap_security_platform.py --apply --stage personas
 python knowledge-base/bootstrap_security_platform.py --apply --stage tools
@@ -106,6 +109,25 @@ python knowledge-base/bootstrap_security_platform.py --verify
 python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 ```
 
+如果要接 cron、CI 或定时任务，建议直接调用：
+
+```bash
+python knowledge-base/setup_security_threat_intel.py --run-scheduled-sync --url http://127.0.0.1:3000/api
+```
+
+也可以使用仓库内的统一包装脚本：
+
+```bash
+bash deployment/scripts/run_security_platform_threat_intel_sync.sh \
+  deployment/docker_compose/env.security-platform
+```
+
+其中：
+
+- Docker Compose 示例 cron 在 `deployment/docker_compose/security-platform-threat-intel.crontab.example`
+- Helm 场景建议从 CI、ops runner 或 bastion host 直接调用同一脚本
+- 演示或离线环境建议设置 `THREAT_INTEL_SOURCE_PROFILE=mock`
+
 
 ## 5. 关键环境参数
 
@@ -113,6 +135,7 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - `ONYX_EMAIL`
 - `ONYX_PASSWORD`
 - `POSTGRES_PASSWORD`
+- `SECURITY_PLATFORM_DEPLOYMENT_PROFILE`
 
 示例：
 
@@ -121,6 +144,7 @@ export ONYX_URL=http://localhost:8080
 export ONYX_EMAIL=security-admin@onyx.local
 export ONYX_PASSWORD=admin123
 export POSTGRES_PASSWORD=password
+export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 ```
 
 
@@ -133,6 +157,24 @@ export POSTGRES_PASSWORD=password
 - `SECURITY_TICKET_API_KEY`
 - `THREAT_INTEL_API_URL`
 - `THREAT_INTEL_API_KEY`
+- `SECURITY_TOOLS_PROFILE`
+- `SECURITY_TOOLS_MOCK_SERVER_URL`
+- `SECURITY_TOOLS_MOCK_API_KEY`
+- `THREAT_INTEL_SOURCE_PROFILE`
+
+这些变量的引用关系定义在：
+
+- `docs/security-platform/5-integrations/`
+
+实际创建时由以下脚本读取并应用：
+
+- `knowledge-base/security-automation/setup_security_tools.py`
+
+演示或离线环境建议：
+
+- `SECURITY_TOOLS_PROFILE=mock`
+- 启动本地 mock server 后，将 `SECURITY_TOOLS_MOCK_SERVER_URL` 指向对应地址
+- 如果使用统一入口，优先设置 `SECURITY_PLATFORM_DEPLOYMENT_PROFILE=demo`
 
 
 ## 7. 部署后验收
@@ -140,12 +182,15 @@ export POSTGRES_PASSWORD=password
 至少完成以下检查：
 
 - 安全知识已导入
+- 威胁情报文档已同步
 - 四个安全 persona 已存在
 - persona 可正常查看并选择
 - 自定义安全工具已创建
 - 安全团队账号已建立
 - `verify` 输出无关键缺失项
 - `verify` 中的 `acceptance` 阶段返回成功
+- `acceptance` 输出中的 `Security tools profile` 与当前部署档位一致
+- `acceptance` 输出中的 3 个安全工具 `server / headers` 摘要符合当前环境
 - `smoke` 阶段返回成功
 
 建议结合以下清单执行：

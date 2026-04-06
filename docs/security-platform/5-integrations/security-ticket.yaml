@@ -1,0 +1,15 @@
+name: create_security_ticket
+template: security_ticket_api
+description: >-
+  Create security incident tickets in Jira, Linear, or ServiceNow. Use this when
+  a security analyst needs to document an incident, vulnerability, or compliance
+  finding. Required: summary, description, priority (CRITICAL/HIGH/MEDIUM/LOW),
+  project_key. Optional: labels, mitre_tactics, mitre_techniques, cvss_score,
+  affected_systems.
+api_url_env: SECURITY_TICKET_API_URL
+api_key_env: SECURITY_TICKET_API_KEY
+persona_bindings:
+  - 安全事件分析师
+  - 应急响应指挥官
+  - 漏洞评估专家
+  - 合规审计员

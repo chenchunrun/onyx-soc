@@ -100,15 +100,64 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
         document_sets=[{"id": 1, "name": "安全知识库"}],
         personas=personas,
         openapi_tools=[
-            {"name": "create_security_ticket"},
-            {"name": "send_security_alert"},
-            {"name": "threat_intel_lookup"},
+            {
+                "name": "create_security_ticket",
+                "definition": {"servers": [{"url": "http://localhost:9999"}]},
+                "custom_headers": [{"key": "Authorization", "value": "Bearer mock"}],
+            },
+            {
+                "name": "send_security_alert",
+                "definition": {"servers": [{"url": "http://localhost:9999"}]},
+                "custom_headers": [],
+            },
+            {
+                "name": "threat_intel_lookup",
+                "definition": {"servers": [{"url": "http://localhost:9999"}]},
+                "custom_headers": [{"key": "x-apikey", "value": "mock"}],
+            },
         ],
+        ingestion_docs=[{"semantic_id": "CVE-2024-1234_threat_intel"}],
         db_state=db_state,
+        threat_intel_sync_summary={
+            "source_profile": "mock",
+            "last_sync_run_at": "2026-04-07T00:00:00Z",
+            "due_status": "WAIT",
+            "due_feeds": [],
+        },
+        security_tool_profile_summary={
+            "profile": "mock",
+            "tools": {
+                "create_security_ticket": {
+                    "configured_server_url": "http://localhost:9999",
+                    "configured_header_keys": ["Authorization"],
+                    "expected_server_url": "http://localhost:9999",
+                    "expected_header_keys": ["Authorization"],
+                },
+                "send_security_alert": {
+                    "configured_server_url": "http://localhost:9999",
+                    "configured_header_keys": [],
+                    "expected_server_url": "http://localhost:9999",
+                    "expected_header_keys": [],
+                },
+                "threat_intel_lookup": {
+                    "configured_server_url": "http://localhost:9999",
+                    "configured_header_keys": ["x-apikey"],
+                    "expected_server_url": "http://localhost:9999",
+                    "expected_header_keys": ["x-apikey"],
+                },
+            },
+            "mismatches": [],
+        },
     )
 
     assert result["ok"] is True
     assert result["failures"] == []
+    assert result["summary"]["security_tools_profile"] == "mock"
+    assert result["summary"]["security_tools_summary"]["threat_intel_lookup"]["configured_header_keys"] == [
+        "x-apikey"
+    ]
+    assert result["summary"]["threat_intel_source_profile"] == "mock"
+    assert result["summary"]["threat_intel_due_status"] == "WAIT"
 
 
 def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
@@ -123,6 +172,7 @@ def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
             }
         ],
         openapi_tools=[{"name": "create_security_ticket"}],
+        ingestion_docs=[],
         db_state={
             "persona_rows": {
                 "安全事件分析师": {"id": 2, "is_public": True},
@@ -134,12 +184,111 @@ def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
             "persona_user_links": set(),
             "document_set_links": set(),
         },
+        threat_intel_sync_summary={
+            "source_profile": "live",
+            "last_sync_run_at": None,
+            "due_status": "DUE",
+            "due_feeds": ["cisa_kev"],
+        },
+        security_tool_profile_summary={
+            "profile": "live",
+            "tools": {},
+            "mismatches": [
+                "Tool threat_intel_lookup server_url mismatch: expected https://example.com, got http://localhost:9999"
+            ],
+        },
     )
 
     assert result["ok"] is False
     assert any("Missing document set" in failure for failure in result["failures"])
     assert any("Missing OpenAPI tools" in failure for failure in result["failures"])
+    assert any("Missing threat-intel ingestion documents" in failure for failure in result["failures"])
     assert any("Missing personas" in failure for failure in result["failures"])
     assert any("missing tools" in failure for failure in result["failures"])
     assert any("Missing security users" in failure for failure in result["failures"])
     assert any("must be private" in failure for failure in result["failures"])
+    assert any("server_url mismatch" in failure for failure in result["failures"])
+
+
+def test_load_threat_intel_sync_summary_reports_due_feeds(
+    monkeypatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    plan_path = tmp_path / "sync_plan.yaml"
+    state_path = tmp_path / "sync_state.json"
+    plan_path.write_text(
+        "feeds:\n  - name: cisa_kev\n    min_refresh_interval_hours: 24\n",
+        encoding="utf-8",
+    )
+    state_path.write_text(
+        '{\n  "feeds": {"cisa_kev": {"last_success_at": "2026-04-05T00:00:00Z"}},\n  "last_sync_run_at": "2026-04-05T00:00:00Z"\n}\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "THREAT_INTEL_SYNC_PLAN_PATH", plan_path)
+    monkeypatch.setattr(module, "THREAT_INTEL_SYNC_STATE_PATH", state_path)
+    monkeypatch.setattr(module, "_utc_now", lambda: module._parse_iso_datetime("2026-04-07T00:00:00Z"))
+    monkeypatch.setenv("THREAT_INTEL_SOURCE_PROFILE", "mock")
+
+    result = module.load_threat_intel_sync_summary()
+
+    assert result["source_profile"] == "mock"
+    assert result["due_status"] == "DUE"
+    assert result["due_feeds"] == ["cisa_kev"]
+
+
+def test_load_security_tool_profile_summary_uses_mock_profile(
+    monkeypatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    integrations_dir = tmp_path / "5-integrations"
+    integrations_dir.mkdir()
+
+    (integrations_dir / "profiles.yaml").write_text(
+        (
+            "profiles:\n"
+            "  live:\n"
+            "    env_overrides: {}\n"
+            "  mock:\n"
+            "    env_overrides:\n"
+            "      SECURITY_TICKET_API_URL: SECURITY_TOOLS_MOCK_SERVER_URL\n"
+            "      SECURITY_TICKET_API_KEY: SECURITY_TOOLS_MOCK_API_KEY\n"
+        ),
+        encoding="utf-8",
+    )
+    (integrations_dir / "security-ticket.yaml").write_text(
+        (
+            "name: create_security_ticket\n"
+            "template: security_ticket_api\n"
+            "description: test\n"
+            "persona_bindings:\n"
+            "  - 安全事件分析师\n"
+            "api_url_env: SECURITY_TICKET_API_URL\n"
+            "api_key_env: SECURITY_TICKET_API_KEY\n"
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(module, "SECURITY_TOOL_INTEGRATIONS_DIR", integrations_dir)
+    monkeypatch.setattr(
+        module, "SECURITY_TOOL_PROFILES_PATH", integrations_dir / "profiles.yaml"
+    )
+    monkeypatch.setenv("SECURITY_TOOLS_PROFILE", "mock")
+    monkeypatch.setenv("SECURITY_TOOLS_MOCK_SERVER_URL", "http://localhost:9999")
+    monkeypatch.setenv("SECURITY_TOOLS_MOCK_API_KEY", "mock-key")
+
+    summary = module.load_security_tool_profile_summary(
+        [
+            {
+                "name": "create_security_ticket",
+                "definition": {"servers": [{"url": "http://localhost:9999"}]},
+                "custom_headers": [{"key": "Authorization", "value": "Bearer mock-key"}],
+            }
+        ]
+    )
+
+    assert summary["profile"] == "mock"
+    assert summary["mismatches"] == []
+    assert summary["tools"]["create_security_ticket"]["configured_server_url"] == "http://localhost:9999"
+    assert summary["tools"]["create_security_ticket"]["expected_header_keys"] == [
+        "Authorization"
+    ]

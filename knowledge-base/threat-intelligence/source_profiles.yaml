@@ -1,0 +1,7 @@
+profiles:
+  live:
+    allow_upstream_refresh: true
+    description: Refresh from upstream threat-intel sources before syncing local feed files.
+  mock:
+    allow_upstream_refresh: false
+    description: Do not access upstream sources; only use the curated local feed corpus already checked into the repo.

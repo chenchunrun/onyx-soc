@@ -65,3 +65,25 @@ This overlay injects `env.security-platform` into `api_server`, `background`,
 and `web_server` without modifying the base compose file. The security platform
 initialization and verification steps are documented in
 `docs/security-platform/7-deployment.md`.
+
+### Threat-intel scheduled sync
+
+Threat-intel periodic sync currently runs as an external operator job, not as an
+extra container inside the base Compose stack.
+
+Use the provided helper:
+
+```bash
+bash deployment/scripts/run_security_platform_threat_intel_sync.sh \
+  deployment/docker_compose/env.security-platform
+```
+
+If this is a demo or offline environment, set:
+
+```bash
+THREAT_INTEL_SOURCE_PROFILE=mock
+```
+
+For a host-level cron example, see:
+
+- `deployment/docker_compose/security-platform-threat-intel.crontab.example`

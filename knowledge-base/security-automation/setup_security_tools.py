@@ -23,6 +23,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 venv_path = Path(__file__).parent.parent / ".venv"
 if venv_path.exists():
@@ -31,13 +32,29 @@ if venv_path.exists():
 import psycopg2
 import psycopg2.extras
 import requests
+import yaml
 
 
-PERSONA_BINDINGS = {
-    "安全事件分析师": ["threat_intel_lookup", "create_security_ticket"],
-    "应急响应指挥官": ["send_security_alert", "create_security_ticket"],
-    "漏洞评估专家": ["threat_intel_lookup", "create_security_ticket"],
-    "合规审计员": ["create_security_ticket"],
+INTEGRATIONS_DIR = (
+    Path(__file__).resolve().parents[2] / "docs" / "security-platform" / "5-integrations"
+)
+INTEGRATION_PROFILES_PATH = INTEGRATIONS_DIR / "profiles.yaml"
+SECURITY_PERSONA_NAMES = {
+    "安全事件分析师",
+    "应急响应指挥官",
+    "漏洞评估专家",
+    "合规审计员",
+}
+SUPPORTED_TEMPLATES = {
+    "security_alert_webhook": {
+        "required_fields": ["webhook_url_env"],
+    },
+    "security_ticket_api": {
+        "required_fields": ["api_url_env", "api_key_env"],
+    },
+    "threat_intel_api": {
+        "required_fields": ["api_url_env", "api_key_env"],
+    },
 }
 
 
@@ -126,6 +143,42 @@ def create_tool(base_url: str, cookie: str, name: str, description: str,
     return None
 
 
+def update_tool(
+    base_url: str,
+    cookie: str,
+    tool_id: int,
+    name: str,
+    description: str,
+    definition: dict,
+    custom_headers: list | None = None,
+    passthrough_auth: bool = False,
+) -> dict | None:
+    payload = {
+        "name": name,
+        "description": description,
+        "definition": definition,
+        "passthrough_auth": passthrough_auth,
+        "custom_headers": custom_headers or [],
+    }
+
+    resp = requests.put(
+        f"{base_url}/admin/tool/custom/{tool_id}",
+        json=payload,
+        cookies={"fastapiusersauth": cookie},
+        timeout=30,
+    )
+    if resp.status_code == 200:
+        result = resp.json()
+        print(f"  [OK] Updated tool: {name} (id={result['id']})")
+        return result
+    elif resp.status_code == 400:
+        error = resp.json().get("detail", str(resp.json()))
+        print(f"  [ERROR] {error}")
+    else:
+        print(f"  [ERROR] Failed to update tool: {resp.status_code} - {resp.text[:200]}")
+    return None
+
+
 def get_db_connection(password: str | None = None):
     """Get database connection to Onyx PostgreSQL."""
     if password is None:
@@ -187,6 +240,14 @@ def get_tool_id(base_url: str, cookie: str, tool_name: str) -> int | None:
     for tool in tools:
         if tool["name"] == tool_name:
             return tool["id"]
+    return None
+
+
+def get_tool_by_name(base_url: str, cookie: str, tool_name: str) -> dict[str, Any] | None:
+    tools = list_tools(base_url, cookie)
+    for tool in tools:
+        if tool["name"] == tool_name:
+            return tool
     return None
 
 
@@ -280,6 +341,178 @@ def merge_tool_ids(existing_tool_ids: list[int], added_tool_ids: list[int]) -> l
     return merged
 
 
+def tool_needs_update(
+    existing_tool: dict[str, Any],
+    description: str,
+    definition: dict[str, Any],
+    custom_headers: list | None,
+    passthrough_auth: bool,
+) -> bool:
+    return any(
+        [
+            existing_tool.get("description") != description,
+            existing_tool.get("definition") != definition,
+            (existing_tool.get("custom_headers") or []) != (custom_headers or []),
+            bool(existing_tool.get("passthrough_auth")) != passthrough_auth,
+        ]
+    )
+
+
+def load_integration_configs() -> list[dict[str, Any]]:
+    configs: list[dict[str, Any]] = []
+    seen_tool_names: set[str] = set()
+    for config_path in sorted(INTEGRATIONS_DIR.glob("*.yaml")):
+        if config_path.name == INTEGRATION_PROFILES_PATH.name:
+            continue
+        with open(config_path, "r", encoding="utf-8") as handle:
+            config = yaml.safe_load(handle)
+        if not isinstance(config, dict):
+            raise ValueError(f"Invalid integration config: {config_path}")
+        validate_integration_config(config, config_path)
+        tool_name = str(config["name"])
+        if tool_name in seen_tool_names:
+            raise ValueError(
+                f"Duplicate integration tool name detected: {tool_name} ({config_path})"
+            )
+        seen_tool_names.add(tool_name)
+        config["_config_path"] = str(config_path)
+        configs.append(config)
+    if not configs:
+        raise ValueError(f"No integration configs found in {INTEGRATIONS_DIR}")
+    return configs
+
+
+def load_integration_profiles() -> dict[str, Any]:
+    with open(INTEGRATION_PROFILES_PATH, "r", encoding="utf-8") as handle:
+        profiles = yaml.safe_load(handle)
+    if not isinstance(profiles, dict):
+        raise ValueError(f"Invalid integration profiles: {INTEGRATION_PROFILES_PATH}")
+    defined_profiles = profiles.get("profiles")
+    if not isinstance(defined_profiles, dict) or not defined_profiles:
+        raise ValueError(
+            f"Integration profiles {INTEGRATION_PROFILES_PATH} must define profiles"
+        )
+    return profiles
+
+
+def selected_profile_name(args: argparse.Namespace | None = None) -> str:
+    if args is not None and getattr(args, "profile", None):
+        return str(args.profile)
+    return os.environ.get("SECURITY_TOOLS_PROFILE", "live")
+
+
+def selected_profile(args: argparse.Namespace | None = None) -> dict[str, Any]:
+    profiles = load_integration_profiles()["profiles"]
+    profile_name = selected_profile_name(args)
+    if profile_name not in profiles:
+        supported = ", ".join(sorted(profiles))
+        raise ValueError(
+            f"Unsupported security tools profile: {profile_name}. Supported: {supported}"
+        )
+    profile = profiles[profile_name]
+    if not isinstance(profile, dict):
+        raise ValueError(f"Invalid profile config for {profile_name}")
+    env_overrides = profile.get("env_overrides", {})
+    if env_overrides is None:
+        profile["env_overrides"] = {}
+    elif not isinstance(env_overrides, dict):
+        raise ValueError(f"Profile {profile_name} must define env_overrides as a mapping")
+    return profile
+
+
+def resolve_profile_env_name(
+    logical_env_name: str | None,
+    args: argparse.Namespace | None = None,
+) -> str:
+    if not logical_env_name:
+        return ""
+    profile = selected_profile(args)
+    override_name = profile.get("env_overrides", {}).get(logical_env_name)
+    return str(override_name or logical_env_name)
+
+
+def resolve_profile_env_value(
+    logical_env_name: str | None,
+    args: argparse.Namespace | None = None,
+) -> str:
+    resolved_env_name = resolve_profile_env_name(logical_env_name, args)
+    if not resolved_env_name:
+        return ""
+    return os.environ.get(resolved_env_name, "")
+
+
+def validate_integration_config(config: dict[str, Any], config_path: Path) -> None:
+    required_fields = ["name", "template", "description", "persona_bindings"]
+    missing = [field for field in required_fields if not config.get(field)]
+    if missing:
+        raise ValueError(
+            f"Integration config {config_path} missing required fields: {', '.join(missing)}"
+        )
+
+    template_name = str(config["template"])
+    if template_name not in SUPPORTED_TEMPLATES:
+        supported = ", ".join(sorted(SUPPORTED_TEMPLATES))
+        raise ValueError(
+            f"Integration config {config_path} uses unsupported template "
+            f"{template_name}. Supported templates: {supported}"
+        )
+
+    persona_bindings = config["persona_bindings"]
+    if not isinstance(persona_bindings, list) or not all(
+        isinstance(persona_name, str) and persona_name.strip()
+        for persona_name in persona_bindings
+    ):
+        raise ValueError(
+            f"Integration config {config_path} must define non-empty persona_bindings"
+        )
+    invalid_personas = [
+        persona_name
+        for persona_name in persona_bindings
+        if str(persona_name) not in SECURITY_PERSONA_NAMES
+    ]
+    if invalid_personas:
+        raise ValueError(
+            f"Integration config {config_path} references unsupported personas: "
+            f"{', '.join(str(persona) for persona in invalid_personas)}"
+        )
+
+    template_requirements = SUPPORTED_TEMPLATES[template_name]["required_fields"]
+    template_missing = [
+        field for field in template_requirements if not str(config.get(field, "")).strip()
+    ]
+    if template_missing:
+        raise ValueError(
+            f"Integration config {config_path} missing template-specific fields: "
+            f"{', '.join(template_missing)}"
+        )
+
+
+def validate_integration_directory(profile_name: str | None = None) -> list[dict[str, Any]]:
+    configs = load_integration_configs()
+    profiles = load_integration_profiles()["profiles"]
+    print(f"Integration profile: {selected_profile_name(argparse.Namespace(profile=profile_name) if profile_name else None)}")
+    print(f"Available profiles: {', '.join(sorted(profiles))}")
+    print(f"Integration configs: {len(configs)}")
+    for config in configs:
+        print(
+            f"  - {config['name']} ({config['template']}) -> "
+            f"{', '.join(config['persona_bindings'])}"
+        )
+    print("[OK] Integration config validation passed")
+    return configs
+
+
+def build_persona_bindings(
+    integration_configs: list[dict[str, Any]],
+) -> dict[str, list[str]]:
+    persona_bindings: dict[str, list[str]] = {}
+    for config in integration_configs:
+        tool_name = str(config["name"])
+        for persona_name in config.get("persona_bindings", []):
+            persona_bindings.setdefault(str(persona_name), []).append(tool_name)
+    return persona_bindings
+
+
 # ─── OpenAPI Template Definitions ─────────────────────────────────────────────
 
 def load_template(template_name: str) -> dict | None:
@@ -306,29 +539,6 @@ def get_template_definitions() -> dict:
     return definitions
 
 
-# ─── Tool Creation Configurations ─────────────────────────────────────────────
-
-TOOL_CONFIGS = {
-    "send_security_alert": {
-        "template": "security_alert_webhook",
-        "description": "Send security alerts to Slack, Teams, or PagerDuty. Use this when a security analyst detects a threat (phishing, malware, unauthorized access) and needs to notify the security team immediately. Required parameters: alert_type (PHISHING/MALWARE/DATA_BREACH/UNAUTHORIZED_ACCESS/DDoS/VULNERABILITY/COMPLIANCE_VIOLATION/INSIDER_THREAT), severity (P0/P1/P2/P3/P4), title, description, source_system. Optional: affected_assets, indicators (ips/domains/file_hashes/urls), recommended_actions.",
-        "webhook_url_env": "SECURITY_ALERT_WEBHOOK_URL",
-    },
-    "create_security_ticket": {
-        "template": "security_ticket_api",
-        "description": "Create security incident tickets in Jira, Linear, or ServiceNow. Use this when a security analyst needs to document an incident, vulnerability, or compliance finding. Required: summary, description, priority (CRITICAL/HIGH/MEDIUM/LOW), project_key. Optional: labels, mitre_tactics, mitre_techniques, cvss_score, affected_systems.",
-        "api_url_env": "SECURITY_TICKET_API_URL",
-        "api_key_env": "SECURITY_TICKET_API_KEY",
-    },
-    "threat_intel_lookup": {
-        "template": "threat_intel_api",
-        "description": "Query threat intelligence databases (VirusTotal, AbuseIPDB, Shodan) for IP addresses, domains, and file hashes. Use this when you need to verify if an indicator (IP, domain, file hash) is known to be malicious. Required: the IP, domain, or hash parameter.",
-        "api_url_env": "THREAT_INTEL_API_URL",
-        "api_key_env": "THREAT_INTEL_API_KEY",
-    },
-}
-
-
 def resolve_env(value: str, env_var: str, required: bool = False) -> str:
     """Resolve environment variable in value string."""
     if value.startswith("${") and value.endswith("}"):
@@ -342,8 +552,16 @@ def resolve_env(value: str, env_var: str, required: bool = False) -> str:
     return value
 
 
-def apply_tool_definitions(base_url: str, cookie: str, dry_run: bool = False) -> dict:
+def apply_tool_definitions(
+    base_url: str,
+    cookie: str,
+    dry_run: bool = False,
+    profile_name: str | None = None,
+) -> dict:
     """Create all recommended security tools and attach to personas."""
+    profile_args = argparse.Namespace(profile=profile_name) if profile_name else None
+    integration_configs = load_integration_configs()
+    persona_bindings = build_persona_bindings(integration_configs)
     results = {
         "tools_created": [],
         "tools_updated": [],
@@ -354,8 +572,9 @@ def apply_tool_definitions(base_url: str, cookie: str, dry_run: bool = False) ->
     # Step 1: Create tools
     tool_id_map = {}  # name -> id
 
-    for tool_name, config in TOOL_CONFIGS.items():
-        template = load_template(config["template"])
+    for config in integration_configs:
+        tool_name = str(config["name"])
+        template = load_template(str(config["template"]))
         if not template:
             results["errors"].append(f"Failed to load template: {config['template']}")
             continue
@@ -364,32 +583,76 @@ def apply_tool_definitions(base_url: str, cookie: str, dry_run: bool = False) ->
         for server in template.get("servers", []):
             base_url_val = server.get("url", "")
             if "WEBHOOK_URL" in base_url_val:
-                env_val = os.environ.get(config.get("webhook_url_env", ""), "")
+                env_val = resolve_profile_env_value(config.get("webhook_url_env", ""), profile_args)
                 if env_val:
                     server["url"] = env_val
             elif "API_BASE_URL" in base_url_val:
-                env_val = os.environ.get(config.get("api_url_env", ""), "")
+                env_val = resolve_profile_env_value(config.get("api_url_env", ""), profile_args)
                 if env_val:
                     server["url"] = env_val
 
         # Add API key header for ticket API
         custom_headers = None
         if config["template"] == "security_ticket_api":
-            api_key = os.environ.get(config.get("api_key_env", ""), "")
+            api_key = resolve_profile_env_value(config.get("api_key_env", ""), profile_args)
             if api_key:
                 custom_headers = [{"key": "Authorization", "value": f"Bearer {api_key}"}]
+        elif config["template"] == "threat_intel_api":
+            api_key = resolve_profile_env_value(config.get("api_key_env", ""), profile_args)
+            if api_key:
+                custom_headers = [{"key": "x-apikey", "value": api_key}]
 
         if dry_run:
             print(f"  [DRY RUN] Would create tool: {tool_name}")
             print(f"    Template: {config['template']}")
-            print(f"    Description: {config['description'][:100]}...")
+            print(f"    Description: {str(config['description'])[:100]}...")
+            if config.get("webhook_url_env"):
+                print(
+                    f"    Env: {config['webhook_url_env']} -> "
+                    f"{resolve_profile_env_name(config.get('webhook_url_env', ''), profile_args)}"
+                )
+            if config.get("api_url_env"):
+                print(
+                    f"    Env: {config['api_url_env']} -> "
+                    f"{resolve_profile_env_name(config.get('api_url_env', ''), profile_args)}"
+                )
+            if config.get("api_key_env"):
+                print(
+                    f"    Env: {config['api_key_env']} -> "
+                    f"{resolve_profile_env_name(config.get('api_key_env', ''), profile_args)}"
+                )
             tool_id_map[tool_name] = f"DRY_RUN_{tool_name}"
             continue
 
         # Check if tool already exists
-        existing_id = get_tool_id(base_url, cookie, tool_name)
-        if existing_id:
-            print(f"  [SKIP] Tool already exists: {tool_name} (id={existing_id})")
+        existing_tool = get_tool_by_name(base_url, cookie, tool_name)
+        if existing_tool:
+            existing_id = existing_tool["id"]
+            if tool_needs_update(
+                existing_tool=existing_tool,
+                description=str(config["description"]),
+                definition=template,
+                custom_headers=custom_headers,
+                passthrough_auth=False,
+            ):
+                updated_tool = update_tool(
+                    base_url=base_url,
+                    cookie=cookie,
+                    tool_id=existing_id,
+                    name=tool_name,
+                    description=str(config["description"]),
+                    definition=template,
+                    custom_headers=custom_headers,
+                    passthrough_auth=False,
+                )
+                if not updated_tool:
+                    results["errors"].append(f"Failed to update tool: {tool_name}")
+                    continue
+                tool_id_map[tool_name] = updated_tool["id"]
+                results["tools_updated"].append(tool_name)
+                continue
+
+            print(f"  [SKIP] Tool already matches target profile: {tool_name} (id={existing_id})")
             tool_id_map[tool_name] = existing_id
             results["tools_updated"].append(tool_name)
             continue
@@ -398,7 +661,7 @@ def apply_tool_definitions(base_url: str, cookie: str, dry_run: bool = False) ->
             base_url=base_url,
             cookie=cookie,
             name=tool_name,
-            description=config["description"],
+            description=str(config["description"]),
             definition=template,
             custom_headers=custom_headers,
             passthrough_auth=False,
@@ -410,11 +673,11 @@ def apply_tool_definitions(base_url: str, cookie: str, dry_run: bool = False) ->
             results["errors"].append(f"Failed to create tool: {tool_name}")
 
     if dry_run:
-        for persona_name, tool_names in PERSONA_BINDINGS.items():
+        for persona_name, tool_names in persona_bindings.items():
             print(f"  [DRY RUN] Would attach to persona {persona_name}: {tool_names}")
         return results
 
-    for persona_name, tool_names in PERSONA_BINDINGS.items():
+    for persona_name, tool_names in persona_bindings.items():
         persona_id = get_persona_id_by_name(base_url, cookie, persona_name)
         if persona_id is None:
             results["errors"].append(f"Persona not found: {persona_name}")
@@ -455,6 +718,13 @@ def main():
     parser.add_argument("--apply", action="store_true",
                         help="Create all recommended tools and attach to personas")
     parser.add_argument("--list-templates", action="store_true")
+    parser.add_argument("--validate-configs", action="store_true")
+    parser.add_argument(
+        "--profile",
+        choices=["live", "mock"],
+        default=os.environ.get("SECURITY_TOOLS_PROFILE", "live"),
+        help="Security tools integration profile. 'mock' remaps env vars to the local mock tool server.",
+    )
     parser.add_argument("--list-tools", action="store_true")
     parser.add_argument("--create-tool", action="store_true")
     parser.add_argument("--template", choices=["security_alert_webhook", "security_ticket_api", "threat_intel_api"],
@@ -471,6 +741,20 @@ def main():
     parser.add_argument("--delete-tool", action="store_true")
     args = parser.parse_args()
 
+    if args.list_templates:
+        print("Available templates:")
+        for name in sorted(SUPPORTED_TEMPLATES):
+            print(f"  - {name}")
+        print(f"\nTemplates are located at: {Path(__file__).parent}/openapi_templates/")
+        print(f"Integration configs are located at: {INTEGRATIONS_DIR}")
+        print(f"Integration profiles are located at: {INTEGRATION_PROFILES_PATH}")
+        print(f"Supported personas: {', '.join(sorted(SECURITY_PERSONA_NAMES))}")
+        return
+
+    if args.validate_configs:
+        validate_integration_directory(profile_name=args.profile)
+        return
+
     cookie = ""
     if not args.dry_run:
         print(f"Logging in as {args.email}...")
@@ -480,14 +764,8 @@ def main():
             sys.exit(1)
         print("[OK] Logged in.\n")
 
-    if args.list_templates:
-        print("Available templates:")
-        for name in ["security_alert_webhook", "security_ticket_api", "threat_intel_api"]:
-            print(f"  - {name}")
-        print(f"\nTemplates are located at: {Path(__file__).parent}/openapi_templates/")
-        return
-
     if args.list_tools:
+        persona_bindings = build_persona_bindings(load_integration_configs())
         tools = list_tools(args.url, cookie)
         print(f"Available OpenAPI Tools ({len(tools)}):")
         for tool in tools:
@@ -495,7 +773,7 @@ def main():
             print(f"       {tool.get('description', '')[:100]}")
         print()
         # Get full details for security personas
-        for persona_name in PERSONA_BINDINGS:
+        for persona_name in persona_bindings:
             persona_id = get_persona_id_by_name(args.url, cookie, persona_name)
             if persona_id is None:
                 print(f"  [MISSING] {persona_name}")
@@ -593,7 +871,12 @@ def main():
             print("Dry run mode - showing what would be done...\n")
         elif args.apply:
             print("Applying security tool configurations...\n")
-        results = apply_tool_definitions(args.url, cookie, dry_run=args.dry_run)
+        results = apply_tool_definitions(
+            args.url,
+            cookie,
+            dry_run=args.dry_run,
+            profile_name=args.profile,
+        )
         print()
         if results["errors"]:
             print(f"Errors: {len(results['errors'])}")
