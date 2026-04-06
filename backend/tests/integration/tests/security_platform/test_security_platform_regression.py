@@ -50,6 +50,28 @@ PERSONA_CHAT_SCENARIOS = [
     ("漏洞评估专家", "REGRESSION_OK_VULN"),
     ("合规审计员", "REGRESSION_OK_COMPLIANCE"),
 ]
+PERSONA_LIVE_CHAT_SCENARIOS = [
+    (
+        "安全事件分析师",
+        "REGRESSION_LIVE_OK_ANALYST",
+        "你是安全事件分析师。请直接回复字符串 REGRESSION_LIVE_OK_ANALYST，不要添加任何其他内容。",
+    ),
+    (
+        "应急响应指挥官",
+        "REGRESSION_LIVE_OK_COMMANDER",
+        "你是应急响应指挥官。请直接回复字符串 REGRESSION_LIVE_OK_COMMANDER，不要添加任何其他内容。",
+    ),
+    (
+        "漏洞评估专家",
+        "REGRESSION_LIVE_OK_VULN",
+        "你是漏洞评估专家。请直接回复字符串 REGRESSION_LIVE_OK_VULN，不要添加任何其他内容。",
+    ),
+    (
+        "合规审计员",
+        "REGRESSION_LIVE_OK_COMPLIANCE",
+        "你是合规审计员。请直接回复字符串 REGRESSION_LIVE_OK_COMPLIANCE，不要添加任何其他内容。",
+    ),
+]
 TOOL_INVOCATION_SCENARIOS = [
     {
         "persona_name": "应急响应指挥官",
@@ -395,6 +417,69 @@ def test_security_platform_tool_matrix_regression(
         )
 
 
+@pytest.mark.parametrize(
+    ("persona_name", "token", "prompt"), PERSONA_LIVE_CHAT_SCENARIOS
+)
+def test_security_platform_persona_live_chat_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+    persona_name: str,
+    token: str,
+    prompt: str,
+) -> None:
+    persona_id = int(_get_persona_map(seeded_security_platform.admin_user)[persona_name]["id"])
+    chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        persona_id,
+        description=f"regression-live-chat-{persona_name}-{uuid.uuid4()}",
+    )
+
+    response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=prompt,
+    )
+
+    assert response["error"] is None, f"Unexpected error for {persona_name}: {response['error']}"
+    assert token in response["full_message"], (
+        persona_name,
+        token,
+        response["full_message"],
+    )
+
+
+def test_security_platform_threat_intel_live_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    analyst = _get_persona_map(seeded_security_platform.admin_user)["安全事件分析师"]
+    analyst_detail = _get_persona_detail(
+        seeded_security_platform.admin_user, int(analyst["id"])
+    )
+    threat_intel_tool_id = next(
+        int(tool["id"])
+        for tool in analyst_detail.get("tools", [])
+        if tool["name"] == "threat_intel_lookup"
+    )
+
+    chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        int(analyst["id"]),
+        description=f"regression-live-tool-threat-intel-{uuid.uuid4()}",
+    )
+
+    response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message="请使用 threat_intel_lookup 查询 8.8.8.8 的威胁情报，并用一句话总结结果。",
+        forced_tool_id=threat_intel_tool_id,
+    )
+
+    assert response["error"] is None, f"Unexpected error: {response['error']}"
+    assert any(
+        marker in response["full_message"]
+        for marker in ["8.8.8.8", "Google", "resolver", "DNS", "reputation"]
+    ), response["full_message"]
+
+
 @pytest.mark.parametrize(("persona_name", "token"), PERSONA_CHAT_SCENARIOS)
 def test_security_platform_persona_chat_regression(
     seeded_security_platform: SeededSecurityPlatform,
@@ -418,8 +503,8 @@ def test_security_platform_persona_chat_regression(
         mock_llm_response=token,
     )
 
-    assert response.error is None, f"Unexpected error for {persona_name}: {response.error}"
-    assert token in response.full_message
+    assert response["error"] is None, f"Unexpected error for {persona_name}: {response['error']}"
+    assert token in response["full_message"]
 
 
 @pytest.mark.parametrize("scenario", TOOL_INVOCATION_SCENARIOS)
@@ -451,13 +536,13 @@ def test_security_platform_tool_invocation_regression(
         seeded_security_platform.admin_user,
         chat_session_id,
         message=scenario["prompt"],
-        forced_tool_ids=[tool_id],
+        forced_tool_id=tool_id,
         mock_llm_response=scenario["mock_llm_response"],
     )
 
-    assert response.error is None, f"Unexpected error: {response.error}"
-    assert len(response.tool_call_debug) == 1
-    assert response.tool_call_debug[0].tool_name == scenario["tool_name"]
+    assert response["error"] is None, f"Unexpected error: {response['error']}"
+    assert len(response["tool_call_debug"]) == 1
+    assert response["tool_call_debug"][0]["tool_name"] == scenario["tool_name"]
 
     requests_received = get_mock_requests(seeded_security_platform.mock_server_url)
     assert len(requests_received) == 1
