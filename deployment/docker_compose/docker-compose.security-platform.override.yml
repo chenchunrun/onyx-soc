@@ -1,0 +1,21 @@
+services:
+  api_server:
+    env_file:
+      - path: .env
+        required: false
+      - path: ./env.security-platform
+        required: false
+
+  background:
+    env_file:
+      - path: .env
+        required: false
+      - path: ./env.security-platform
+        required: false
+
+  web_server:
+    env_file:
+      - path: .env
+        required: false
+      - path: ./env.security-platform
+        required: false

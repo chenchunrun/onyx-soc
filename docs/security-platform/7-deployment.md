@@ -45,6 +45,30 @@
 - 目标 document set：`安全知识库`
 
 
+### 4.2.1 Docker Compose 覆盖配置
+
+如果使用仓库内置的 Docker Compose 部署，建议增加一层安全底座专用覆盖配置。
+
+准备方式：
+
+```bash
+cd deployment/docker_compose
+cp env.security-platform.template env.security-platform
+```
+
+启动方式：
+
+```bash
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.security-platform.override.yml \
+  up -d
+```
+
+这层 override 不改动主 compose，只负责把安全底座相关环境变量注入
+`api_server`、`background`、`web_server`。
+
+
 ### 4.3 执行初始化
 
 推荐按以下顺序：
@@ -108,12 +132,11 @@ export POSTGRES_PASSWORD=password
 
 ## 8. 当前限制
 
-- 尚未提供安全底座专属 `docker compose override`
 - 尚未提供专属 Helm values 示例
 - 真实环境密钥管理仍需结合现有部署体系完成
 
 
 ## 9. 推荐后续增强
 
-- 增加部署后验收脚本
 - 增加生产与演示环境配置模板
+- 增加 Helm 对应的安全底座 values 示例

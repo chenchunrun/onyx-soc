@@ -45,3 +45,23 @@ downloaded during the initial setup. Feel free to edit the .env file to customiz
 located near the top of the file.
 
 IMAGE_TAG is the version of Onyx to run. It is recommended to leave it as latest to get all updates with each redeployment.
+
+### Security platform overlay
+If you are deploying the security-platform customization that lives under
+`knowledge-base/`, you can keep those settings separate from the main `.env`
+file.
+
+Example:
+
+```bash
+cp env.security-platform.template env.security-platform
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.security-platform.override.yml \
+  up -d
+```
+
+This overlay injects `env.security-platform` into `api_server`, `background`,
+and `web_server` without modifying the base compose file. The security platform
+initialization and verification steps are documented in
+`docs/security-platform/7-deployment.md`.
