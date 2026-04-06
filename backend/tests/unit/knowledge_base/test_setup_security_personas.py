@@ -123,6 +123,19 @@ def test_apply_personas_dry_run_reports_create_and_update_actions(
             {"id": 4, "display_name": "Code Interpreter"},
         ],
     )
+    monkeypatch.setattr(
+        module,
+        "get_persona",
+        lambda base_url, cookie, persona_id: {
+            "users": [],
+            "groups": [],
+            "tools": [
+                {"id": 1, "display_name": "Internal Search"},
+                {"id": 2, "display_name": "Web Search"},
+                {"id": 3, "display_name": "Open URL"},
+            ],
+        },
+    )
 
     result = module.apply_personas("http://example.com", "cookie", dry_run=True)
     output = capsys.readouterr().out
@@ -241,6 +254,7 @@ def test_apply_personas_apply_normalizes_users_groups_and_preserves_existing_bui
 ) -> None:
     module = _load_module()
     captured_payloads: list[dict] = []
+    restored: list[tuple[int, list[int], str | None]] = []
 
     monkeypatch.setattr(
         module,
@@ -289,11 +303,189 @@ def test_apply_personas_apply_normalizes_users_groups_and_preserves_existing_bui
 
     monkeypatch.setattr(module, "update_persona", _update_persona)
     monkeypatch.setattr(module, "create_persona", lambda *args, **kwargs: {"id": 10})
+    monkeypatch.setattr(
+        module,
+        "attach_tools_to_persona_db",
+        lambda persona_id, tool_ids, db_password=None: restored.append(
+            (persona_id, tool_ids, db_password)
+        ),
+    )
+
+    result = module.apply_personas("http://example.com", "cookie", dry_run=False)
+
+    assert result == 0
+    assert captured_payloads[0]["tool_ids"] == [12, 1, 3]
+    assert captured_payloads[0]["users"] == ["user-1"]
+    assert captured_payloads[0]["groups"] == [5]
+    assert restored[0] == (9, [4, 6], None)
+
+
+def test_apply_personas_apply_reuses_builtin_tools_from_persona_list_without_db(
+    monkeypatch,
+) -> None:
+    module = _load_module()
+    captured_payloads: list[dict] = []
+    monkeypatch.setattr(module, "SECURITY_PERSONAS", [module.SECURITY_PERSONAS[0]])
+
+    monkeypatch.setattr(
+        module,
+        "list_personas",
+        lambda base_url, cookie: [
+            {
+                "id": 9,
+                "name": module.SECURITY_PERSONAS[0]["name"],
+                "tools": [
+                    {"id": 1, "display_name": "Internal Search"},
+                    {
+                        "id": 4,
+                        "name": "web_search",
+                        "in_code_tool_id": "WebSearchTool",
+                    },
+                    {"id": 3, "display_name": "Open URL"},
+                ],
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        module,
+        "list_document_sets",
+        lambda base_url, cookie: [{"id": 3, "name": "安全知识库"}],
+    )
+    monkeypatch.setattr(
+        module,
+        "list_tools",
+        lambda base_url, cookie: [
+            {"id": 1, "display_name": "Internal Search"},
+            {"id": 3, "display_name": "Open URL"},
+        ],
+    )
+    monkeypatch.setattr(
+        module,
+        "get_builtin_tool_id_from_db",
+        lambda tool_code_id, db_password=None: (_ for _ in ()).throw(
+            RuntimeError("db unavailable")
+        ),
+    )
+    monkeypatch.setattr(
+        module,
+        "get_persona",
+        lambda base_url, cookie, persona_id: {
+            "users": ["user-1"],
+            "groups": [5],
+            "tools": [{"id": 12, "name": "create_security_ticket"}],
+        },
+    )
+
+    def _update_persona(base_url, cookie, persona_id, payload):
+        captured_payloads.append(payload)
+        return {"id": persona_id}
+
+    monkeypatch.setattr(module, "update_persona", _update_persona)
+    monkeypatch.setattr(module, "create_persona", lambda *args, **kwargs: {"id": 10})
     monkeypatch.setattr(module, "attach_tools_to_persona_db", lambda *args, **kwargs: None)
 
     result = module.apply_personas("http://example.com", "cookie", dry_run=False)
 
     assert result == 0
-    assert captured_payloads[0]["tool_ids"] == [1, 3, 4, 6, 12]
-    assert captured_payloads[0]["users"] == ["user-1"]
-    assert captured_payloads[0]["groups"] == [5]
+    assert captured_payloads[0]["tool_ids"] == [12, 1, 3]
+
+
+def test_apply_personas_apply_warns_when_db_only_restore_fails(monkeypatch, capsys) -> None:
+    module = _load_module()
+    monkeypatch.setattr(module, "SECURITY_PERSONAS", [module.SECURITY_PERSONAS[0]])
+
+    monkeypatch.setattr(
+        module,
+        "list_personas",
+        lambda base_url, cookie: [
+            {
+                "id": 9,
+                "name": module.SECURITY_PERSONAS[0]["name"],
+                "tools": [
+                    {"id": 1, "display_name": "Internal Search"},
+                    {
+                        "id": 4,
+                        "name": "web_search",
+                        "in_code_tool_id": "WebSearchTool",
+                    },
+                    {"id": 3, "display_name": "Open URL"},
+                ],
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        module,
+        "list_document_sets",
+        lambda base_url, cookie: [{"id": 3, "name": "安全知识库"}],
+    )
+    monkeypatch.setattr(
+        module,
+        "list_tools",
+        lambda base_url, cookie: [
+            {"id": 1, "display_name": "Internal Search"},
+            {"id": 3, "display_name": "Open URL"},
+        ],
+    )
+    monkeypatch.setattr(
+        module,
+        "get_persona",
+        lambda base_url, cookie, persona_id: {
+            "users": [],
+            "groups": [],
+            "tools": [],
+        },
+    )
+    monkeypatch.setattr(module, "update_persona", lambda *args, **kwargs: {"id": 9})
+    monkeypatch.setattr(
+        module,
+        "attach_tools_to_persona_db",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("db unavailable")),
+    )
+
+    result = module.apply_personas("http://example.com", "cookie", dry_run=False)
+    output = capsys.readouterr().out
+
+    assert result == 0
+    assert "Could not restore DB-only tool bindings" in output
+
+
+def test_get_builtin_tool_id_from_db_falls_back_to_docker(monkeypatch) -> None:
+    module = _load_module()
+
+    monkeypatch.setattr(
+        module,
+        "get_db_connection",
+        lambda password=None: (_ for _ in ()).throw(RuntimeError("db unavailable")),
+    )
+    monkeypatch.setattr(module, "run_docker_psql", lambda sql, capture_output=True: "7")
+
+    result = module.get_builtin_tool_id_from_db("WebSearchTool")
+
+    assert result == 7
+
+
+def test_attach_tools_to_persona_db_falls_back_to_docker(monkeypatch) -> None:
+    module = _load_module()
+    captured: list[tuple[str, bool]] = []
+
+    monkeypatch.setattr(
+        module,
+        "get_db_connection",
+        lambda password=None: (_ for _ in ()).throw(RuntimeError("db unavailable")),
+    )
+    monkeypatch.setattr(
+        module,
+        "run_docker_psql",
+        lambda sql, capture_output=True: captured.append((sql, capture_output)) or "",
+    )
+
+    module.attach_tools_to_persona_db(9, [4, 6])
+
+    assert captured == [
+        (
+            "INSERT INTO persona__tool (persona_id, tool_id) "
+            "VALUES (9, 4), (9, 6) "
+            "ON CONFLICT (persona_id, tool_id) DO NOTHING;",
+            False,
+        )
+    ]

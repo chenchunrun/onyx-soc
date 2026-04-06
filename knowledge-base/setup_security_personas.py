@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 from typing import Any
 
 import psycopg2
@@ -143,6 +144,27 @@ def list_tools(base_url: str, cookie: str) -> list[dict[str, Any]]:
     return response.json()
 
 
+def build_tool_lookup(tools: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    lookup: dict[str, dict[str, Any]] = {}
+    for tool in tools:
+        for field in ("display_name", "name", "in_code_tool_id"):
+            value = tool.get(field)
+            if value:
+                lookup[str(value)] = tool
+    return lookup
+
+
+def build_tool_lookup_from_personas(personas: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    tools: list[dict[str, Any]] = []
+    for persona in personas:
+        tools.extend(persona.get("tools", []))
+    return build_tool_lookup(tools)
+
+
+def is_builtin_tool(tool: dict[str, Any] | None) -> bool:
+    return bool(tool and tool.get("in_code_tool_id"))
+
+
 def get_persona(base_url: str, cookie: str, persona_id: int) -> dict[str, Any]:
     response = requests.get(
         f"{base_url}/persona/{persona_id}",
@@ -191,26 +213,61 @@ def get_db_connection(password: str | None = None):
     )
 
 
+def run_docker_psql(sql: str, capture_output: bool = True) -> str:
+    stdout = subprocess.PIPE if capture_output else subprocess.DEVNULL
+    result = subprocess.run(
+        [
+            "docker",
+            "exec",
+            "-i",
+            "onyx-relational_db-1",
+            "psql",
+            "-U",
+            "postgres",
+            "-d",
+            "postgres",
+            "-q",
+            "-At",
+            "-c",
+            sql,
+        ],
+        check=True,
+        stdout=stdout,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return result.stdout.strip() if capture_output else ""
+
+
 def get_builtin_tool_id_from_db(
     tool_code_id: str, db_password: str | None = None
 ) -> int | None:
-    conn = get_db_connection(password=db_password)
     try:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT id
-                FROM tool
-                WHERE in_code_tool_id = %s
-                ORDER BY enabled DESC, id ASC
-                LIMIT 1
-                """,
-                (tool_code_id,),
-            )
-            row = cur.fetchone()
-            return row[0] if row else None
-    finally:
-        conn.close()
+        conn = get_db_connection(password=db_password)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id
+                    FROM tool
+                    WHERE in_code_tool_id = %s
+                    ORDER BY enabled DESC, id ASC
+                    LIMIT 1
+                    """,
+                    (tool_code_id,),
+                )
+                row = cur.fetchone()
+                return row[0] if row else None
+        finally:
+            conn.close()
+    except Exception:
+        escaped_tool_code_id = tool_code_id.replace("'", "''")
+        output = run_docker_psql(
+            "SELECT id FROM tool "
+            f"WHERE in_code_tool_id = '{escaped_tool_code_id}' "
+            "ORDER BY enabled DESC, id ASC LIMIT 1;"
+        )
+        return int(output) if output else None
 
 
 def attach_tools_to_persona_db(
@@ -219,21 +276,31 @@ def attach_tools_to_persona_db(
     if not tool_ids:
         return
 
-    conn = get_db_connection(password=db_password)
     try:
-        with conn.cursor() as cur:
-            for tool_id in tool_ids:
-                cur.execute(
-                    """
-                    INSERT INTO persona__tool (persona_id, tool_id)
-                    VALUES (%s, %s)
-                    ON CONFLICT (persona_id, tool_id) DO NOTHING
-                    """,
-                    (persona_id, tool_id),
-                )
-        conn.commit()
-    finally:
-        conn.close()
+        conn = get_db_connection(password=db_password)
+        try:
+            with conn.cursor() as cur:
+                for tool_id in tool_ids:
+                    cur.execute(
+                        """
+                        INSERT INTO persona__tool (persona_id, tool_id)
+                        VALUES (%s, %s)
+                        ON CONFLICT (persona_id, tool_id) DO NOTHING
+                        """,
+                        (persona_id, tool_id),
+                    )
+            conn.commit()
+            return
+        finally:
+            conn.close()
+    except Exception:
+        values = ", ".join(f"({persona_id}, {tool_id})" for tool_id in tool_ids)
+        run_docker_psql(
+            "INSERT INTO persona__tool (persona_id, tool_id) "
+            f"VALUES {values} "
+            "ON CONFLICT (persona_id, tool_id) DO NOTHING;",
+            capture_output=False,
+        )
 
 
 def build_persona_payload(
@@ -292,6 +359,60 @@ def merge_ids_preserving_order(*id_lists: list[int]) -> list[int]:
     return merged
 
 
+def resolve_tool_ids_for_persona(
+    tool_names: list[str],
+    api_tool_lookup: dict[str, dict[str, Any]],
+    persona_tool_lookup: dict[str, dict[str, Any]],
+    existing_persona: dict[str, Any] | None,
+    db_password: str | None = None,
+) -> tuple[list[int], list[int], list[int], list[str]]:
+    resolved_tools: list[int] = []
+    api_assignable_tool_ids: list[int] = []
+    db_only_tool_ids: list[int] = []
+    missing_tools: list[str] = []
+    existing_tool_lookup = build_tool_lookup(existing_persona.get("tools", [])) if existing_persona else {}
+
+    for tool_name in tool_names:
+        tool = api_tool_lookup.get(tool_name)
+        if tool:
+            resolved_tools.append(tool["id"])
+            api_assignable_tool_ids.append(tool["id"])
+            continue
+
+        tool = existing_tool_lookup.get(tool_name) or persona_tool_lookup.get(tool_name)
+        if tool:
+            resolved_tools.append(tool["id"])
+            if is_builtin_tool(tool):
+                db_only_tool_ids.append(tool["id"])
+            else:
+                api_assignable_tool_ids.append(tool["id"])
+            continue
+
+        tool_code_id = BUILTIN_TOOL_CODE_IDS.get(tool_name)
+        if tool_code_id:
+            tool = existing_tool_lookup.get(tool_code_id) or persona_tool_lookup.get(tool_code_id)
+            if tool:
+                resolved_tools.append(tool["id"])
+                db_only_tool_ids.append(tool["id"])
+                continue
+
+            try:
+                tool_id = get_builtin_tool_id_from_db(tool_code_id, db_password=db_password)
+            except Exception as exc:
+                print(f"    [WARN] Failed DB lookup for tool {tool_name}: {exc}")
+                missing_tools.append(tool_name)
+                continue
+
+            if tool_id is not None:
+                resolved_tools.append(tool_id)
+                db_only_tool_ids.append(tool_id)
+                continue
+
+        missing_tools.append(tool_name)
+
+    return resolved_tools, api_assignable_tool_ids, db_only_tool_ids, missing_tools
+
+
 def create_persona(base_url: str, cookie: str, payload: dict[str, Any]) -> dict[str, Any]:
     response = requests.post(
         f"{base_url}/persona",
@@ -332,9 +453,11 @@ def verify_personas(base_url: str, cookie: str) -> int:
 def apply_personas(
     base_url: str, cookie: str, dry_run: bool, db_password: str | None = None
 ) -> int:
+    persona_list = list_personas(base_url, cookie)
     existing_personas = {
-        persona["name"]: persona for persona in list_personas(base_url, cookie)
+        persona["name"]: persona for persona in persona_list
     }
+    persona_tool_lookup = build_tool_lookup_from_personas(persona_list)
     document_sets = {
         document_set["name"]: document_set for document_set in list_document_sets(base_url, cookie)
     }
@@ -349,34 +472,21 @@ def apply_personas(
             errors += 1
             continue
 
-        resolved_tools: list[int] = []
-        api_assignable_tool_ids: list[int] = []
-        db_only_tool_ids: list[int] = []
-        missing_tools: list[str] = []
-        for tool_name in config["tool_names"]:
-            tool = tools.get(tool_name)
-            if tool:
-                resolved_tools.append(tool["id"])
-                api_assignable_tool_ids.append(tool["id"])
-                continue
+        existing_persona = None
+        if config["name"] in existing_personas:
+            existing_persona = get_persona(
+                base_url, cookie, existing_personas[config["name"]]["id"]
+            )
 
-            tool_code_id = BUILTIN_TOOL_CODE_IDS.get(tool_name)
-            if not tool_code_id:
-                missing_tools.append(tool_name)
-                continue
-
-            try:
-                tool_id = get_builtin_tool_id_from_db(tool_code_id, db_password=db_password)
-            except Exception as exc:
-                print(f"    [WARN] Failed DB lookup for tool {tool_name}: {exc}")
-                missing_tools.append(tool_name)
-                continue
-
-            if tool_id is not None:
-                resolved_tools.append(tool_id)
-                db_only_tool_ids.append(tool_id)
-            else:
-                missing_tools.append(tool_name)
+        resolved_tools, api_assignable_tool_ids, db_only_tool_ids, missing_tools = (
+            resolve_tool_ids_for_persona(
+                tool_names=config["tool_names"],
+                api_tool_lookup=tools,
+                persona_tool_lookup=persona_tool_lookup,
+                existing_persona=existing_persona,
+                db_password=db_password,
+            )
+        )
 
         payload = build_persona_payload(
             persona_config=config,
@@ -397,12 +507,14 @@ def apply_personas(
         try:
             if config["name"] in existing_personas:
                 persona_id = existing_personas[config["name"]]["id"]
-                existing_persona = get_persona(base_url, cookie, persona_id)
-                existing_tool_ids = [
-                    tool["id"] for tool in existing_persona.get("tools", [])
+                assert existing_persona is not None
+                existing_custom_tool_ids = [
+                    tool["id"]
+                    for tool in existing_persona.get("tools", [])
+                    if not is_builtin_tool(tool)
                 ]
                 payload["tool_ids"] = merge_ids_preserving_order(
-                    existing_tool_ids,
+                    existing_custom_tool_ids,
                     api_assignable_tool_ids,
                 )
                 payload["users"] = normalize_reference_ids(
@@ -419,14 +531,19 @@ def apply_personas(
                 print(f"  [OK] Created persona: {config['name']} (id={persona_id})")
 
             if db_only_tool_ids:
-                attach_tools_to_persona_db(
-                    persona_id=persona_id,
-                    tool_ids=db_only_tool_ids,
-                    db_password=db_password,
-                )
-                print(
-                    f"  [OK] Restored DB-only tool bindings for {config['name']}: {db_only_tool_ids}"
-                )
+                try:
+                    attach_tools_to_persona_db(
+                        persona_id=persona_id,
+                        tool_ids=db_only_tool_ids,
+                        db_password=db_password,
+                    )
+                    print(
+                        f"  [OK] Restored DB-only tool bindings for {config['name']}: {db_only_tool_ids}"
+                    )
+                except Exception as exc:
+                    print(
+                        f"  [WARN] Could not restore DB-only tool bindings for {config['name']}: {exc}"
+                    )
 
             if missing_tools:
                 print(f"  [WARN] Persona created without missing tools: {missing_tools}")
