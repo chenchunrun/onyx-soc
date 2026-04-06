@@ -202,12 +202,57 @@ def get_persona(base_url: str, cookie: str, persona_id: int) -> dict | None:
     return None
 
 
+def _normalize_reference_ids(values: list) -> list:
+    normalized = []
+    for value in values:
+        if isinstance(value, dict):
+            ref_id = value.get("id")
+            if ref_id is not None:
+                normalized.append(ref_id)
+        else:
+            normalized.append(value)
+    return normalized
+
+
+def build_persona_update_payload(persona: dict, tool_ids: list[int]) -> dict:
+    return {
+        "name": persona["name"],
+        "description": persona["description"],
+        "document_set_ids": [doc_set["id"] for doc_set in persona.get("document_sets", [])],
+        "is_public": persona["is_public"],
+        "llm_model_provider_override": persona.get("llm_model_provider_override"),
+        "llm_model_version_override": persona.get("llm_model_version_override"),
+        "starter_messages": persona.get("starter_messages"),
+        "users": _normalize_reference_ids(persona.get("users", [])),
+        "groups": _normalize_reference_ids(persona.get("groups", [])),
+        "tool_ids": tool_ids,
+        "remove_image": None,
+        "uploaded_image_id": persona.get("uploaded_image_id"),
+        "icon_name": persona.get("icon_name"),
+        "search_start_date": persona.get("search_start_date"),
+        "label_ids": _normalize_reference_ids(persona.get("labels", [])),
+        "is_featured": persona.get("is_featured", False),
+        "user_file_ids": persona.get("user_file_ids", []),
+        "hierarchy_node_ids": _normalize_reference_ids(persona.get("hierarchy_nodes", [])),
+        "document_ids": _normalize_reference_ids(persona.get("attached_documents", [])),
+        "system_prompt": persona.get("system_prompt", ""),
+        "replace_base_system_prompt": False,
+        "task_prompt": persona.get("task_prompt", ""),
+        "datetime_aware": persona.get("datetime_aware", True),
+    }
+
+
 def update_persona_tools(base_url: str, cookie: str, persona_id: int,
                         tool_ids: list[int]) -> bool:
     """Update persona's attached tools."""
+    persona = get_persona(base_url, cookie, persona_id)
+    if not persona:
+        print(f"  [ERROR] Persona not found: {persona_id}")
+        return False
+
     resp = requests.patch(
-        f"{base_url}/admin/persona/{persona_id}",
-        json={"tool_ids": tool_ids},
+        f"{base_url}/persona/{persona_id}",
+        json=build_persona_update_payload(persona, tool_ids),
         cookies={"fastapiusersauth": cookie},
         timeout=10
     )
@@ -223,6 +268,16 @@ def get_persona_tool_ids(base_url: str, cookie: str, persona_id: int) -> list[in
     if persona:
         return [t["id"] for t in persona.get("tools", [])]
     return []
+
+
+def merge_tool_ids(existing_tool_ids: list[int], added_tool_ids: list[int]) -> list[int]:
+    merged: list[int] = []
+    seen: set[int] = set()
+    for tool_id in existing_tool_ids + added_tool_ids:
+        if tool_id not in seen:
+            merged.append(tool_id)
+            seen.add(tool_id)
+    return merged
 
 
 # ─── OpenAPI Template Definitions ─────────────────────────────────────────────
@@ -359,25 +414,33 @@ def apply_tool_definitions(base_url: str, cookie: str, dry_run: bool = False) ->
             print(f"  [DRY RUN] Would attach to persona {persona_name}: {tool_names}")
         return results
 
-    # Get DB connection for attaching tools
-    try:
-        conn = get_db_connection()
-    except Exception as e:
-        results["errors"].append(f"DB connection failed: {e}")
-        return results
-
     for persona_name, tool_names in PERSONA_BINDINGS.items():
         persona_id = get_persona_id_by_name(base_url, cookie, persona_name)
         if persona_id is None:
             results["errors"].append(f"Persona not found: {persona_name}")
             continue
-        for tool_name in tool_names:
-            tool_id = tool_id_map.get(tool_name)
-            if tool_id and attach_tool_to_persona(conn, persona_id, tool_id):
-                print(f"  [OK] Attached {tool_name} to persona {persona_name} (id={persona_id})")
-                results["personas_updated"].append(persona_id)
 
-    conn.close()
+        current_tool_ids = get_persona_tool_ids(base_url, cookie, persona_id)
+        desired_tool_ids = [
+            tool_id_map[tool_name]
+            for tool_name in tool_names
+            if tool_name in tool_id_map and isinstance(tool_id_map[tool_name], int)
+        ]
+        merged_tool_ids = merge_tool_ids(current_tool_ids, desired_tool_ids)
+
+        if merged_tool_ids == current_tool_ids:
+            print(f"  [SKIP] Persona already has required tools: {persona_name} (id={persona_id})")
+            continue
+
+        if update_persona_tools(base_url, cookie, persona_id, merged_tool_ids):
+            print(
+                f"  [OK] Attached tools to persona {persona_name} (id={persona_id}): "
+                f"{desired_tool_ids}"
+            )
+            results["personas_updated"].append(persona_id)
+        else:
+            results["errors"].append(f"Failed to update persona tools: {persona_name}")
+
     return results
 
 

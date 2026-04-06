@@ -269,6 +269,29 @@ def build_persona_payload(
     }
 
 
+def normalize_reference_ids(values: list[Any]) -> list[Any]:
+    normalized: list[Any] = []
+    for value in values:
+        if isinstance(value, dict):
+            ref_id = value.get("id")
+            if ref_id is not None:
+                normalized.append(ref_id)
+        else:
+            normalized.append(value)
+    return normalized
+
+
+def merge_ids_preserving_order(*id_lists: list[int]) -> list[int]:
+    merged: list[int] = []
+    seen: set[int] = set()
+    for id_list in id_lists:
+        for value in id_list:
+            if value not in seen:
+                merged.append(value)
+                seen.add(value)
+    return merged
+
+
 def create_persona(base_url: str, cookie: str, payload: dict[str, Any]) -> dict[str, Any]:
     response = requests.post(
         f"{base_url}/persona",
@@ -375,14 +398,19 @@ def apply_personas(
             if config["name"] in existing_personas:
                 persona_id = existing_personas[config["name"]]["id"]
                 existing_persona = get_persona(base_url, cookie, persona_id)
-                existing_custom_tool_ids = [
-                    tool["id"]
-                    for tool in existing_persona.get("tools", [])
-                    if not tool.get("in_code_tool_id")
+                existing_tool_ids = [
+                    tool["id"] for tool in existing_persona.get("tools", [])
                 ]
-                payload["tool_ids"] = api_assignable_tool_ids + existing_custom_tool_ids
-                payload["users"] = existing_persona.get("users", [])
-                payload["groups"] = existing_persona.get("groups", [])
+                payload["tool_ids"] = merge_ids_preserving_order(
+                    existing_tool_ids,
+                    api_assignable_tool_ids,
+                )
+                payload["users"] = normalize_reference_ids(
+                    existing_persona.get("users", [])
+                )
+                payload["groups"] = normalize_reference_ids(
+                    existing_persona.get("groups", [])
+                )
                 update_persona(base_url, cookie, persona_id, payload)
                 print(f"  [OK] Updated persona: {config['name']} (id={persona_id})")
             else:
