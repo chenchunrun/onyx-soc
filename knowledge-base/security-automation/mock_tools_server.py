@@ -13,7 +13,9 @@ Usage:
 """
 
 import argparse
+import hashlib
 import json
+import random
 import re
 import sys
 import threading
@@ -85,7 +87,6 @@ def ip_lookup(ip: str) -> dict:
     info = KNOWN_MALICIOUS_IPS.get(ip)
     if info is None:
         # Generate plausible data for unknown IPs
-        import hashlib
         h = int(hashlib.md5(ip.encode()).hexdigest()[:8], 16)
         return {
             "malicious": h % 10 == 0,
@@ -130,7 +131,6 @@ def hash_lookup(hash_val: str) -> dict:
     """Simulate file hash threat intelligence lookup."""
     info = KNOWN_MALICIOUS_HASHES.get(hash_val)
     if info is None:
-        import hashlib
         h = int(hashlib.md5(hash_val.encode()).hexdigest()[:8], 16)
         return {
             "malicious": False,
@@ -248,6 +248,22 @@ class MockToolsHandler(BaseHTTPRequestHandler):
         self._set_headers(404)
         self.wfile.write(json.dumps({"error": "Not found", "path": path}).encode())
 
+    def do_DELETE(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        # ── Clear received requests ──
+        if path == "/__requests__":
+            RECEIVED_REQUESTS.clear()
+            self._set_headers(200)
+            self.wfile.write(json.dumps({"status": "cleared"}).encode())
+            log("DELETE", CYAN, "/__requests__ (cleared)")
+            return
+
+        log("404", RED, f"DELETE {path}")
+        self._set_headers(404)
+        self.wfile.write(json.dumps({"error": "Not found", "path": path}).encode())
+
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
@@ -277,7 +293,7 @@ class MockToolsHandler(BaseHTTPRequestHandler):
 
         # ── Ticket Creation ──
         m = re.match(r"/issue(?:/(.+))?$", path)
-        if m and (path.startswith("/issue")):
+        if m:
             log_request("POST", path, body, headers)
 
             summary = (body.get("summary", "Untitled Ticket") if body else "Untitled Ticket")
@@ -285,7 +301,6 @@ class MockToolsHandler(BaseHTTPRequestHandler):
             project_key = (body.get("project_key", "SEC") if body else "SEC")
             labels = (body.get("labels", []) if body else [])
 
-            import random
             ticket_num = random.randint(100, 999)
 
             self._set_headers(201)
