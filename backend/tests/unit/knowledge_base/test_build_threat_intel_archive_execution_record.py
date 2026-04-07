@@ -53,6 +53,9 @@ def test_build_execution_record_contains_audit_sections() -> None:
         execution_plan_path=Path(
             "knowledge-base/threat-intelligence/archive_execution_plans/phase-1-cisa-limited-historical.md"
         ),
+        execution_result_path=Path(
+            "knowledge-base/threat-intelligence/archive_execution_results/phase-1-cisa-limited-historical.json"
+        ),
     )
 
     assert "# Threat-Intel Archive Execution Record" in text
@@ -61,6 +64,7 @@ def test_build_execution_record_contains_audit_sections() -> None:
     assert "## Validation Results" in text
     assert "## Rollback" in text
     assert "rollback_triggered" in text
+    assert "execution_result" in text
 
 
 def test_default_record_path_uses_policy_output() -> None:

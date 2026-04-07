@@ -192,6 +192,7 @@ python knowledge-base/bootstrap_security_platform.py --apply --deployment-profil
 - 指定批次的 archive action script 可通过 `knowledge-base/build_threat_intel_archive_action_script.py --batch-id ...` 生成
 - 指定批次的 archive execution plan 可通过 `knowledge-base/build_threat_intel_archive_execution_plan.py --batch-id ...` 生成
 - 指定批次的 archive execution record 模板可通过 `knowledge-base/build_threat_intel_archive_execution_record.py --batch-id ...` 生成
+- archive action script 现支持 `ACTION_MODE=preview/apply`，并会自动写出 execution result 摘要
 - 本地额外 feed 会在 `setup_security_threat_intel.py --verify` 中以 `Unmanaged local feeds` 形式显示，默认只告警不阻断
 - 如需把“存在本地未纳管 feed”视为失败条件，可加 `--strict-local-corpus`
 - 未纳管 feed 的分级结果可通过 `curate_threat_intel_corpus.py` 查看，其中 `promotion_candidate` 表示应考虑纳入正式知识包

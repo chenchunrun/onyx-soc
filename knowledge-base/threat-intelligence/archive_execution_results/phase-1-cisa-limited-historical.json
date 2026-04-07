@@ -1,0 +1,12 @@
+{
+  "batch_id": "phase-1-cisa-limited-historical",
+  "completed": false,
+  "mode": "preview",
+  "summary": {
+    "actual_governed_total": 1902,
+    "archive_candidates_total": 203,
+    "projected_governed_total": 1755,
+    "remaining_candidate_count": 147,
+    "retained_historical_total": 1061
+  }
+}

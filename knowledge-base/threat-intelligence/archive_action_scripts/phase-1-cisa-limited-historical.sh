@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Generated archive action script for phase-1-cisa-limited-historical
-echo '[INFO] Applying archive batch: phase-1-cisa-limited-historical'
+ACTION_MODE="${ACTION_MODE:-preview}"
+echo "[INFO] Archive batch: phase-1-cisa-limited-historical mode=$ACTION_MODE"
 PYTHON_BIN="${PYTHON_BIN:-}"
 if [ -z "$PYTHON_BIN" ]; then
   if [ -x ".venv/bin/python" ]; then
@@ -14,6 +15,14 @@ if [ -z "$PYTHON_BIN" ]; then
   fi
 fi
 
+if [ "$ACTION_MODE" != "preview" ] && [ "$ACTION_MODE" != "apply" ]; then
+  echo "[ERROR] ACTION_MODE must be preview or apply" >&2
+  exit 1
+fi
+
+if [ "$ACTION_MODE" = "preview" ]; then
+  echo '[INFO] Preview mode: no files will be removed'
+else
 git rm \
   'knowledge-base/威胁情报/feeds/CVE_2002_0367.md' \
   'knowledge-base/威胁情报/feeds/CVE_2004_0210.md' \
@@ -162,11 +171,13 @@ git rm \
   'knowledge-base/威胁情报/feeds/CVE_2014_8361.md' \
   'knowledge-base/威胁情报/feeds/CVE_2014_8439.md' \
   'knowledge-base/威胁情报/feeds/CVE_2014_9163.md'
+fi
 
 $PYTHON_BIN knowledge-base/build_threat_intel_manifest.py --write
 $PYTHON_BIN knowledge-base/assess_threat_intel_lifecycle.py --write-report
 $PYTHON_BIN knowledge-base/build_threat_intel_archive_worklist.py --batch-id phase-1-cisa-limited-historical --write-report
 $PYTHON_BIN knowledge-base/build_threat_intel_archive_patch_preview.py --batch-id phase-1-cisa-limited-historical --write-report
+$PYTHON_BIN knowledge-base/build_threat_intel_archive_execution_result.py --batch-id phase-1-cisa-limited-historical --mode "$ACTION_MODE" --write-result --show-summary --result-path 'knowledge-base/threat-intelligence/archive_execution_results/phase-1-cisa-limited-historical.json'
 $PYTHON_BIN knowledge-base/setup_security_threat_intel.py --verify --local-only
 
 echo '[OK] Archive batch script completed'

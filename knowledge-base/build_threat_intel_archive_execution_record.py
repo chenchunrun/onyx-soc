@@ -15,6 +15,7 @@ if str(MODULE_DIR) not in sys.path:
 from assess_threat_intel_lifecycle import CURATION_POLICY_PATH
 from assess_threat_intel_lifecycle import load_policy
 from build_threat_intel_archive_execution_plan import default_plan_path
+from build_threat_intel_archive_execution_result import default_result_path
 from build_threat_intel_archive_patch_preview import default_report_path as default_patch_preview_path
 from build_threat_intel_archive_patch_preview import load_json
 from build_threat_intel_archive_worklist import default_worklist_path
@@ -38,6 +39,7 @@ def build_execution_record(
     worklist: dict[str, Any],
     preview: dict[str, Any],
     execution_plan_path: Path,
+    execution_result_path: Path,
 ) -> str:
     worklist_summary = worklist["summary"]
     preview_summary = preview["summary"]
@@ -95,6 +97,7 @@ def build_execution_record(
 - `execution_plan`: `{execution_plan_path.as_posix()}`
 - `worklist`: `knowledge-base/threat-intelligence/archive_worklists/{batch_id}.json`
 - `patch_preview`: `knowledge-base/threat-intelligence/archive_patch_previews/{batch_id}.json`
+- `execution_result`: `{execution_result_path.as_posix()}`
 
 ## Execution Checklist
 
@@ -149,6 +152,7 @@ def main() -> int:
     worklist_path = default_worklist_path(args.batch_id, policy)
     preview_path = default_patch_preview_path(args.batch_id, policy)
     execution_plan_path = default_plan_path(args.batch_id, policy)
+    execution_result_path = default_result_path(args.batch_id, policy)
     worklist = load_json(worklist_path)
     preview = load_json(preview_path)
     record = build_execution_record(
@@ -156,6 +160,7 @@ def main() -> int:
         worklist=worklist,
         preview=preview,
         execution_plan_path=execution_plan_path,
+        execution_result_path=execution_result_path,
     )
     record_path = args.record_path or default_record_path(args.batch_id, policy)
     if args.write_record:

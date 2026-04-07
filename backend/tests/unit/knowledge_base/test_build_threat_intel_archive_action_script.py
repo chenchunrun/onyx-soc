@@ -34,8 +34,11 @@ def test_build_action_script_contains_git_rm_and_followup_steps() -> None:
     script = module.build_action_script(preview)
 
     assert "git rm" in script
+    assert 'ACTION_MODE="${ACTION_MODE:-preview}"' in script
+    assert 'if [ "$ACTION_MODE" = "preview" ]; then' in script
     assert '$PYTHON_BIN knowledge-base/build_threat_intel_manifest.py --write' in script
     assert '$PYTHON_BIN knowledge-base/assess_threat_intel_lifecycle.py --write-report' in script
+    assert '$PYTHON_BIN knowledge-base/build_threat_intel_archive_execution_result.py --batch-id phase-1-cisa-limited-historical --mode "$ACTION_MODE" --write-result --show-summary' in script
     assert '$PYTHON_BIN knowledge-base/setup_security_threat_intel.py --verify --local-only' in script
     assert "\n+  " not in script
     assert 'PYTHON_BIN="${PYTHON_BIN:-}"' in script

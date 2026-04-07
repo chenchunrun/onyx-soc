@@ -48,6 +48,7 @@
 - `execution_plan`: `/Users/newmba/Downloads/onyx-main/knowledge-base/threat-intelligence/archive_execution_plans/phase-1-cisa-limited-historical.md`
 - `worklist`: `knowledge-base/threat-intelligence/archive_worklists/phase-1-cisa-limited-historical.json`
 - `patch_preview`: `knowledge-base/threat-intelligence/archive_patch_previews/phase-1-cisa-limited-historical.json`
+- `execution_result`: `/Users/newmba/Downloads/onyx-main/knowledge-base/threat-intelligence/archive_execution_results/phase-1-cisa-limited-historical.json`
 
 ## Execution Checklist
 

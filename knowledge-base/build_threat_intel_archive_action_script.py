@@ -15,6 +15,7 @@ from assess_threat_intel_lifecycle import CURATION_POLICY_PATH
 from assess_threat_intel_lifecycle import load_policy
 from build_threat_intel_archive_patch_preview import default_report_path
 from build_threat_intel_archive_patch_preview import load_json
+from build_threat_intel_archive_execution_result import default_result_path
 
 ROOT = MODULE_DIR
 
@@ -36,12 +37,18 @@ def default_script_path(batch_id: str, policy: dict) -> Path:
 def build_action_script(preview: dict) -> str:
     batch_id = str(preview["batch_id"])
     paths = [str(path) for path in preview.get("paths_to_remove", [])]
+    result_relpath = default_result_path(batch_id, load_policy(CURATION_POLICY_PATH))
+    try:
+        result_path_text = result_relpath.relative_to(ROOT.parent).as_posix()
+    except ValueError:
+        result_path_text = result_relpath.as_posix()
     lines = [
         "#!/usr/bin/env bash",
         "set -euo pipefail",
         "",
         f"# Generated archive action script for {batch_id}",
-        f"echo '[INFO] Applying archive batch: {batch_id}'",
+        'ACTION_MODE="${ACTION_MODE:-preview}"',
+        f"echo \"[INFO] Archive batch: {batch_id} mode=$ACTION_MODE\"",
         'PYTHON_BIN="${PYTHON_BIN:-}"',
         'if [ -z "$PYTHON_BIN" ]; then',
         '  if [ -x ".venv/bin/python" ]; then',
@@ -53,6 +60,14 @@ def build_action_script(preview: dict) -> str:
         '  fi',
         'fi',
         "",
+        'if [ "$ACTION_MODE" != "preview" ] && [ "$ACTION_MODE" != "apply" ]; then',
+        '  echo "[ERROR] ACTION_MODE must be preview or apply" >&2',
+        "  exit 1",
+        "fi",
+        "",
+        "if [ \"$ACTION_MODE\" = \"preview\" ]; then",
+        "  echo '[INFO] Preview mode: no files will be removed'",
+        "else",
     ]
     if paths:
         joined = " \\\n  ".join(shell_quote(path) for path in paths)
@@ -60,15 +75,21 @@ def build_action_script(preview: dict) -> str:
             [
                 "git rm \\",
                 f"  {joined}",
-                "",
             ]
         )
+    lines.extend(
+        [
+            "fi",
+            "",
+        ]
+    )
     lines.extend(
         [
             '$PYTHON_BIN knowledge-base/build_threat_intel_manifest.py --write',
             '$PYTHON_BIN knowledge-base/assess_threat_intel_lifecycle.py --write-report',
             f'$PYTHON_BIN knowledge-base/build_threat_intel_archive_worklist.py --batch-id {batch_id} --write-report',
             f'$PYTHON_BIN knowledge-base/build_threat_intel_archive_patch_preview.py --batch-id {batch_id} --write-report',
+            f'$PYTHON_BIN knowledge-base/build_threat_intel_archive_execution_result.py --batch-id {batch_id} --mode "$ACTION_MODE" --write-result --show-summary --result-path {shell_quote(result_path_text)}',
             '$PYTHON_BIN knowledge-base/setup_security_threat_intel.py --verify --local-only',
             "",
             "echo '[OK] Archive batch script completed'",

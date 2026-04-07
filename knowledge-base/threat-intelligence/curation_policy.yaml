@@ -46,3 +46,4 @@ output:
   archive_action_script_dir: knowledge-base/threat-intelligence/archive_action_scripts
   archive_execution_plan_dir: knowledge-base/threat-intelligence/archive_execution_plans
   archive_execution_record_dir: knowledge-base/threat-intelligence/archive_execution_records
+  archive_execution_result_dir: knowledge-base/threat-intelligence/archive_execution_results
