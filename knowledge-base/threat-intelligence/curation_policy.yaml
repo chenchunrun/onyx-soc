@@ -40,3 +40,4 @@ output:
   report_path: knowledge-base/threat-intelligence/unmanaged_feed_report.json
   lifecycle_report_path: knowledge-base/threat-intelligence/lifecycle_report.json
   archive_plan_path: knowledge-base/threat-intelligence/archive_plan.json
+  archive_batches_path: knowledge-base/threat-intelligence/archive_batches.json

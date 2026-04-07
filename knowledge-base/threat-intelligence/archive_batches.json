@@ -1,0 +1,90 @@
+{
+  "batches": [
+    {
+      "batch_id": "phase-1-cisa-limited-historical",
+      "candidate_count": 147,
+      "description": "First archive review batch for low-value historical CISA placeholder feeds.",
+      "preview_cve_ids": [
+        "CVE-2002-0367",
+        "CVE-2004-0210",
+        "CVE-2004-1464",
+        "CVE-2005-2773",
+        "CVE-2006-1547",
+        "CVE-2006-2492",
+        "CVE-2007-0671",
+        "CVE-2007-3010",
+        "CVE-2007-5659",
+        "CVE-2008-0015",
+        "CVE-2008-0655",
+        "CVE-2008-2992",
+        "CVE-2008-3431",
+        "CVE-2009-0556",
+        "CVE-2009-0557",
+        "CVE-2009-0563",
+        "CVE-2009-0927",
+        "CVE-2009-1123",
+        "CVE-2009-1151",
+        "CVE-2009-1862"
+      ],
+      "quality_tier": "limited",
+      "recommended_action": "Archive or remove placeholder-heavy historical CISA feeds from the governed package after review.",
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "years": [
+        "2002",
+        "2004",
+        "2005",
+        "2006",
+        "2007",
+        "2008",
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014"
+      ]
+    },
+    {
+      "batch_id": "phase-2-nvd-authoritative-historical",
+      "candidate_count": 56,
+      "description": "Second archive review batch for historical authoritative NVD feeds.",
+      "preview_cve_ids": [
+        "CVE-2008-0176",
+        "CVE-2010-2568",
+        "CVE-2010-2772",
+        "CVE-2010-4740",
+        "CVE-2011-1565",
+        "CVE-2011-1566",
+        "CVE-2011-1567",
+        "CVE-2011-1568",
+        "CVE-2011-2214",
+        "CVE-2011-2959",
+        "CVE-2011-3322",
+        "CVE-2011-3386",
+        "CVE-2011-3490",
+        "CVE-2011-3495",
+        "CVE-2011-3496",
+        "CVE-2011-3497",
+        "CVE-2011-4050",
+        "CVE-2011-4053",
+        "CVE-2011-4535",
+        "CVE-2011-4537"
+      ],
+      "quality_tier": "authoritative",
+      "recommended_action": "Review whether historical authoritative NVD feeds should be archived into a separate historical package.",
+      "source": "NIST National Vulnerability Database (NVD)",
+      "years": [
+        "2008",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014"
+      ]
+    }
+  ],
+  "summary": {
+    "batch_count": 2,
+    "total_archive_candidates": 203
+  }
+}

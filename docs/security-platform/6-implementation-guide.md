@@ -186,6 +186,7 @@ python knowledge-base/bootstrap_security_platform.py --apply --deployment-profil
 - governed corpus 生命周期评估可通过 `knowledge-base/assess_threat_intel_lifecycle.py` 输出
 - 生命周期报告默认写入 `knowledge-base/threat-intelligence/lifecycle_report.json`
 - 历史 archive candidate 的行动清单可通过 `knowledge-base/plan_threat_intel_archive.py` 生成
+- 可执行归档批次可通过 `knowledge-base/build_threat_intel_archive_batches.py` 生成
 - 本地额外 feed 会在 `setup_security_threat_intel.py --verify` 中以 `Unmanaged local feeds` 形式显示，默认只告警不阻断
 - 如需把“存在本地未纳管 feed”视为失败条件，可加 `--strict-local-corpus`
 - 未纳管 feed 的分级结果可通过 `curate_threat_intel_corpus.py` 查看，其中 `promotion_candidate` 表示应考虑纳入正式知识包
