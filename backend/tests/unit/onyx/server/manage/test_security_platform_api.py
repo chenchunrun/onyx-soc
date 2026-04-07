@@ -28,6 +28,7 @@ from onyx.server.manage.security_platform.api import build_tool_status
 from onyx.server.manage.security_platform.api import build_health_status
 from onyx.server.manage.security_platform.api import get_deployment_profile_issues
 from onyx.server.manage.security_platform.api import get_placeholder_required_env
+from onyx.server.manage.security_platform.api import LICENSE_ENFORCEMENT_ENABLED
 
 
 def test_get_deployment_profile_issues_rejects_localhost_for_demo(monkeypatch) -> None:
@@ -523,7 +524,7 @@ def test_load_self_hosting_summary_detects_license_and_entrypoints(
     summary = load_self_hosting_summary(db_session=object())
 
     assert summary.self_hosted_mode is True
-    assert summary.license_enforcement_enabled is True
+    assert summary.license_enforcement_enabled is LICENSE_ENFORCEMENT_ENABLED
     assert summary.has_license is True
     assert summary.license_status == "active"
     assert summary.license_source == "manual_upload"
