@@ -229,6 +229,7 @@
 当前进展：
 
 - 已新增 governed corpus 生命周期评估脚本：`knowledge-base/assess_threat_intel_lifecycle.py`
+- 已新增 archive 行动清单脚本：`knowledge-base/plan_threat_intel_archive.py`
 - 已补质量分层：
   - `authoritative`
   - `standard`
@@ -242,6 +243,8 @@
   - `active=638`
   - `archive_candidates=203`
   - `retained_historical=1061`
+- 当前下一步已收敛为：
+  - 按 `source / year / quality` 组织 archive candidate 评审和归档动作
 
 
 ### 4.3 扩展 threat-intel 上游源

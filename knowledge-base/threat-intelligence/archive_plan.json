@@ -1,0 +1,91 @@
+{
+  "action_groups": [
+    {
+      "candidate_count": 147,
+      "preview_cve_ids": [
+        "CVE-2002-0367",
+        "CVE-2004-0210",
+        "CVE-2004-1464",
+        "CVE-2005-2773",
+        "CVE-2006-1547",
+        "CVE-2006-2492",
+        "CVE-2007-0671",
+        "CVE-2007-3010",
+        "CVE-2007-5659",
+        "CVE-2008-0015"
+      ],
+      "quality_counts": {
+        "limited": 147
+      },
+      "recommended_action": "Prioritize archive review for placeholder-heavy historical feeds",
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "years": [
+        "2002",
+        "2004",
+        "2005",
+        "2006",
+        "2007",
+        "2008",
+        "2009",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014"
+      ]
+    },
+    {
+      "candidate_count": 56,
+      "preview_cve_ids": [
+        "CVE-2008-0176",
+        "CVE-2010-2568",
+        "CVE-2010-2772",
+        "CVE-2010-4740",
+        "CVE-2011-1565",
+        "CVE-2011-1566",
+        "CVE-2011-1567",
+        "CVE-2011-1568",
+        "CVE-2011-2214",
+        "CVE-2011-2959"
+      ],
+      "quality_counts": {
+        "authoritative": 56
+      },
+      "recommended_action": "Review historical governed feeds for archive packaging",
+      "source": "NIST National Vulnerability Database (NVD)",
+      "years": [
+        "2008",
+        "2010",
+        "2011",
+        "2012",
+        "2013",
+        "2014"
+      ]
+    }
+  ],
+  "summary": {
+    "archive_candidate_total": 203,
+    "by_quality": {
+      "authoritative": 56,
+      "limited": 147
+    },
+    "by_source": {
+      "CISA Known Exploited Vulnerabilities Catalog": 147,
+      "NIST National Vulnerability Database (NVD)": 56
+    },
+    "by_year": {
+      "2002": 1,
+      "2004": 2,
+      "2005": 1,
+      "2006": 2,
+      "2007": 3,
+      "2008": 5,
+      "2009": 12,
+      "2010": 23,
+      "2011": 27,
+      "2012": 32,
+      "2013": 47,
+      "2014": 48
+    }
+  }
+}
