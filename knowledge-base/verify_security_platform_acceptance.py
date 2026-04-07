@@ -787,13 +787,28 @@ def _sql_quote(value: str) -> str:
     return value.replace("'", "''")
 
 
+def _detect_relational_db_container() -> str:
+    """Auto-detect the relational DB container name."""
+    result = subprocess.run(
+        ["docker", "ps", "--format", "{{.Names}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for name in result.stdout.splitlines():
+        if "relational_db" in name or "postgres" in name or "database" in name:
+            return name
+    return "onyx-relational_db-1"
+
+
 def run_docker_psql_query(sql: str) -> list[list[str]]:
+    container = _detect_relational_db_container()
     result = subprocess.run(
         [
             "docker",
             "exec",
             "-i",
-            "onyx-relational_db-1",
+            container,
             "psql",
             "-U",
             "postgres",
@@ -895,7 +910,7 @@ def fetch_db_state_via_docker() -> dict[str, Any]:
         else 0
     )
     recent_doc_sync_failure_result = run_docker_psql_query(
-        "SELECT COUNT(*) FROM document_permission_sync_attempt "
+        "SELECT COUNT(*) FROM doc_permission_sync_attempt "
         "WHERE error_message IS NOT NULL;"
     )
     recent_doc_sync_failure_count = (
@@ -905,7 +920,7 @@ def fetch_db_state_via_docker() -> dict[str, Any]:
     )
     recent_group_sync_failure_result = run_docker_psql_query(
         "SELECT COUNT(*) FROM external_group_permission_sync_attempt "
-        "WHERE error_msg IS NOT NULL;"
+        "WHERE error_message IS NOT NULL;"
     )
     recent_group_sync_failure_count = (
         int(recent_group_sync_failure_result[0][0])
@@ -945,20 +960,20 @@ def fetch_db_state_via_docker() -> dict[str, Any]:
     )
     recent_like_count_result = run_docker_psql_query(
         "SELECT COUNT(*) "
-        "FROM chat_message_feedback "
-        "JOIN chat_message ON chat_message.id = chat_message_feedback.chat_message_id "
+        "FROM chat_feedback "
+        "JOIN chat_message ON chat_message.id = chat_feedback.chat_message_id "
         "WHERE chat_message.message_type = 'ASSISTANT' "
         "AND chat_message.time_sent >= NOW() - INTERVAL '30 days' "
-        "AND chat_message_feedback.is_positive = true;"
+        "AND chat_feedback.is_positive = true;"
     )
     recent_like_count = int(recent_like_count_result[0][0]) if recent_like_count_result else 0
     recent_dislike_count_result = run_docker_psql_query(
         "SELECT COUNT(*) "
-        "FROM chat_message_feedback "
-        "JOIN chat_message ON chat_message.id = chat_message_feedback.chat_message_id "
+        "FROM chat_feedback "
+        "JOIN chat_message ON chat_message.id = chat_feedback.chat_message_id "
         "WHERE chat_message.message_type = 'ASSISTANT' "
         "AND chat_message.time_sent >= NOW() - INTERVAL '30 days' "
-        "AND chat_message_feedback.is_positive = false;"
+        "AND chat_feedback.is_positive = false;"
     )
     recent_dislike_count = (
         int(recent_dislike_count_result[0][0]) if recent_dislike_count_result else 0
@@ -1337,14 +1352,14 @@ def fetch_db_state(db_password: str | None = None) -> dict[str, Any]:
                 docs_with_external_acl_count = int(cur.fetchone()[0])
 
                 cur.execute(
-                    "SELECT COUNT(*) FROM document_permission_sync_attempt "
+                    "SELECT COUNT(*) FROM doc_permission_sync_attempt "
                     "WHERE error_message IS NOT NULL"
                 )
                 recent_doc_sync_failure_count = int(cur.fetchone()[0])
 
                 cur.execute(
                     "SELECT COUNT(*) FROM external_group_permission_sync_attempt "
-                    "WHERE error_msg IS NOT NULL"
+                    "WHERE error_message IS NOT NULL"
                 )
                 recent_group_sync_failure_count = int(cur.fetchone()[0])
 
@@ -1414,20 +1429,20 @@ def fetch_db_state(db_password: str | None = None) -> dict[str, Any]:
                 recent_active_user_count = int(cur.fetchone()[0])
                 cur.execute(
                     "SELECT COUNT(*) "
-                    "FROM chat_message_feedback "
-                    "JOIN chat_message ON chat_message.id = chat_message_feedback.chat_message_id "
+                    "FROM chat_feedback "
+                    "JOIN chat_message ON chat_message.id = chat_feedback.chat_message_id "
                     "WHERE chat_message.message_type = 'ASSISTANT' "
                     "AND chat_message.time_sent >= NOW() - INTERVAL '30 days' "
-                    "AND chat_message_feedback.is_positive = true"
+                    "AND chat_feedback.is_positive = true"
                 )
                 recent_like_count = int(cur.fetchone()[0])
                 cur.execute(
                     "SELECT COUNT(*) "
-                    "FROM chat_message_feedback "
-                    "JOIN chat_message ON chat_message.id = chat_message_feedback.chat_message_id "
+                    "FROM chat_feedback "
+                    "JOIN chat_message ON chat_message.id = chat_feedback.chat_message_id "
                     "WHERE chat_message.message_type = 'ASSISTANT' "
                     "AND chat_message.time_sent >= NOW() - INTERVAL '30 days' "
-                    "AND chat_message_feedback.is_positive = false"
+                    "AND chat_feedback.is_positive = false"
                 )
                 recent_dislike_count = int(cur.fetchone()[0])
                 cur.execute(

@@ -2890,7 +2890,7 @@ def load_self_hosting_summary(
         enterprise_features_enabled=(
             os.environ.get("ENABLE_PAID_ENTERPRISE_EDITION_FEATURES", "").lower()
             == "true"
-            or LICENSE_ENFORCEMENT_ENABLED
+            or not LICENSE_ENFORCEMENT_ENABLED
         ),
         license_enforcement_enabled=LICENSE_ENFORCEMENT_ENABLED,
         has_license=metadata is not None,
@@ -3075,7 +3075,7 @@ def load_static_snapshot() -> dict[str, Any]:
             "self_hosting": {
                 "self_hosted_mode": not MULTI_TENANT,
                 "multi_tenant_mode": bool(MULTI_TENANT),
-                "enterprise_features_enabled": False,
+                "enterprise_features_enabled": not LICENSE_ENFORCEMENT_ENABLED,
                 "license_enforcement_enabled": LICENSE_ENFORCEMENT_ENABLED,
                 "has_license": False,
                 "license_status": None,

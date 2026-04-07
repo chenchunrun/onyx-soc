@@ -105,13 +105,28 @@ def _sql_quote(value: str) -> str:
     return value.replace("'", "''")
 
 
+def _detect_relational_db_container() -> str:
+    """Auto-detect the relational DB container name."""
+    result = subprocess.run(
+        ["docker", "ps", "--format", "{{.Names}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for name in result.stdout.splitlines():
+        if "relational_db" in name or "postgres" in name or "database" in name:
+            return name
+    return "onyx-relational_db-1"
+
+
 def run_docker_psql_query(sql: str) -> list[list[str]]:
+    container = _detect_relational_db_container()
     result = subprocess.run(
         [
             "docker",
             "exec",
             "-i",
-            "onyx-relational_db-1",
+            container,
             "psql",
             "-U",
             "postgres",
