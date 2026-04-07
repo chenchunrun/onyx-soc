@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
+import subprocess
+import sys
 import uuid
 from collections.abc import Generator
 from dataclasses import dataclass
@@ -20,6 +23,8 @@ FRONTEND_API_URL = os.environ.get("ONYX_TEST_API_URL", "http://127.0.0.1:3000/ap
 ADMIN_EMAIL = os.environ.get("ONYX_EMAIL", "security-admin@onyx.local")
 ADMIN_PASSWORD = os.environ.get("ONYX_PASSWORD", "admin123")
 SECURITY_DOCUMENT_SET_NAME = "安全知识库"
+REPO_ROOT = Path(__file__).resolve().parents[5]
+PLAYBOOK_RUNNER = REPO_ROOT / "knowledge-base" / "run_security_playbook.py"
 SECURITY_PERSONA_TOOL_REQUIREMENTS = {
     "安全事件分析师": {
         "builtin_tools": {"Internal Search", "Web Search", "Open URL"},
@@ -213,6 +218,61 @@ LIVE_TOOL_INVOCATION_SCENARIOS = [
         "expected_method": "GET",
         "expected_path_fragment": "/assets/search",
         "response_markers": ["finance-host-01", "Finance", "asset-001"],
+    },
+]
+
+PLAYBOOK_EXECUTION_SCENARIOS = [
+    {
+        "playbook": "incident-triage-readonly",
+        "inputs": {
+            "incident_ip": "8.8.8.8",
+            "asset_hostname": "finance-host-01",
+            "alert_query": "powershell",
+        },
+        "expected_request_paths": [
+            "/alerts/search",
+            "/assets/search",
+        ],
+        "expected_step_ids": [
+            "search_alerts",
+            "lookup_asset",
+            "lookup_threat_intel",
+            "commander_summary",
+        ],
+        "expected_markers": [
+            "finance-host-01",
+            "powershell",
+            "Suspicious PowerShell",
+        ],
+    },
+    {
+        "playbook": "incident-containment-and-ticketing",
+        "inputs": {
+            "incident_ip": "8.8.8.8",
+            "asset_hostname": "finance-host-01",
+            "host_id": "finance-host-01",
+            "alert_query": "powershell",
+        },
+        "expected_request_paths": [
+            "/alerts/search",
+            "/assets/search",
+            "/issue",
+            "/",
+            "/hosts/finance-host-01/isolate",
+        ],
+        "expected_step_ids": [
+            "search_alerts",
+            "lookup_asset",
+            "lookup_threat_intel",
+            "create_ticket",
+            "send_alert",
+            "isolate_host",
+        ],
+        "expected_markers": [
+            "queued",
+            "finance-host-01",
+            "SEC-",
+        ],
     },
 ]
 
@@ -425,6 +485,38 @@ def _list_users(user: DATestUser) -> list[dict[str, Any]]:
     return response.json()["items"]
 
 
+def _run_playbook(
+    playbook: str,
+    inputs: dict[str, str],
+) -> subprocess.CompletedProcess[str]:
+    command = [
+        sys.executable,
+        str(PLAYBOOK_RUNNER),
+        "--execute",
+        "--json",
+        "--playbook",
+        playbook,
+        "--url",
+        FRONTEND_API_URL,
+        "--email",
+        ADMIN_EMAIL,
+        "--password",
+        ADMIN_PASSWORD,
+        "--step-timeout-seconds",
+        "20",
+    ]
+    for key, value in inputs.items():
+        command.extend(["--input", f"{key}={value}"])
+    return subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=180,
+    )
+
+
 @pytest.fixture(scope="module")
 def seeded_security_platform(
     mock_security_tools_server: str,
@@ -616,6 +708,35 @@ def test_security_platform_live_tool_invocation_regression(
     assert any(
         marker in response["full_message"] for marker in scenario["response_markers"]
     ), response["full_message"]
+
+
+@pytest.mark.parametrize("scenario", PLAYBOOK_EXECUTION_SCENARIOS)
+def test_security_platform_playbook_execution_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+    scenario: dict[str, Any],
+) -> None:
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    process = _run_playbook(
+        playbook=scenario["playbook"],
+        inputs=scenario["inputs"],
+    )
+
+    assert process.returncode == 0, process.stderr or process.stdout
+    result = json.loads(process.stdout)
+    assert result["ok"] is True, result
+    assert result["failures"] == [], result
+
+    observed_step_ids = [step["id"] for step in result["steps"]]
+    assert observed_step_ids == scenario["expected_step_ids"], result["steps"]
+
+    rendered_output = json.dumps(result, ensure_ascii=False)
+    for marker in scenario["expected_markers"]:
+        assert marker in rendered_output, rendered_output
+
+    requests_received = get_mock_requests(seeded_security_platform.mock_server_url)
+    observed_paths = [request["path"] for request in requests_received]
+    for expected_path in scenario["expected_request_paths"]:
+        assert any(expected_path in path for path in observed_paths), observed_paths
 
 
 @pytest.mark.parametrize(("persona_name", "token"), PERSONA_CHAT_SCENARIOS)

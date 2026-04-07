@@ -109,7 +109,7 @@
 
 ### 3.3 建设安全底座专属前端工作台
 
-状态：`Next`
+状态：`Done`
 
 目标：
 
@@ -132,10 +132,20 @@
 - 可展示当前 deployment profile、threat-intel 状态、核心 persona 与工具状态
 - 适合演示与内部试运行使用
 
+完成说明：
+
+- 已新增管理后台入口页：`/admin/security-platform`
+- 当前页面已接入单一后端状态源：
+  - deployment profile / required env
+  - threat-intel sync / corpus
+  - playbooks
+  - personas / tools / RBAC
+  - 健康状态、recommended next actions、remediation commands
+
 
 ### 3.4 收口生产化配置管理
 
-状态：`Next`
+状态：`Done`
 
 目标：
 
@@ -154,6 +164,16 @@
 - deployment profile 与 required env 完整可追踪
 - demo/live 环境切换规则清晰
 - 不再依赖口头约定来配置 mock/live 端点
+
+完成说明：
+
+- 已新增统一 deployment profile 契约：`live / demo`
+- 已收口：
+  - threat-intel source profile
+  - security tools profile
+  - required env / missing env
+- `bootstrap --verify`、`acceptance`、安全工作台现在共用同一套健康模型和修复建议
+- `demo` Docker 场景已固化 `host.docker.internal` 约束，不再依赖人工约定
 
 
 ## 4. P1 Backlog
@@ -177,6 +197,13 @@
 
 - 工具调用、角色问答、流程场景均至少有一条自动化回归
 - 新增工具/流程时有对应回归入口
+
+当前进展：
+
+- 已补齐 6 个安全工具的矩阵回归
+- 已补齐 4 个 persona 的 live 聊天回归
+- 已补齐 4 条 live 工具调用回归
+- 下一步重点是 playbook 级别回归和更长链路场景回归
 
 
 ### 4.2 完善 threat-intel 生命周期治理
