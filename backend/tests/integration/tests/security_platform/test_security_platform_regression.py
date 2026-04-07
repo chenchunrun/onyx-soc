@@ -23,19 +23,34 @@ SECURITY_DOCUMENT_SET_NAME = "安全知识库"
 SECURITY_PERSONA_TOOL_REQUIREMENTS = {
     "安全事件分析师": {
         "builtin_tools": {"Internal Search", "Web Search", "Open URL"},
-        "custom_tools": {"threat_intel_lookup", "create_security_ticket"},
+        "custom_tools": {
+            "threat_intel_lookup",
+            "create_security_ticket",
+            "search_security_alerts",
+            "isolate_endpoint_host",
+            "lookup_asset_context",
+        },
     },
     "应急响应指挥官": {
         "builtin_tools": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
-        "custom_tools": {"send_security_alert", "create_security_ticket"},
+        "custom_tools": {
+            "send_security_alert",
+            "create_security_ticket",
+            "search_security_alerts",
+            "isolate_endpoint_host",
+        },
     },
     "漏洞评估专家": {
         "builtin_tools": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
-        "custom_tools": {"threat_intel_lookup", "create_security_ticket"},
+        "custom_tools": {
+            "threat_intel_lookup",
+            "create_security_ticket",
+            "lookup_asset_context",
+        },
     },
     "合规审计员": {
         "builtin_tools": {"Internal Search", "Web Search", "Open URL"},
-        "custom_tools": {"create_security_ticket"},
+        "custom_tools": {"create_security_ticket", "lookup_asset_context"},
     },
 }
 USER_PERSONA_BY_EMAIL = {
@@ -122,6 +137,82 @@ TOOL_INVOCATION_SCENARIOS = [
         ),
         "expected_method": "GET",
         "expected_path_fragment": "/ip_addresses/8.8.8.8",
+    },
+    {
+        "persona_name": "安全事件分析师",
+        "tool_name": "search_security_alerts",
+        "prompt": "检索 powershell 告警。",
+        "mock_llm_response": json.dumps(
+            {
+                "name": "search_security_alerts",
+                "arguments": {
+                    "query": "powershell",
+                    "severity": "high",
+                    "limit": 5,
+                },
+            }
+        ),
+        "expected_method": "GET",
+        "expected_path_fragment": "/alerts/search",
+    },
+    {
+        "persona_name": "安全事件分析师",
+        "tool_name": "isolate_endpoint_host",
+        "prompt": "隔离 finance-host-01 主机。",
+        "mock_llm_response": json.dumps(
+            {
+                "name": "isolate_endpoint_host",
+                "arguments": {
+                    "host_id": "finance-host-01",
+                    "reason": "Regression containment flow",
+                },
+            }
+        ),
+        "expected_method": "POST",
+        "expected_path_fragment": "/hosts/finance-host-01/isolate",
+    },
+    {
+        "persona_name": "漏洞评估专家",
+        "tool_name": "lookup_asset_context",
+        "prompt": "查询 finance-host-01 的资产上下文。",
+        "mock_llm_response": json.dumps(
+            {
+                "name": "lookup_asset_context",
+                "arguments": {
+                    "hostname": "finance-host-01",
+                    "limit": 3,
+                },
+            }
+        ),
+        "expected_method": "GET",
+        "expected_path_fragment": "/assets/search",
+    },
+]
+
+LIVE_TOOL_INVOCATION_SCENARIOS = [
+    {
+        "persona_name": "安全事件分析师",
+        "tool_name": "search_security_alerts",
+        "prompt": "请仅使用 search_security_alerts 查询 query=powershell、severity=high、limit=5，并用一句话总结结果。",
+        "expected_method": "GET",
+        "expected_path_fragment": "/alerts/search",
+        "response_markers": ["ALERT-1001", "PowerShell", "finance-host-01"],
+    },
+    {
+        "persona_name": "安全事件分析师",
+        "tool_name": "isolate_endpoint_host",
+        "prompt": "请仅使用 isolate_endpoint_host 隔离 host_id=finance-host-01，reason=Regression containment flow，并简要确认。",
+        "expected_method": "POST",
+        "expected_path_fragment": "/hosts/finance-host-01/isolate",
+        "response_markers": ["finance-host-01", "queued", "isolate"],
+    },
+    {
+        "persona_name": "漏洞评估专家",
+        "tool_name": "lookup_asset_context",
+        "prompt": "请仅使用 lookup_asset_context 查询 hostname=finance-host-01、limit=3，并简要总结资产上下文。",
+        "expected_method": "GET",
+        "expected_path_fragment": "/assets/search",
+        "response_markers": ["finance-host-01", "Finance", "asset-001"],
     },
 ]
 
@@ -477,6 +568,53 @@ def test_security_platform_threat_intel_live_regression(
     assert any(
         marker in response["full_message"]
         for marker in ["8.8.8.8", "Google", "resolver", "DNS", "reputation"]
+    ), response["full_message"]
+
+
+@pytest.mark.parametrize("scenario", LIVE_TOOL_INVOCATION_SCENARIOS)
+def test_security_platform_live_tool_invocation_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+    scenario: dict[str, Any],
+) -> None:
+    persona = _get_persona_map(seeded_security_platform.admin_user)[scenario["persona_name"]]
+    persona_detail = _get_persona_detail(
+        seeded_security_platform.admin_user, int(persona["id"])
+    )
+    tool_id = next(
+        int(tool["id"])
+        for tool in persona_detail.get("tools", [])
+        if tool["name"] == scenario["tool_name"]
+    )
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        int(persona["id"]),
+        description=f"regression-live-tool-{scenario['tool_name']}-{uuid.uuid4()}",
+    )
+
+    response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=scenario["prompt"],
+        forced_tool_id=tool_id,
+    )
+
+    assert response["error"] is None, f"Unexpected error: {response['error']}"
+    requests_received = get_mock_requests(seeded_security_platform.mock_server_url)
+    assert requests_received, f"No mock requests observed for {scenario['tool_name']}"
+    matching_request = next(
+        (
+            request
+            for request in requests_received
+            if request["method"] == scenario["expected_method"]
+            and scenario["expected_path_fragment"] in request["path"]
+        ),
+        None,
+    )
+    assert matching_request is not None, requests_received
+    assert any(
+        marker in response["full_message"] for marker in scenario["response_markers"]
     ), response["full_message"]
 
 

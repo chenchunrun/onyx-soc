@@ -84,6 +84,12 @@ export const ADMIN_ROUTES = {
     title: "Agents",
     sidebarLabel: "Agents",
   },
+  SECURITY_PLATFORM: {
+    path: "/admin/security-platform",
+    icon: SvgOnyxOctagon,
+    title: "Security Platform",
+    sidebarLabel: "Security Platform",
+  },
   SLACK_BOTS: {
     path: "/admin/bots",
     icon: SvgSlack,

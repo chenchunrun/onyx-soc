@@ -1,0 +1,98 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Asset Inventory API",
+    "description": "资产与 CMDB 查询集成",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "{API_BASE_URL}",
+      "description": "资产平台 API 基础 URL",
+      "variables": {
+        "API_BASE_URL": {
+          "default": "https://cmdb.example.com/api/v1"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/assets/search": {
+      "get": {
+        "operationId": "lookupAssetContext",
+        "summary": "查询资产上下文",
+        "description": "按主机名、IP、资产标签或负责人查询资产上下文。",
+        "security": [{"apiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "hostname",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "主机名"
+          },
+          {
+            "name": "ip",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "IP 地址"
+          },
+          {
+            "name": "owner",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string"},
+            "description": "负责人"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "integer", "default": 10, "minimum": 1, "maximum": 100},
+            "description": "返回结果数"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "assets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "asset_id": {"type": "string"},
+                          "hostname": {"type": "string"},
+                          "ip": {"type": "string"},
+                          "environment": {"type": "string"},
+                          "business_owner": {"type": "string"},
+                          "criticality": {"type": "string"},
+                          "tags": {"type": "array", "items": {"type": "string"}}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {"description": "认证失败"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization"
+      }
+    }
+  }
+}

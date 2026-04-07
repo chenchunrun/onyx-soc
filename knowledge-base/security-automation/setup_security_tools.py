@@ -21,6 +21,7 @@ Requirements:
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -51,11 +52,41 @@ SUPPORTED_TEMPLATES = {
     },
     "security_ticket_api": {
         "required_fields": ["api_url_env", "api_key_env"],
+        "header_key": "Authorization",
     },
     "threat_intel_api": {
         "required_fields": ["api_url_env", "api_key_env"],
+        "header_key": "x-apikey",
+    },
+    "siem_search_api": {
+        "required_fields": ["api_url_env", "api_key_env"],
+        "header_key": "Authorization",
+    },
+    "edr_response_api": {
+        "required_fields": ["api_url_env", "api_key_env"],
+        "header_key": "Authorization",
+    },
+    "asset_inventory_api": {
+        "required_fields": ["api_url_env", "api_key_env"],
+        "header_key": "Authorization",
     },
 }
+
+
+def custom_headers_for_template(
+    template_name: str,
+    api_key: str | None,
+) -> list[dict[str, str]] | None:
+    if not api_key:
+        return None
+
+    header_key = SUPPORTED_TEMPLATES.get(template_name, {}).get("header_key")
+    if not header_key:
+        return None
+
+    if header_key.lower() == "authorization":
+        return [{"key": header_key, "value": f"Bearer {api_key}"}]
+    return [{"key": header_key, "value": api_key}]
 
 
 def get_cookie(base_url: str, email: str, password: str) -> str | None:
@@ -201,23 +232,65 @@ def get_db_connection(password: str | None = None):
     )
 
 
-def attach_tool_to_persona(conn, persona_id: int, tool_id: int) -> bool:
-    """Attach a tool to a persona via the junction table."""
-    cur = conn.cursor()
+def run_docker_psql(sql: str, capture_output: bool = True) -> str:
+    stdout = subprocess.PIPE if capture_output else subprocess.DEVNULL
+    result = subprocess.run(
+        [
+            "docker",
+            "exec",
+            "-i",
+            "onyx-relational_db-1",
+            "psql",
+            "-U",
+            "postgres",
+            "-d",
+            "postgres",
+            "-q",
+            "-At",
+            "-c",
+            sql,
+        ],
+        check=True,
+        stdout=stdout,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return result.stdout.strip() if capture_output else ""
+
+
+def attach_tools_to_persona_db(
+    persona_id: int,
+    tool_ids: list[int],
+    db_password: str | None = None,
+) -> None:
+    if not tool_ids:
+        return
+
     try:
-        cur.execute(
-            "INSERT INTO persona__tool (persona_id, tool_id) VALUES (%s, %s) "
-            "ON CONFLICT (persona_id, tool_id) DO NOTHING",
-            (persona_id, tool_id)
+        conn = get_db_connection(password=db_password)
+        try:
+            with conn.cursor() as cur:
+                for tool_id in tool_ids:
+                    cur.execute(
+                        """
+                        INSERT INTO persona__tool (persona_id, tool_id)
+                        VALUES (%s, %s)
+                        ON CONFLICT (persona_id, tool_id) DO NOTHING
+                        """,
+                        (persona_id, tool_id),
+                    )
+            conn.commit()
+            return
+        finally:
+            conn.close()
+    except Exception:
+        values = ", ".join(f"({persona_id}, {tool_id})" for tool_id in tool_ids)
+        run_docker_psql(
+            "INSERT INTO persona__tool (persona_id, tool_id) "
+            f"VALUES {values} "
+            "ON CONFLICT (persona_id, tool_id) DO NOTHING;",
+            capture_output=False,
         )
-        conn.commit()
-        return True
-    except Exception as e:
-        print(f"  [ERROR] Failed to attach tool {tool_id} to persona {persona_id}: {e}")
-        conn.rollback()
-        return False
-    finally:
-        cur.close()
 
 
 def delete_tool(base_url: str, cookie: str, tool_id: int) -> bool:
@@ -261,6 +334,10 @@ def get_persona(base_url: str, cookie: str, persona_id: int) -> dict | None:
     if resp.status_code == 200:
         return resp.json()
     return None
+
+
+def is_builtin_tool(tool: dict[str, Any] | None) -> bool:
+    return bool(tool and tool.get("in_code_tool_id"))
 
 
 def _normalize_reference_ids(values: list) -> list:
@@ -329,6 +406,20 @@ def get_persona_tool_ids(base_url: str, cookie: str, persona_id: int) -> list[in
     if persona:
         return [t["id"] for t in persona.get("tools", [])]
     return []
+
+
+def split_persona_tool_ids(persona: dict[str, Any]) -> tuple[list[int], list[int]]:
+    builtin_tool_ids: list[int] = []
+    custom_tool_ids: list[int] = []
+    for tool in persona.get("tools", []):
+        tool_id = tool.get("id")
+        if tool_id is None:
+            continue
+        if is_builtin_tool(tool):
+            builtin_tool_ids.append(tool_id)
+        else:
+            custom_tool_ids.append(tool_id)
+    return builtin_tool_ids, custom_tool_ids
 
 
 def merge_tool_ids(existing_tool_ids: list[int], added_tool_ids: list[int]) -> list[int]:
@@ -591,16 +682,8 @@ def apply_tool_definitions(
                 if env_val:
                     server["url"] = env_val
 
-        # Add API key header for ticket API
-        custom_headers = None
-        if config["template"] == "security_ticket_api":
-            api_key = resolve_profile_env_value(config.get("api_key_env", ""), profile_args)
-            if api_key:
-                custom_headers = [{"key": "Authorization", "value": f"Bearer {api_key}"}]
-        elif config["template"] == "threat_intel_api":
-            api_key = resolve_profile_env_value(config.get("api_key_env", ""), profile_args)
-            if api_key:
-                custom_headers = [{"key": "x-apikey", "value": api_key}]
+        api_key = resolve_profile_env_value(config.get("api_key_env", ""), profile_args)
+        custom_headers = custom_headers_for_template(str(config["template"]), api_key)
 
         if dry_run:
             print(f"  [DRY RUN] Would create tool: {tool_name}")
@@ -683,19 +766,32 @@ def apply_tool_definitions(
             results["errors"].append(f"Persona not found: {persona_name}")
             continue
 
-        current_tool_ids = get_persona_tool_ids(base_url, cookie, persona_id)
+        persona = get_persona(base_url, cookie, persona_id)
+        if not persona:
+            results["errors"].append(f"Persona not found: {persona_name}")
+            continue
+
+        builtin_tool_ids, existing_custom_tool_ids = split_persona_tool_ids(persona)
         desired_tool_ids = [
             tool_id_map[tool_name]
             for tool_name in tool_names
             if tool_name in tool_id_map and isinstance(tool_id_map[tool_name], int)
         ]
-        merged_tool_ids = merge_tool_ids(current_tool_ids, desired_tool_ids)
+        merged_tool_ids = merge_tool_ids(existing_custom_tool_ids, desired_tool_ids)
 
-        if merged_tool_ids == current_tool_ids:
+        if merged_tool_ids == existing_custom_tool_ids:
             print(f"  [SKIP] Persona already has required tools: {persona_name} (id={persona_id})")
             continue
 
         if update_persona_tools(base_url, cookie, persona_id, merged_tool_ids):
+            if builtin_tool_ids:
+                try:
+                    attach_tools_to_persona_db(persona_id, builtin_tool_ids)
+                except Exception as exc:
+                    results["errors"].append(
+                        f"Failed to restore builtin tools for persona {persona_name}: {exc}"
+                    )
+                    continue
             print(
                 f"  [OK] Attached tools to persona {persona_name} (id={persona_id}): "
                 f"{desired_tool_ids}"
@@ -727,7 +823,7 @@ def main():
     )
     parser.add_argument("--list-tools", action="store_true")
     parser.add_argument("--create-tool", action="store_true")
-    parser.add_argument("--template", choices=["security_alert_webhook", "security_ticket_api", "threat_intel_api"],
+    parser.add_argument("--template", choices=sorted(SUPPORTED_TEMPLATES),
                         help="Template name")
     parser.add_argument("--name", help="Tool name (for --create-tool)")
     parser.add_argument("--description", help="Tool description (for --create-tool)")
@@ -802,9 +898,7 @@ def main():
                 server["url"] = args.api_url
 
         description = args.description or f"Security {args.template} tool"
-        custom_headers = None
-        if args.api_key:
-            custom_headers = [{"key": "Authorization", "value": f"Bearer {args.api_key}"}]
+        custom_headers = custom_headers_for_template(args.template, args.api_key)
 
         create_tool(
             args.url, cookie, args.name, description,
@@ -894,6 +988,12 @@ def main():
             print("  SECURITY_TICKET_API_KEY=your-jira-api-token")
             print("  THREAT_INTEL_API_URL=https://www.virustotal.com/api/v3")
             print("  THREAT_INTEL_API_KEY=your-virustotal-api-key")
+            print("  SECURITY_SIEM_API_URL=https://siem.example.com/api/v1")
+            print("  SECURITY_SIEM_API_KEY=your-siem-api-token")
+            print("  SECURITY_EDR_API_URL=https://edr.example.com/api/v1")
+            print("  SECURITY_EDR_API_KEY=your-edr-api-token")
+            print("  SECURITY_ASSET_API_URL=https://cmdb.example.com/api/v1")
+            print("  SECURITY_ASSET_API_KEY=your-asset-api-token")
         return
 
     parser.print_help()

@@ -1,4 +1,6 @@
 version: 1
+manifest_exclude_paths:
+  - knowledge-base/威胁情报/feeds/CVE_2026_35616.md
 promotion_rules:
   allow_sources:
     - NIST National Vulnerability Database (NVD)

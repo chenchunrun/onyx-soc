@@ -25,8 +25,17 @@ import yaml
 MODULE_DIR = Path(__file__).resolve().parent
 if str(MODULE_DIR) not in sys.path:
     sys.path.insert(0, str(MODULE_DIR))
+BACKEND_ROOT = MODULE_DIR.parent / "backend"
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
 from curate_threat_intel_corpus import build_unmanaged_report
+from onyx.server.manage.security_platform.api import SecurityPlatformDocumentSetStatus
+from onyx.server.manage.security_platform.api import SecurityPlatformPersonaStatus
+from onyx.server.manage.security_platform.api import SecurityPlatformToolStatus
+from onyx.server.manage.security_platform.api import SecurityPlatformUserStatus
+from onyx.server.manage.security_platform.api import build_health_status
+from onyx.server.manage.security_platform.api import build_recommended_next_actions
 
 
 SECURITY_DOCUMENT_SET_NAME = "安全知识库"
@@ -40,24 +49,13 @@ SECURITY_TOOL_INTEGRATIONS_DIR = (
 )
 SECURITY_TOOL_PROFILES_PATH = SECURITY_TOOL_INTEGRATIONS_DIR / "profiles.yaml"
 DEPLOYMENT_PROFILES_PATH = ROOT.parent / "docs" / "security-platform" / "deployment-profiles.yaml"
+PLAYBOOKS_DIR = ROOT.parent / "docs" / "security-platform" / "playbooks"
 
-SECURITY_PERSONA_TOOL_REQUIREMENTS = {
-    "安全事件分析师": {
-        "builtin_tools": {"Internal Search", "Web Search", "Open URL"},
-        "custom_tools": {"threat_intel_lookup", "create_security_ticket"},
-    },
-    "应急响应指挥官": {
-        "builtin_tools": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
-        "custom_tools": {"send_security_alert", "create_security_ticket"},
-    },
-    "漏洞评估专家": {
-        "builtin_tools": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
-        "custom_tools": {"threat_intel_lookup", "create_security_ticket"},
-    },
-    "合规审计员": {
-        "builtin_tools": {"Internal Search", "Web Search", "Open URL"},
-        "custom_tools": {"create_security_ticket"},
-    },
+SECURITY_PERSONA_BUILTIN_REQUIREMENTS = {
+    "安全事件分析师": {"Internal Search", "Web Search", "Open URL"},
+    "应急响应指挥官": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
+    "漏洞评估专家": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
+    "合规审计员": {"Internal Search", "Web Search", "Open URL"},
 }
 
 SECURITY_USERS = {
@@ -65,12 +63,6 @@ SECURITY_USERS = {
     "analyst@security.local",
     "vuln_expert@security.local",
     "auditor@security.local",
-}
-
-EXPECTED_OPENAPI_TOOLS = {
-    "create_security_ticket",
-    "send_security_alert",
-    "threat_intel_lookup",
 }
 
 USER_PERSONA_BY_EMAIL = {
@@ -92,8 +84,31 @@ def _parse_iso_datetime(value: str) -> datetime | None:
         return None
 
 
-def load_threat_intel_sync_summary() -> dict[str, Any]:
-    profile = os.environ.get("THREAT_INTEL_SOURCE_PROFILE", "live")
+def resolve_env_value(
+    env_name: str,
+    default: str,
+    deployment_profile_summary: dict[str, Any] | None = None,
+) -> str:
+    explicit_value = os.environ.get(env_name, "").strip()
+    if explicit_value:
+        return explicit_value
+    if deployment_profile_summary:
+        profile_env = deployment_profile_summary.get("profile_env", {})
+        if isinstance(profile_env, dict):
+            derived_value = str(profile_env.get(env_name, "")).strip()
+            if derived_value:
+                return derived_value
+    return default
+
+
+def load_threat_intel_sync_summary(
+    deployment_profile_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    profile = resolve_env_value(
+        "THREAT_INTEL_SOURCE_PROFILE",
+        "live",
+        deployment_profile_summary,
+    )
     last_sync_run_at = None
     due_feeds: list[str] = []
 
@@ -194,10 +209,83 @@ def load_security_tool_configs() -> list[dict[str, Any]]:
     return configs
 
 
+def load_playbook_definitions_summary() -> dict[str, Any]:
+    playbooks: list[dict[str, Any]] = []
+    invalid_files: list[str] = []
+    if not PLAYBOOKS_DIR.exists():
+        return {
+            "count": 0,
+            "names": [],
+            "playbooks_with_examples": [],
+            "invalid_files": [],
+        }
+
+    for path in sorted(PLAYBOOKS_DIR.glob("*.yaml")):
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                data = yaml.safe_load(handle) or {}
+        except Exception:
+            invalid_files.append(path.name)
+            continue
+        if not isinstance(data, dict) or not str(data.get("name", "")).strip():
+            invalid_files.append(path.name)
+            continue
+        playbooks.append(data)
+
+    names = [str(playbook["name"]).strip() for playbook in playbooks]
+    playbooks_with_examples = [
+        str(playbook["name"]).strip()
+        for playbook in playbooks
+        if isinstance(playbook.get("example_inputs"), dict) and playbook.get("example_inputs")
+    ]
+    return {
+        "count": len(names),
+        "names": names,
+        "playbooks_with_examples": playbooks_with_examples,
+        "invalid_files": invalid_files,
+    }
+
+
+def build_expected_openapi_tools(configs: list[dict[str, Any]]) -> set[str]:
+    return {
+        str(config.get("name", "")).strip()
+        for config in configs
+        if str(config.get("name", "")).strip()
+    }
+
+
+def build_persona_tool_requirements(
+    configs: list[dict[str, Any]],
+) -> dict[str, dict[str, set[str]]]:
+    requirements = {
+        persona_name: {
+            "builtin_tools": set(builtin_tools),
+            "custom_tools": set(),
+        }
+        for persona_name, builtin_tools in SECURITY_PERSONA_BUILTIN_REQUIREMENTS.items()
+    }
+
+    for config in configs:
+        tool_name = str(config.get("name", "")).strip()
+        if not tool_name:
+            continue
+        for persona_name in config.get("persona_bindings", []):
+            if persona_name not in requirements:
+                continue
+            requirements[persona_name]["custom_tools"].add(tool_name)
+
+    return requirements
+
+
 def load_security_tool_profile_summary(
     openapi_tools: list[dict[str, Any]],
+    deployment_profile_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    profile_name = os.environ.get("SECURITY_TOOLS_PROFILE", "live")
+    profile_name = resolve_env_value(
+        "SECURITY_TOOLS_PROFILE",
+        "live",
+        deployment_profile_summary,
+    )
     configs = load_security_tool_configs()
 
     try:
@@ -249,7 +337,12 @@ def load_security_tool_profile_summary(
             expected_server_url = os.environ.get(resolved_env_name) or None
 
         expected_header_keys: list[str] = []
-        if config.get("template") == "security_ticket_api":
+        if config.get("template") in {
+            "security_ticket_api",
+            "siem_search_api",
+            "edr_response_api",
+            "asset_inventory_api",
+        }:
             expected_header_keys = ["Authorization"]
         elif config.get("template") == "threat_intel_api":
             expected_header_keys = ["x-apikey"]
@@ -302,7 +395,36 @@ def load_deployment_profile_summary() -> dict[str, Any]:
         ),
         "expected_security_tools_profile": expectations.get("security_tools_profile"),
         "required_env": [str(env_name) for env_name in required_env if str(env_name).strip()],
+        "profile_env": profile.get("env", {}) if isinstance(profile, dict) else {},
     }
+
+
+def validate_deployment_profile_runtime(
+    deployment_profile_summary: dict[str, Any],
+) -> list[str]:
+    issues: list[str] = []
+    deployment_profile = str(
+        deployment_profile_summary.get("deployment_profile", "live")
+    ).strip()
+    mock_server_url = resolve_env_value(
+        "SECURITY_TOOLS_MOCK_SERVER_URL",
+        "",
+        deployment_profile_summary,
+    )
+    if (
+        deployment_profile == "demo"
+        and mock_server_url
+        and (
+            "localhost" in mock_server_url.lower()
+            or "127.0.0.1" in mock_server_url
+        )
+    ):
+        issues.append(
+            "Deployment profile demo requires SECURITY_TOOLS_MOCK_SERVER_URL to be "
+            "reachable from Docker containers; use host.docker.internal instead of "
+            f"{mock_server_url}"
+        )
+    return issues
 
 
 def get_cookie(base_url: str, email: str, password: str) -> str | None:
@@ -445,7 +567,7 @@ def run_docker_psql_query(sql: str) -> list[list[str]]:
 
 
 def fetch_db_state_via_docker() -> dict[str, Any]:
-    persona_names = list(SECURITY_PERSONA_TOOL_REQUIREMENTS.keys())
+    persona_names = list(SECURITY_PERSONA_BUILTIN_REQUIREMENTS.keys())
     persona_name_sql = ", ".join(f"'{_sql_quote(name)}'" for name in persona_names)
     security_user_sql = ", ".join(f"'{_sql_quote(email)}'" for email in SECURITY_USERS)
 
@@ -509,7 +631,7 @@ def fetch_db_state(db_password: str | None = None) -> dict[str, Any]:
         conn = get_db_connection(password=db_password)
         try:
             with conn.cursor() as cur:
-                persona_names = list(SECURITY_PERSONA_TOOL_REQUIREMENTS.keys())
+                persona_names = list(SECURITY_PERSONA_BUILTIN_REQUIREMENTS.keys())
                 cur.execute(
                     "SELECT id, name, is_public FROM persona WHERE name = ANY(%s)",
                     (persona_names,),
@@ -571,6 +693,162 @@ def build_persona_tool_aliases(persona: dict[str, Any]) -> set[str]:
     return aliases
 
 
+def build_runtime_health_summary(
+    *,
+    document_set: dict[str, Any] | None,
+    personas: list[dict[str, Any]],
+    openapi_tools: list[dict[str, Any]],
+    db_state: dict[str, Any],
+    threat_intel_sync_summary: dict[str, Any],
+    threat_intel_curation_summary: dict[str, Any],
+    security_tool_profile_summary: dict[str, Any],
+    deployment_profile_summary: dict[str, Any],
+    playbook_definitions_summary: dict[str, Any],
+) -> tuple[dict[str, Any], list[str]]:
+    tool_map = {
+        str(tool.get("name", "")).strip(): tool
+        for tool in openapi_tools
+        if str(tool.get("name", "")).strip()
+    }
+
+    health = build_health_status(
+        profile_name=str(deployment_profile_summary.get("deployment_profile", "live")),
+        expected_threat_profile=str(
+            deployment_profile_summary.get(
+                "expected_threat_intel_source_profile", "live"
+            )
+            or "live"
+        ),
+        expected_tools_profile=str(
+            deployment_profile_summary.get("expected_security_tools_profile", "live")
+            or "live"
+        ),
+        threat_intel_source_profile=str(
+            threat_intel_sync_summary.get("source_profile", "unknown") or "unknown"
+        ),
+        security_tools_profile=str(
+            security_tool_profile_summary.get("profile", "unknown") or "unknown"
+        ),
+        required_env=[
+            str(env_name)
+            for env_name in deployment_profile_summary.get("required_env", [])
+            if str(env_name).strip()
+        ],
+        missing_required_env=[
+            str(env_name)
+            for env_name in deployment_profile_summary.get("required_env", [])
+            if str(env_name).strip()
+            and not resolve_env_value(str(env_name), "", deployment_profile_summary)
+        ],
+        deployment_profile_issues=validate_deployment_profile_runtime(
+            deployment_profile_summary
+        ),
+        document_set_status=SecurityPlatformDocumentSetStatus(
+            id=document_set.get("id") if document_set else None,
+            name=SECURITY_DOCUMENT_SET_NAME,
+            exists=document_set is not None,
+            is_public=document_set.get("is_public") if document_set else None,
+            shared_user_count=len(db_state.get("document_set_links", set())),
+        ),
+        personas=[
+            SecurityPlatformPersonaStatus(
+                id=int(
+                    persona.get("id")
+                    or db_state.get("persona_rows", {})
+                    .get(str(persona.get("name")), {})
+                    .get("id", index)
+                ),
+                name=str(persona.get("name")),
+                is_public=bool(
+                    persona.get(
+                        "is_public",
+                        db_state.get("persona_rows", {})
+                        .get(str(persona.get("name")), {})
+                        .get("is_public", False),
+                    )
+                ),
+                tool_count=len(persona.get("tools", [])),
+                document_set_count=len(persona.get("document_sets", [])),
+                shared_user_count=len(persona.get("users", [])),
+            )
+            for index, persona in enumerate(personas, start=1)
+            if persona.get("name")
+        ],
+        tools=[
+            SecurityPlatformToolStatus(
+                id=int(tool.get("id", index)),
+                name=str(tool.get("name")),
+                enabled=bool(tool.get("is_visible", True)),
+                server_url=(
+                    (
+                        tool.get("definition", {}).get("servers", [{}])[0].get("url")
+                        if isinstance(tool.get("definition"), dict)
+                        and isinstance(tool.get("definition", {}).get("servers"), list)
+                        and tool.get("definition", {}).get("servers")
+                        and isinstance(tool.get("definition", {}).get("servers")[0], dict)
+                        else None
+                    )
+                ),
+                header_keys=sorted(
+                    str(header.get("key"))
+                    for header in tool.get("custom_headers", [])
+                    if isinstance(header, dict) and header.get("key")
+                ),
+                persona_names=sorted(
+                    str(persona_name)
+                    for persona_name in next(
+                        (
+                            config.get("persona_bindings", [])
+                            for config in load_security_tool_configs()
+                            if str(config.get("name", "")).strip()
+                            == str(tool.get("name", "")).strip()
+                        ),
+                        [],
+                    )
+                    if str(persona_name).strip()
+                ),
+            )
+            for index, tool in enumerate(tool_map.values(), start=1)
+            if tool.get("name")
+        ],
+        security_users=[
+            SecurityPlatformUserStatus(
+                email=str(email),
+                role="present",
+                is_active=True,
+            )
+            for email in sorted(db_state.get("user_rows", {}).keys())
+        ],
+        persona_user_links=len(db_state.get("persona_user_links", set())),
+        document_set_user_links=len(db_state.get("document_set_links", set())),
+        snapshot={
+            "threat_intel_sync": threat_intel_sync_summary,
+            "threat_intel_corpus": {
+                "governed": threat_intel_curation_summary.get("governed_feeds", 0),
+                "unmanaged": threat_intel_curation_summary.get(
+                    "unmanaged_local_feeds", 0
+                ),
+                "promotion_candidates": threat_intel_curation_summary.get(
+                    "promotion_candidates", 0
+                ),
+                "manual_review": threat_intel_curation_summary.get("manual_review", 0),
+                "keep_runtime_only": threat_intel_curation_summary.get(
+                    "keep_runtime_only", 0
+                ),
+            },
+            "playbooks": {
+                "count": playbook_definitions_summary.get("count", 0),
+                "with_examples": len(
+                    playbook_definitions_summary.get("playbooks_with_examples", [])
+                ),
+                "items": [],
+            },
+        },
+    )
+
+    return health, build_recommended_next_actions(health)
+
+
 def evaluate_acceptance(
     document_sets: list[dict[str, Any]],
     personas: list[dict[str, Any]],
@@ -581,8 +859,12 @@ def evaluate_acceptance(
     threat_intel_curation_summary: dict[str, Any],
     security_tool_profile_summary: dict[str, Any],
     deployment_profile_summary: dict[str, Any],
+    playbook_definitions_summary: dict[str, Any],
 ) -> dict[str, Any]:
     failures: list[str] = []
+    security_tool_configs = load_security_tool_configs()
+    expected_openapi_tools = build_expected_openapi_tools(security_tool_configs)
+    persona_tool_requirements = build_persona_tool_requirements(security_tool_configs)
 
     document_set = next(
         (document_set for document_set in document_sets if document_set["name"] == SECURITY_DOCUMENT_SET_NAME),
@@ -592,7 +874,7 @@ def evaluate_acceptance(
         failures.append(f"Missing document set: {SECURITY_DOCUMENT_SET_NAME}")
 
     openapi_tool_names = {tool["name"] for tool in openapi_tools}
-    missing_openapi_tools = sorted(EXPECTED_OPENAPI_TOOLS - openapi_tool_names)
+    missing_openapi_tools = sorted(expected_openapi_tools - openapi_tool_names)
     if missing_openapi_tools:
         failures.append(f"Missing OpenAPI tools: {', '.join(missing_openapi_tools)}")
     tool_profile_mismatches = security_tool_profile_summary.get("mismatches", [])
@@ -617,6 +899,11 @@ def evaluate_acceptance(
             "Security tools profile mismatch: "
             f"expected {expected_tools_profile}, got {security_tool_profile_summary.get('profile')}"
         )
+    deployment_profile_issues = validate_deployment_profile_runtime(
+        deployment_profile_summary
+    )
+    if deployment_profile_issues:
+        failures.extend(deployment_profile_issues)
 
     threat_intel_doc_ids = {
         str(doc.get("semantic_id") or doc.get("semantic_identifier") or "")
@@ -632,16 +919,31 @@ def evaluate_acceptance(
             "Threat-intel promotion candidates remain: "
             f"{threat_intel_curation_summary.get('promotion_candidates', 0)}"
         )
+    if playbook_definitions_summary.get("count", 0) <= 0:
+        failures.append("Missing security playbook definitions")
+    if playbook_definitions_summary.get("invalid_files"):
+        failures.append(
+            "Invalid playbook definition files: "
+            + ", ".join(playbook_definitions_summary["invalid_files"])
+        )
+    missing_playbook_examples = sorted(
+        set(playbook_definitions_summary.get("names", []))
+        - set(playbook_definitions_summary.get("playbooks_with_examples", []))
+    )
+    if missing_playbook_examples:
+        failures.append(
+            "Playbooks missing example_inputs: " + ", ".join(missing_playbook_examples)
+        )
 
     persona_map = {persona["name"]: persona for persona in personas}
     missing_personas = sorted(
-        set(SECURITY_PERSONA_TOOL_REQUIREMENTS.keys()) - set(persona_map.keys())
+        set(persona_tool_requirements.keys()) - set(persona_map.keys())
     )
     if missing_personas:
         failures.append(f"Missing personas: {', '.join(missing_personas)}")
 
     persona_tool_summary: dict[str, list[str]] = {}
-    for persona_name, expected in SECURITY_PERSONA_TOOL_REQUIREMENTS.items():
+    for persona_name, expected in persona_tool_requirements.items():
         persona = persona_map.get(persona_name)
         if persona is None:
             continue
@@ -702,14 +1004,36 @@ def evaluate_acceptance(
             f"Missing document_set__user links: {len(missing_document_set_links)}"
         )
 
+    health, recommended_next_actions = build_runtime_health_summary(
+        document_set=document_set,
+        personas=personas,
+        openapi_tools=openapi_tools,
+        db_state=db_state,
+        threat_intel_sync_summary=threat_intel_sync_summary,
+        threat_intel_curation_summary=threat_intel_curation_summary,
+        security_tool_profile_summary=security_tool_profile_summary,
+        deployment_profile_summary=deployment_profile_summary,
+        playbook_definitions_summary=playbook_definitions_summary,
+    )
+    for check in health.get("checks", []):
+        if not isinstance(check, dict) or check.get("status") != "failing":
+            continue
+        for issue in check.get("issues", []):
+            issue_text = str(issue).strip()
+            if issue_text and issue_text not in failures:
+                failures.append(issue_text)
+
     return {
         "ok": not failures,
         "failures": failures,
+        "health": health,
+        "recommended_next_actions": recommended_next_actions,
         "summary": {
             "document_set": SECURITY_DOCUMENT_SET_NAME if document_set else None,
             "deployment_profile": deployment_profile_summary["deployment_profile"],
             "deployment_required_env": deployment_profile_summary["required_env"],
-            "openapi_tools_found": sorted(openapi_tool_names & EXPECTED_OPENAPI_TOOLS),
+            "deployment_profile_issues": deployment_profile_issues,
+            "openapi_tools_found": sorted(openapi_tool_names & expected_openapi_tools),
             "security_tools_profile": security_tool_profile_summary["profile"],
             "security_tools_summary": security_tool_profile_summary["tools"],
             "threat_intel_doc_count": len(threat_intel_doc_ids),
@@ -722,7 +1046,10 @@ def evaluate_acceptance(
             "threat_intel_promotion_candidates": threat_intel_curation_summary["promotion_candidates"],
             "threat_intel_manual_review": threat_intel_curation_summary["manual_review"],
             "threat_intel_keep_runtime_only": threat_intel_curation_summary["keep_runtime_only"],
-            "personas_found": sorted(persona_map.keys() & set(SECURITY_PERSONA_TOOL_REQUIREMENTS.keys())),
+            "playbook_count": playbook_definitions_summary["count"],
+            "playbook_names": playbook_definitions_summary["names"],
+            "playbooks_with_examples": playbook_definitions_summary["playbooks_with_examples"],
+            "personas_found": sorted(persona_map.keys() & set(persona_tool_requirements.keys())),
             "security_users_found": sorted(user_rows.keys() & SECURITY_USERS),
             "persona_tool_summary": persona_tool_summary,
             "persona_user_links": len(persona_user_links),
@@ -733,6 +1060,12 @@ def evaluate_acceptance(
 
 def print_human_result(result: dict[str, Any]) -> None:
     print("=== Minimal Acceptance Check ===")
+    health = result.get("health", {})
+    print(
+        "Health: "
+        f"{health.get('overall_status', 'unknown')} "
+        f"(failing={health.get('failing_checks', 0)}, warning={health.get('warning_checks', 0)})"
+    )
     print(f"Document set: {result['summary']['document_set'] or 'MISSING'}")
     print(f"Deployment profile: {result['summary']['deployment_profile']}")
     print(
@@ -763,13 +1096,20 @@ def print_human_result(result: dict[str, Any]) -> None:
         f"manual_review={result['summary']['threat_intel_manual_review']}, "
         f"keep_runtime_only={result['summary']['threat_intel_keep_runtime_only']}"
     )
+    print(
+        "Playbooks: "
+        f"count={result['summary']['playbook_count']}, "
+        f"with_examples={len(result['summary']['playbooks_with_examples'])}"
+    )
+    if result["summary"]["playbook_names"]:
+        print("Playbook names: " + ", ".join(result["summary"]["playbook_names"]))
     if result["summary"]["threat_intel_due_feeds"]:
         print(
             "Threat-intel due feeds: "
             + ", ".join(result["summary"]["threat_intel_due_feeds"])
         )
     print("Personas:")
-    for persona_name in sorted(SECURITY_PERSONA_TOOL_REQUIREMENTS):
+    for persona_name in sorted(SECURITY_PERSONA_BUILTIN_REQUIREMENTS):
         status = "OK" if persona_name in result["summary"]["personas_found"] else "MISSING"
         print(f"  - {persona_name}: {status}")
     print("Security users:")
@@ -778,6 +1118,10 @@ def print_human_result(result: dict[str, Any]) -> None:
         print(f"  - {email}: {status}")
     print(f"Persona__user links: {result['summary']['persona_user_links']}")
     print(f"Document_set__user links: {result['summary']['document_set_links']}")
+    if result.get("recommended_next_actions"):
+        print("Recommended next actions:")
+        for action in result["recommended_next_actions"]:
+            print(f"  - {action}")
 
     if result["ok"]:
         print("\nResult: OK")
@@ -813,10 +1157,13 @@ def main() -> int:
         print("[ERROR] Login failed. Check credentials.")
         return 1
 
+    deployment_profile_summary = load_deployment_profile_summary()
+    security_tool_configs = load_security_tool_configs()
+    expected_personas = set(build_persona_tool_requirements(security_tool_configs))
     personas = [
         get_persona(args.url, cookie, persona["id"])
         for persona in list_personas(args.url, cookie)
-        if persona["name"] in SECURITY_PERSONA_TOOL_REQUIREMENTS
+        if persona["name"] in expected_personas
     ]
     openapi_tools = list_openapi_tools(args.url, cookie)
     result = evaluate_acceptance(
@@ -825,10 +1172,13 @@ def main() -> int:
         openapi_tools=openapi_tools,
         ingestion_docs=list_ingestion_documents(args.url, cookie),
         db_state=fetch_db_state(db_password=args.db_password),
-        threat_intel_sync_summary=load_threat_intel_sync_summary(),
+        threat_intel_sync_summary=load_threat_intel_sync_summary(deployment_profile_summary),
         threat_intel_curation_summary=load_threat_intel_curation_summary(),
-        security_tool_profile_summary=load_security_tool_profile_summary(openapi_tools),
-        deployment_profile_summary=load_deployment_profile_summary(),
+        security_tool_profile_summary=load_security_tool_profile_summary(
+            openapi_tools, deployment_profile_summary
+        ),
+        deployment_profile_summary=deployment_profile_summary,
+        playbook_definitions_summary=load_playbook_definitions_summary(),
     )
 
     if args.json:

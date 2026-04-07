@@ -19,6 +19,7 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
+import json
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +37,7 @@ STAGE_THREAT_INTEL = "threat-intel"
 STAGE_DOCUMENT_SET = "document-set"
 STAGE_PERSONAS = "personas"
 STAGE_TOOLS = "tools"
+STAGE_PLAYBOOKS = "playbooks"
 STAGE_RBAC = "rbac"
 STAGE_ACCEPTANCE = "acceptance"
 STAGE_SMOKE = "smoke"
@@ -45,6 +47,7 @@ ALL_STAGES = [
     STAGE_DOCUMENT_SET,
     STAGE_PERSONAS,
     STAGE_TOOLS,
+    STAGE_PLAYBOOKS,
     STAGE_RBAC,
     STAGE_ACCEPTANCE,
     STAGE_SMOKE,
@@ -55,6 +58,7 @@ DEFAULT_STAGES_APPLY = [
     STAGE_DOCUMENT_SET,
     STAGE_PERSONAS,
     STAGE_TOOLS,
+    STAGE_PLAYBOOKS,
     STAGE_RBAC,
 ]
 DEFAULT_STAGES_VERIFY = DEFAULT_STAGES_APPLY + [STAGE_ACCEPTANCE]
@@ -65,6 +69,9 @@ class StageResult:
     name: str
     command: list[str]
     returncode: int
+    stdout: str = ""
+    stderr: str = ""
+    parsed_json: dict[str, Any] | None = None
 
     @property
     def ok(self) -> bool:
@@ -122,14 +129,104 @@ def selected_deployment_profile(args: argparse.Namespace) -> dict[str, Any]:
         profile["env"] = {}
     elif not isinstance(env_mapping, dict):
         raise ValueError(f"Deployment profile {profile_name} must define env as a mapping")
+    required_env = profile.get("required_env", [])
+    if required_env is None:
+        profile["required_env"] = []
+    elif not isinstance(required_env, list) or not all(
+        isinstance(value, str) and value.strip() for value in required_env
+    ):
+        raise ValueError(
+            f"Deployment profile {profile_name} must define required_env as a string list"
+        )
+    expectations = profile.get("expectations", {})
+    if expectations is None:
+        profile["expectations"] = {}
+    elif not isinstance(expectations, dict):
+        raise ValueError(
+            f"Deployment profile {profile_name} must define expectations as a mapping"
+        )
     return profile
+
+
+def missing_required_env_for_profile(
+    args: argparse.Namespace, env: dict[str, str]
+) -> list[str]:
+    profile = selected_deployment_profile(args)
+    missing: list[str] = []
+    for env_name in profile.get("required_env", []):
+        if not str(env.get(str(env_name), "")).strip():
+            missing.append(str(env_name))
+    return missing
+
+
+def validate_deployment_profile(args: argparse.Namespace, env: dict[str, str]) -> list[str]:
+    errors: list[str] = []
+    missing_required_env = missing_required_env_for_profile(args, env)
+    if missing_required_env:
+        prefix = (
+            "Deployment profile is missing required env vars"
+            if not args.dry_run
+            else "Deployment profile dry-run missing env vars"
+        )
+        errors.append(f"{prefix}: {', '.join(missing_required_env)}")
+
+    deployment_profile = selected_deployment_profile_name(args)
+    mock_server_url = str(env.get("SECURITY_TOOLS_MOCK_SERVER_URL", "")).strip()
+    if (
+        deployment_profile == "demo"
+        and mock_server_url
+        and (
+            "localhost" in mock_server_url.lower()
+            or "127.0.0.1" in mock_server_url
+        )
+    ):
+        errors.append(
+            "Deployment profile demo requires SECURITY_TOOLS_MOCK_SERVER_URL to be "
+            "reachable from Docker containers; use host.docker.internal instead of "
+            f"{mock_server_url}"
+        )
+
+    return errors
 
 
 def run_stage(name: str, command: list[str], env: dict[str, str]) -> StageResult:
     print(f"\n=== Stage: {name} ===")
     print("Command:", " ".join(command))
-    completed = subprocess.run(command, cwd=ROOT, env=env, check=False)
-    return StageResult(name=name, command=command, returncode=completed.returncode)
+    completed = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=env,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    parsed_json = None
+    if name == STAGE_ACCEPTANCE and completed.stdout:
+        try:
+            parsed_json = json.loads(completed.stdout)
+        except json.JSONDecodeError:
+            parsed_json = None
+
+    if completed.stderr:
+        print(completed.stderr, end="", file=sys.stderr)
+    if name == STAGE_ACCEPTANCE and parsed_json is not None:
+        health = parsed_json.get("health", {})
+        print(
+            "Acceptance health: "
+            f"{health.get('overall_status', 'unknown')} "
+            f"(failing={health.get('failing_checks', 0)}, warning={health.get('warning_checks', 0)})"
+        )
+    elif completed.stdout:
+        print(completed.stdout, end="")
+
+    return StageResult(
+        name=name,
+        command=command,
+        returncode=completed.returncode,
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+        parsed_json=parsed_json,
+    )
 
 
 def get_python_executable() -> str:
@@ -206,8 +303,21 @@ def build_rbac_command(args: argparse.Namespace) -> list[str]:
     return command
 
 
+def build_playbooks_command(args: argparse.Namespace) -> list[str]:
+    del args
+    return [
+        get_python_executable(),
+        str(ROOT / "run_security_playbook.py"),
+        "--verify-definitions",
+    ]
+
+
 def build_acceptance_command(args: argparse.Namespace) -> list[str]:
-    command = [get_python_executable(), str(ROOT / "verify_security_platform_acceptance.py")]
+    command = [
+        get_python_executable(),
+        str(ROOT / "verify_security_platform_acceptance.py"),
+        "--json",
+    ]
     if args.db_password:
         command.extend(["--db-password", args.db_password])
     return command
@@ -235,6 +345,9 @@ def print_plan(args: argparse.Namespace, stages: list[str]) -> None:
     print(f"Bootstrap mode: {mode}")
     print(f"Stages: {', '.join(stages)}")
     print(f"Deployment profile: {selected_deployment_profile_name(args)}")
+    required_env = selected_deployment_profile(args).get("required_env", [])
+    if required_env:
+        print(f"Deployment required env: {', '.join(required_env)}")
     if args.url:
         print(f"Onyx URL: {args.url}")
     if args.email:
@@ -248,6 +361,18 @@ def print_summary(results: list[StageResult]) -> None:
     for result in results:
         status = "OK" if result.ok else "FAILED"
         print(f"- {result.name}: {status}")
+        if result.name == STAGE_ACCEPTANCE and result.parsed_json:
+            health = result.parsed_json.get("health", {})
+            print(
+                "  health: "
+                f"{health.get('overall_status', 'unknown')} "
+                f"(failing={health.get('failing_checks', 0)}, warning={health.get('warning_checks', 0)})"
+            )
+            actions = result.parsed_json.get("recommended_next_actions", [])
+            if actions:
+                print("  recommended next actions:")
+                for action in actions:
+                    print(f"    - {action}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -315,7 +440,19 @@ def main() -> int:
     args = parse_args()
     env = build_env(args)
     stages = select_stages(args)
+    profile_errors = validate_deployment_profile(args, env)
     print_plan(args, stages)
+    if profile_errors:
+        for error in profile_errors:
+            print(f"[ERROR] {error}")
+        if args.apply:
+            return 1
+        if args.verify:
+            print(
+                "[WARN] Continuing because bootstrap is running in verify mode and should report current health."
+            )
+        else:
+            print("[WARN] Continuing because bootstrap is running in dry-run mode.")
 
     results: list[StageResult] = []
 
@@ -330,6 +467,8 @@ def main() -> int:
             result = run_stage(stage, build_personas_command(args), env)
         elif stage == STAGE_TOOLS:
             result = run_stage(stage, build_tools_command(args), env)
+        elif stage == STAGE_PLAYBOOKS:
+            result = run_stage(stage, build_playbooks_command(args), env)
         elif stage == STAGE_RBAC:
             result = run_stage(stage, build_rbac_command(args), env)
         elif stage == STAGE_ACCEPTANCE:

@@ -87,6 +87,9 @@
 - `send_security_alert`
 - `create_security_ticket`
 - `threat_intel_lookup`
+- `search_security_alerts`
+- `isolate_endpoint_host`
+- `lookup_asset_context`
 
 这些工具通过 Onyx OpenAPI custom tool 机制创建，并附着到 persona。
 
@@ -153,6 +156,9 @@
 - `send_security_alert`
 - `create_security_ticket`
 - `threat_intel_lookup`
+- `search_security_alerts`
+- `isolate_endpoint_host`
+- `lookup_asset_context`
 
 
 ## 4. 初始化数据流

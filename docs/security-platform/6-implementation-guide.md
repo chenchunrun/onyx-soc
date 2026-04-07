@@ -194,12 +194,15 @@ python knowledge-base/bootstrap_security_platform.py --apply --deployment-profil
 - `document-set` 阶段会确保 `安全知识库` 存在
 - `tools` 阶段的工具定义不再硬编码在脚本中，而是来自 `docs/security-platform/5-integrations/`
 - `tools` 阶段支持 `SECURITY_TOOLS_PROFILE=live/mock` 环境分层
-- `acceptance` 输出会显示 `Security tools profile`，以及 `create_security_ticket / send_security_alert / threat_intel_lookup` 的 `server / headers` 摘要
+- `demo` profile 下，如 mock server 跑在宿主机，`SECURITY_TOOLS_MOCK_SERVER_URL` 必须使用 `host.docker.internal`，不能使用 `localhost`
+- `playbooks` 阶段会校验 `docs/security-platform/playbooks/*.yaml` 与 `example_inputs`
+- `acceptance` 输出会显示 `Security tools profile`，以及当前全部声明式安全工具的 `server / headers` 摘要
 - `acceptance` 输出会显示 `Deployment profile`，并校验 threat-intel/tools 实际 profile 是否符合该 deployment profile 的预期
+- `acceptance` 输出会显示安全 playbook 数量与 `example_inputs` 覆盖情况
 - `tools` 和 `rbac` 阶段都已改为按 persona 名称解析
 - `rbac --dry-run` 当前实际走环境预检查，而不是写库模拟
 - `knowledge-base --dry-run` 输出较长，属于当前脚本正常行为
-- `bootstrap --verify` 现已默认包含 `acceptance` 阶段
+- `bootstrap --verify` 现已默认包含 `playbooks` 和 `acceptance` 阶段
 - `verify_security_platform_acceptance.py` 仍可单独执行，适合接 CI 或部署后自动检查
 - `bootstrap --verify --stage smoke` 可用于部署后的真实聊天/工具冒烟验证
 
@@ -219,6 +222,7 @@ python knowledge-base/bootstrap_security_platform.py --apply --deployment-profil
 - `backend/tests/unit/knowledge_base/test_setup_security_threat_intel.py`
 - `backend/tests/unit/knowledge_base/test_setup_security_personas.py`
 - `backend/tests/unit/knowledge_base/test_bootstrap_security_platform.py`
+- `backend/tests/unit/knowledge_base/test_run_security_playbook.py`
 - `backend/tests/unit/knowledge_base/test_verify_security_platform_acceptance.py`
 
 

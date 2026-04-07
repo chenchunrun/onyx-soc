@@ -1,0 +1,80 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "EDR Host Response API",
+    "description": "终端检测响应集成（EDR/XDR）",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "{API_BASE_URL}",
+      "description": "EDR API 基础 URL",
+      "variables": {
+        "API_BASE_URL": {
+          "default": "https://edr.example.com/api/v1"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/hosts/{host_id}/isolate": {
+      "post": {
+        "operationId": "isolateEndpointHost",
+        "summary": "隔离终端主机",
+        "description": "对疑似受感染或被控终端执行网络隔离动作。",
+        "security": [{"apiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "host_id",
+            "in": "path",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "EDR 主机 ID。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": "隔离原因"
+                  },
+                  "requested_by": {
+                    "type": "string",
+                    "description": "发起人"
+                  },
+                  "ticket_id": {
+                    "type": "string",
+                    "description": "关联工单"
+                  }
+                },
+                "required": ["reason"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "隔离命令已提交"
+          },
+          "401": {"description": "认证失败"},
+          "403": {"description": "权限不足"},
+          "404": {"description": "主机不存在"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization"
+      }
+    }
+  }
+}

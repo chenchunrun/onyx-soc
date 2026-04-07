@@ -23,6 +23,32 @@ def _load_module():
 
 def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
     module = _load_module()
+    module.load_security_tool_configs = lambda: [
+        {
+            "name": "create_security_ticket",
+            "persona_bindings": ["安全事件分析师", "应急响应指挥官", "漏洞评估专家", "合规审计员"],
+        },
+        {
+            "name": "send_security_alert",
+            "persona_bindings": ["应急响应指挥官"],
+        },
+        {
+            "name": "threat_intel_lookup",
+            "persona_bindings": ["安全事件分析师", "漏洞评估专家"],
+        },
+        {
+            "name": "search_security_alerts",
+            "persona_bindings": ["安全事件分析师", "应急响应指挥官"],
+        },
+        {
+            "name": "isolate_endpoint_host",
+            "persona_bindings": ["安全事件分析师", "应急响应指挥官"],
+        },
+        {
+            "name": "lookup_asset_context",
+            "persona_bindings": ["安全事件分析师", "漏洞评估专家", "合规审计员"],
+        },
+    ]
 
     personas = [
         {
@@ -30,42 +56,49 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
             "tools": [
                 {"display_name": "Internal Search"},
                 {"display_name": "Web Search"},
-                {"display_name": "Open URL"},
-                {"name": "threat_intel_lookup"},
-                {"name": "create_security_ticket"},
-            ],
-        },
+                    {"display_name": "Open URL"},
+                    {"name": "threat_intel_lookup"},
+                    {"name": "create_security_ticket"},
+                    {"name": "search_security_alerts"},
+                    {"name": "isolate_endpoint_host"},
+                    {"name": "lookup_asset_context"},
+                ],
+            },
         {
             "name": "应急响应指挥官",
             "tools": [
                 {"display_name": "Internal Search"},
                 {"display_name": "Web Search"},
                 {"display_name": "Open URL"},
-                {"display_name": "Code Interpreter"},
-                {"name": "send_security_alert"},
-                {"name": "create_security_ticket"},
-            ],
-        },
+                    {"display_name": "Code Interpreter"},
+                    {"name": "send_security_alert"},
+                    {"name": "create_security_ticket"},
+                    {"name": "search_security_alerts"},
+                    {"name": "isolate_endpoint_host"},
+                ],
+            },
         {
             "name": "漏洞评估专家",
             "tools": [
                 {"display_name": "Internal Search"},
                 {"display_name": "Web Search"},
                 {"display_name": "Open URL"},
-                {"display_name": "Code Interpreter"},
-                {"name": "threat_intel_lookup"},
-                {"name": "create_security_ticket"},
-            ],
-        },
+                    {"display_name": "Code Interpreter"},
+                    {"name": "threat_intel_lookup"},
+                    {"name": "create_security_ticket"},
+                    {"name": "lookup_asset_context"},
+                ],
+            },
         {
             "name": "合规审计员",
             "tools": [
                 {"display_name": "Internal Search"},
-                {"display_name": "Web Search"},
-                {"display_name": "Open URL"},
-                {"name": "create_security_ticket"},
-            ],
-        },
+                    {"display_name": "Web Search"},
+                    {"display_name": "Open URL"},
+                    {"name": "create_security_ticket"},
+                    {"name": "lookup_asset_context"},
+                ],
+            },
     ]
 
     db_state = {
@@ -110,12 +143,27 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
                 "definition": {"servers": [{"url": "http://localhost:9999"}]},
                 "custom_headers": [],
             },
-            {
-                "name": "threat_intel_lookup",
-                "definition": {"servers": [{"url": "http://localhost:9999"}]},
-                "custom_headers": [{"key": "x-apikey", "value": "mock"}],
-            },
-        ],
+                {
+                    "name": "threat_intel_lookup",
+                    "definition": {"servers": [{"url": "http://localhost:9999"}]},
+                    "custom_headers": [{"key": "x-apikey", "value": "mock"}],
+                },
+                {
+                    "name": "search_security_alerts",
+                    "definition": {"servers": [{"url": "http://localhost:9999"}]},
+                    "custom_headers": [{"key": "Authorization", "value": "Bearer mock"}],
+                },
+                {
+                    "name": "isolate_endpoint_host",
+                    "definition": {"servers": [{"url": "http://localhost:9999"}]},
+                    "custom_headers": [{"key": "Authorization", "value": "Bearer mock"}],
+                },
+                {
+                    "name": "lookup_asset_context",
+                    "definition": {"servers": [{"url": "http://localhost:9999"}]},
+                    "custom_headers": [{"key": "Authorization", "value": "Bearer mock"}],
+                },
+            ],
         ingestion_docs=[{"semantic_id": "CVE-2024-1234_threat_intel"}],
         db_state=db_state,
         threat_intel_sync_summary={
@@ -150,13 +198,31 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
                     "expected_server_url": "http://localhost:9999",
                     "expected_header_keys": [],
                 },
-                "threat_intel_lookup": {
-                    "configured_server_url": "http://localhost:9999",
-                    "configured_header_keys": ["x-apikey"],
-                    "expected_server_url": "http://localhost:9999",
-                    "expected_header_keys": ["x-apikey"],
+                    "threat_intel_lookup": {
+                        "configured_server_url": "http://localhost:9999",
+                        "configured_header_keys": ["x-apikey"],
+                        "expected_server_url": "http://localhost:9999",
+                        "expected_header_keys": ["x-apikey"],
+                    },
+                    "search_security_alerts": {
+                        "configured_server_url": "http://localhost:9999",
+                        "configured_header_keys": ["Authorization"],
+                        "expected_server_url": "http://localhost:9999",
+                        "expected_header_keys": ["Authorization"],
+                    },
+                    "isolate_endpoint_host": {
+                        "configured_server_url": "http://localhost:9999",
+                        "configured_header_keys": ["Authorization"],
+                        "expected_server_url": "http://localhost:9999",
+                        "expected_header_keys": ["Authorization"],
+                    },
+                    "lookup_asset_context": {
+                        "configured_server_url": "http://localhost:9999",
+                        "configured_header_keys": ["Authorization"],
+                        "expected_server_url": "http://localhost:9999",
+                        "expected_header_keys": ["Authorization"],
+                    },
                 },
-            },
             "mismatches": [],
         },
         deployment_profile_summary={
@@ -164,11 +230,26 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
             "expected_threat_intel_source_profile": "mock",
             "expected_security_tools_profile": "mock",
             "required_env": ["SECURITY_TOOLS_MOCK_SERVER_URL", "SECURITY_TOOLS_MOCK_API_KEY"],
+            "profile_env": {
+                "SECURITY_TOOLS_MOCK_SERVER_URL": "http://host.docker.internal:9999",
+                "SECURITY_TOOLS_MOCK_API_KEY": "mock-key",
+            },
+        },
+        playbook_definitions_summary={
+            "count": 2,
+            "names": ["incident-triage-readonly", "incident-containment-and-ticketing"],
+            "playbooks_with_examples": [
+                "incident-triage-readonly",
+                "incident-containment-and-ticketing",
+            ],
+            "invalid_files": [],
         },
     )
 
     assert result["ok"] is True
     assert result["failures"] == []
+    assert result["health"]["overall_status"] == "healthy"
+    assert result["recommended_next_actions"] == []
     assert result["summary"]["deployment_profile"] == "demo"
     assert result["summary"]["security_tools_profile"] == "mock"
     assert result["summary"]["security_tools_summary"]["threat_intel_lookup"]["configured_header_keys"] == [
@@ -178,10 +259,25 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
     assert result["summary"]["threat_intel_due_status"] == "WAIT"
     assert result["summary"]["threat_intel_governed_feeds"] == 1902
     assert result["summary"]["threat_intel_promotion_candidates"] == 0
+    assert result["summary"]["playbook_count"] == 2
 
 
 def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
     module = _load_module()
+    module.load_security_tool_configs = lambda: [
+        {
+            "name": "create_security_ticket",
+            "persona_bindings": ["安全事件分析师", "应急响应指挥官", "漏洞评估专家", "合规审计员"],
+        },
+        {
+            "name": "send_security_alert",
+            "persona_bindings": ["应急响应指挥官"],
+        },
+        {
+            "name": "threat_intel_lookup",
+            "persona_bindings": ["安全事件分析师", "漏洞评估专家"],
+        },
+    ]
 
     result = module.evaluate_acceptance(
         document_sets=[],
@@ -230,10 +326,19 @@ def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
             "expected_threat_intel_source_profile": "mock",
             "expected_security_tools_profile": "mock",
             "required_env": ["SECURITY_TOOLS_MOCK_SERVER_URL"],
+            "profile_env": {},
+        },
+        playbook_definitions_summary={
+            "count": 1,
+            "names": ["incident-triage-readonly"],
+            "playbooks_with_examples": [],
+            "invalid_files": [],
         },
     )
 
     assert result["ok"] is False
+    assert result["health"]["overall_status"] == "failing"
+    assert result["recommended_next_actions"]
     assert any("Missing document set" in failure for failure in result["failures"])
     assert any("Missing OpenAPI tools" in failure for failure in result["failures"])
     assert any("Missing threat-intel ingestion documents" in failure for failure in result["failures"])
@@ -245,6 +350,7 @@ def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
     assert any("Threat-intel source profile mismatch" in failure for failure in result["failures"])
     assert any("Security tools profile mismatch" in failure for failure in result["failures"])
     assert any("Threat-intel promotion candidates remain: 345" in failure for failure in result["failures"])
+    assert any("Playbooks missing example_inputs" in failure for failure in result["failures"])
 
 
 def test_load_threat_intel_sync_summary_reports_due_feeds(
@@ -271,6 +377,29 @@ def test_load_threat_intel_sync_summary_reports_due_feeds(
     assert result["source_profile"] == "mock"
     assert result["due_status"] == "DUE"
     assert result["due_feeds"] == ["cisa_kev"]
+
+
+def test_load_threat_intel_sync_summary_derives_profile_from_deployment_profile(
+    monkeypatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    plan_path = tmp_path / "sync_plan.yaml"
+    state_path = tmp_path / "sync_state.json"
+    plan_path.write_text("feeds: []\n", encoding="utf-8")
+    state_path.write_text("{\"feeds\": {}}\n", encoding="utf-8")
+    monkeypatch.setattr(module, "THREAT_INTEL_SYNC_PLAN_PATH", plan_path)
+    monkeypatch.setattr(module, "THREAT_INTEL_SYNC_STATE_PATH", state_path)
+    monkeypatch.delenv("THREAT_INTEL_SOURCE_PROFILE", raising=False)
+
+    result = module.load_threat_intel_sync_summary(
+        {
+            "profile_env": {
+                "THREAT_INTEL_SOURCE_PROFILE": "mock",
+            }
+        }
+    )
+
+    assert result["source_profile"] == "mock"
 
 
 def test_load_threat_intel_curation_summary_reads_manifest_and_report(
@@ -377,6 +506,131 @@ def test_load_security_tool_profile_summary_uses_mock_profile(
     ]
 
 
+def test_load_playbook_definitions_summary_reads_yaml_files(
+    monkeypatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    playbooks_dir = tmp_path / "playbooks"
+    playbooks_dir.mkdir()
+    (playbooks_dir / "triage.yaml").write_text(
+        (
+            "name: incident-triage-readonly\n"
+            "example_inputs:\n"
+            "  incident_ip: 8.8.8.8\n"
+            "steps:\n"
+            "  - id: s1\n"
+            "    persona: 安全事件分析师\n"
+            "    prompt: test\n"
+        ),
+        encoding="utf-8",
+    )
+    (playbooks_dir / "invalid.yaml").write_text("- not-a-mapping\n", encoding="utf-8")
+    monkeypatch.setattr(module, "PLAYBOOKS_DIR", playbooks_dir)
+
+    summary = module.load_playbook_definitions_summary()
+
+    assert summary["count"] == 1
+    assert summary["names"] == ["incident-triage-readonly"]
+    assert summary["playbooks_with_examples"] == ["incident-triage-readonly"]
+    assert summary["invalid_files"] == ["invalid.yaml"]
+
+
+def test_validate_deployment_profile_runtime_rejects_localhost_for_demo(
+    monkeypatch,
+) -> None:
+    module = _load_module()
+    monkeypatch.setenv("SECURITY_TOOLS_MOCK_SERVER_URL", "http://localhost:9999")
+
+    issues = module.validate_deployment_profile_runtime(
+        {
+            "deployment_profile": "demo",
+            "profile_env": {},
+        }
+    )
+
+    assert issues == [
+        "Deployment profile demo requires SECURITY_TOOLS_MOCK_SERVER_URL to be reachable from Docker containers; use host.docker.internal instead of http://localhost:9999"
+    ]
+
+
+def test_load_security_tool_profile_summary_derives_profile_from_deployment_profile(
+    monkeypatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    integrations_dir = tmp_path / "5-integrations"
+    integrations_dir.mkdir()
+
+    (integrations_dir / "profiles.yaml").write_text(
+        (
+            "profiles:\n"
+            "  live:\n"
+            "    env_overrides: {}\n"
+            "  mock:\n"
+            "    env_overrides:\n"
+            "      SECURITY_TICKET_API_URL: SECURITY_TOOLS_MOCK_SERVER_URL\n"
+            "      SECURITY_TICKET_API_KEY: SECURITY_TOOLS_MOCK_API_KEY\n"
+        ),
+        encoding="utf-8",
+    )
+    (integrations_dir / "security-ticket.yaml").write_text(
+        (
+            "name: create_security_ticket\n"
+            "template: security_ticket_api\n"
+            "description: test\n"
+            "persona_bindings:\n"
+            "  - 安全事件分析师\n"
+            "api_url_env: SECURITY_TICKET_API_URL\n"
+            "api_key_env: SECURITY_TICKET_API_KEY\n"
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(module, "SECURITY_TOOL_INTEGRATIONS_DIR", integrations_dir)
+    monkeypatch.setattr(
+        module, "SECURITY_TOOL_PROFILES_PATH", integrations_dir / "profiles.yaml"
+    )
+    monkeypatch.delenv("SECURITY_TOOLS_PROFILE", raising=False)
+    monkeypatch.setenv("SECURITY_TOOLS_MOCK_SERVER_URL", "http://localhost:9999")
+    monkeypatch.setenv("SECURITY_TOOLS_MOCK_API_KEY", "mock-key")
+
+    summary = module.load_security_tool_profile_summary(
+        [
+            {
+                "name": "create_security_ticket",
+                "definition": {"servers": [{"url": "http://localhost:9999"}]},
+                "custom_headers": [{"key": "Authorization", "value": "Bearer mock-key"}],
+            }
+        ],
+        {"profile_env": {"SECURITY_TOOLS_PROFILE": "mock"}},
+    )
+
+    assert summary["profile"] == "mock"
+
+
+def test_build_persona_tool_requirements_includes_new_integrations() -> None:
+    module = _load_module()
+
+    requirements = module.build_persona_tool_requirements(
+        [
+            {
+                "name": "search_security_alerts",
+                "persona_bindings": ["安全事件分析师", "应急响应指挥官"],
+            },
+            {
+                "name": "lookup_asset_context",
+                "persona_bindings": ["安全事件分析师", "漏洞评估专家", "合规审计员"],
+            },
+        ]
+    )
+
+    assert requirements["安全事件分析师"]["custom_tools"] == {
+        "search_security_alerts",
+        "lookup_asset_context",
+    }
+    assert requirements["应急响应指挥官"]["custom_tools"] == {"search_security_alerts"}
+    assert requirements["合规审计员"]["custom_tools"] == {"lookup_asset_context"}
+
+
 def test_load_deployment_profile_summary_reads_expectations(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -404,4 +658,5 @@ def test_load_deployment_profile_summary_reads_expectations(
         "expected_threat_intel_source_profile": "mock",
         "expected_security_tools_profile": "mock",
         "required_env": ["SECURITY_TOOLS_MOCK_SERVER_URL"],
+        "profile_env": {},
     }

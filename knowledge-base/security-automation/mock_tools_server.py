@@ -2,10 +2,13 @@
 """
 Mock Security Tools Server
 
-Simulates the 3 security tools for end-to-end testing:
+Simulates the security tools for end-to-end testing:
 - send_security_alert: POST / → Slack/Teams/PagerDuty webhook
 - create_security_ticket: POST /issue → Jira/Linear/ServiceNow
 - threat_intel_lookup: GET /ip_addresses/{ip}, GET /domains/{domain}, GET /files/{hash}
+- search_security_alerts: GET /alerts/search
+- isolate_endpoint_host: POST /hosts/{host_id}/isolate
+- lookup_asset_context: GET /assets/search
 
 Usage:
     python mock_tools_server.py [--port PORT] [--verbose]
@@ -80,6 +83,48 @@ KNOWN_MALICIOUS_HASHES = {
     "44d88612fea8a8f36de82e1278abb02f": {"malicious": True, "names": ["EICAR Test File"], "type": "test"},
     "e3b0c44298fc1c149afbf4c8996fb924": {"malicious": False, "names": ["Empty file"], "type": "hash-only"},
 }
+
+MOCK_ALERTS = [
+    {
+        "id": "ALERT-1001",
+        "title": "Suspicious PowerShell from finance-host-01",
+        "severity": "high",
+        "status": "open",
+        "source": "EDR",
+        "asset": "finance-host-01",
+        "created_at": "2026-04-07T09:00:00Z",
+    },
+    {
+        "id": "ALERT-1002",
+        "title": "Outbound connection to rare domain from vpn-user-12",
+        "severity": "medium",
+        "status": "investigating",
+        "source": "SIEM",
+        "asset": "vpn-user-12",
+        "created_at": "2026-04-07T09:30:00Z",
+    },
+]
+
+MOCK_ASSETS = [
+    {
+        "asset_id": "asset-001",
+        "hostname": "finance-host-01",
+        "ip": "10.20.1.15",
+        "environment": "prod",
+        "business_owner": "Finance",
+        "criticality": "high",
+        "tags": ["windows", "finance", "endpoint"],
+    },
+    {
+        "asset_id": "asset-002",
+        "hostname": "hr-app-01",
+        "ip": "10.20.8.21",
+        "environment": "prod",
+        "business_owner": "HR",
+        "criticality": "medium",
+        "tags": ["linux", "hr", "server"],
+    },
+]
 
 
 def ip_lookup(ip: str) -> dict:
@@ -220,6 +265,52 @@ class MockToolsHandler(BaseHTTPRequestHandler):
             log("RESPONSE", GREEN, f"Domain {domain}: malicious={result.get('malicious')}")
             return
 
+        if path == "/alerts/search":
+            query_params = parse_qs(parsed.query)
+            query = (query_params.get("query", [""])[0] or "").lower()
+            severity = (query_params.get("severity", [""])[0] or "").lower()
+            limit = int((query_params.get("limit", ["10"])[0] or "10"))
+            log_request("GET", self.path, None, headers)
+
+            alerts = [
+                alert
+                for alert in MOCK_ALERTS
+                if (
+                    not query
+                    or query in json.dumps(alert, ensure_ascii=False).lower()
+                )
+                and (not severity or str(alert["severity"]).lower() == severity)
+            ][:limit]
+
+            self._set_headers(200)
+            self.wfile.write(json.dumps({"alerts": alerts}).encode("utf-8"))
+            log("RESPONSE", GREEN, f"SIEM alerts returned: {len(alerts)}")
+            return
+
+        if path == "/assets/search":
+            query_params = parse_qs(parsed.query)
+            hostname = (query_params.get("hostname", [""])[0] or "").lower()
+            ip = (query_params.get("ip", [""])[0] or "").lower()
+            owner = (query_params.get("owner", [""])[0] or "").lower()
+            limit = int((query_params.get("limit", ["10"])[0] or "10"))
+            log_request("GET", self.path, None, headers)
+
+            assets = [
+                asset
+                for asset in MOCK_ASSETS
+                if (not hostname or hostname in asset["hostname"].lower())
+                and (not ip or ip == asset["ip"].lower())
+                and (
+                    not owner
+                    or owner in str(asset["business_owner"]).lower()
+                )
+            ][:limit]
+
+            self._set_headers(200)
+            self.wfile.write(json.dumps({"assets": assets}).encode("utf-8"))
+            log("RESPONSE", GREEN, f"Asset records returned: {len(assets)}")
+            return
+
         # ── Threat Intel: Hash lookup ──
         m = re.match(r"/files/(.+)", path)
         if m:
@@ -330,6 +421,22 @@ class MockToolsHandler(BaseHTTPRequestHandler):
             log("RESPONSE", GREEN, "Comment added to ticket")
             return
 
+        m = re.match(r"/hosts/([^/]+)/isolate", path)
+        if m:
+            host_id = m.group(1)
+            log_request("POST", path, body, headers)
+            self._set_headers(202)
+            response = {
+                "host_id": host_id,
+                "status": "queued",
+                "action": "isolate",
+                "reason": (body or {}).get("reason", ""),
+                "requested_at": datetime.now().isoformat() + "Z",
+            }
+            self.wfile.write(json.dumps(response).encode("utf-8"))
+            log("RESPONSE", GREEN, f"Host isolation queued: {host_id}")
+            return
+
         # 404
         log("404", RED, f"Unknown POST path: {path}")
         self._set_headers(404)
@@ -349,6 +456,9 @@ def run_server(port: int, verbose: bool):
   POST /                     → send_security_alert (webhook)
   POST /issue               → create_security_ticket (Jira)
   POST /issue/{key}/comment → add_ticket_comment
+  GET  /alerts/search       → search_security_alerts
+  POST /hosts/{id}/isolate  → isolate_endpoint_host
+  GET  /assets/search       → lookup_asset_context
   GET  /ip_addresses/{ip}   → threat_intel_lookup (IP)
   GET  /domains/{domain}     → threat_intel_lookup (Domain)
   GET  /files/{hash}         → threat_intel_lookup (Hash)

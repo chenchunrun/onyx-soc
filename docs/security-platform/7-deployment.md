@@ -191,6 +191,8 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 
 - `SECURITY_TOOLS_PROFILE=mock`
 - 启动本地 mock server 后，将 `SECURITY_TOOLS_MOCK_SERVER_URL` 指向对应地址
+- 如果 Onyx 运行在 Docker 容器里，而 mock server 运行在宿主机上，`SECURITY_TOOLS_MOCK_SERVER_URL` 不要写 `localhost`
+- 此场景应使用 `http://host.docker.internal:<port>`，否则后端容器会把 `localhost` 解析成容器自身
 - 如果使用统一入口，优先设置 `SECURITY_PLATFORM_DEPLOYMENT_PROFILE=demo`
 
 
@@ -208,9 +210,11 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 - 安全团队账号已建立
 - `verify` 输出无关键缺失项
 - `verify` 中的 `acceptance` 阶段返回成功
+- `verify` 中的 `playbooks` 阶段返回成功
 - `acceptance` 输出中的 `Deployment profile` 与本次部署选择一致
 - `acceptance` 输出中的 `Security tools profile` 与当前部署档位一致
-- `acceptance` 输出中的 3 个安全工具 `server / headers` 摘要符合当前环境
+- `acceptance` 输出中的全部声明式安全工具 `server / headers` 摘要符合当前环境
+- `acceptance` 输出中的 `Playbooks: count=...` 与当前交付 playbook 集一致
 - `smoke` 阶段返回成功
 
 建议结合以下清单执行：

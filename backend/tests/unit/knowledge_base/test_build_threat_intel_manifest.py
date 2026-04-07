@@ -109,3 +109,27 @@ def test_unmanaged_local_feed_paths_reports_extra_local_assets(monkeypatch) -> N
     unmanaged = module.unmanaged_local_feed_paths(manifest)
 
     assert unmanaged == ["knowledge-base/威胁情报/feeds/CVE_2024_2222.md"]
+
+
+def test_git_tracked_feed_paths_excludes_manifest_runtime_only_paths(monkeypatch) -> None:
+    module = _load_module()
+    tracked_output = "\n".join(
+        [
+            "knowledge-base/威胁情报/feeds/CVE_2024_1111.md",
+            "knowledge-base/威胁情报/feeds/CVE_2026_35616.md",
+        ]
+    )
+
+    class Completed:
+        returncode = 0
+        stdout = tracked_output
+        stderr = ""
+
+    monkeypatch.setattr(module, "load_manifest_exclude_paths", lambda path=module.CURATION_POLICY_PATH: {"knowledge-base/威胁情报/feeds/CVE_2026_35616.md"})
+    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: Completed())
+
+    paths = module.git_tracked_feed_paths()
+
+    assert [module.normalize_relative_path(path) for path in paths] == [
+        "knowledge-base/威胁情报/feeds/CVE_2024_1111.md"
+    ]

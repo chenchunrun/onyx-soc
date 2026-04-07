@@ -1,0 +1,123 @@
+name: incident-containment-and-ticketing
+display_name: 事件止损与工单联动流程
+description: >-
+  由安全事件分析师和应急响应指挥官完成的联动处置流程，包含资产查询、威胁情报、
+  工单创建、告警通知与终端隔离。
+inputs:
+  - name: incident_ip
+    required: true
+    description: 需要查询的可疑 IP
+  - name: asset_hostname
+    required: true
+    description: 需要查询的资产主机名
+  - name: host_id
+    required: true
+    description: EDR 主机 ID
+  - name: alert_query
+    required: true
+    description: SIEM 告警查询关键字
+example_inputs:
+  incident_ip: 8.8.8.8
+  asset_hostname: finance-host-01
+  host_id: host-001
+  alert_query: powershell
+steps:
+  - id: search_alerts
+    persona: 安全事件分析师
+    tool: search_security_alerts
+    execution_mode: direct
+    mock_llm_response: >-
+      {"name":"search_security_alerts","arguments":{"query":"powershell","time_range":"24h","severity":"high","limit":5}}
+    tool_args:
+      query: "{{inputs.alert_query}}"
+      time_range: "24h"
+      severity: "high"
+      limit: 5
+    prompt: >-
+      请调用 search_security_alerts，并显式使用以下参数：
+      query={{inputs.alert_query}}
+      time_range=24h
+      severity=high
+      limit=5
+      返回后总结告警标题、严重级别、状态和涉及资产。
+  - id: lookup_asset
+    persona: 安全事件分析师
+    tool: lookup_asset_context
+    execution_mode: direct
+    mock_llm_response: >-
+      {"name":"lookup_asset_context","arguments":{"hostname":"finance-host-01","limit":1}}
+    tool_args:
+      hostname: "{{inputs.asset_hostname}}"
+      limit: 1
+    prompt: >-
+      请调用 lookup_asset_context，并显式使用以下参数：
+      hostname={{inputs.asset_hostname}}
+      limit=1
+      返回后总结环境、业务归属、关键性和标签。
+  - id: lookup_threat_intel
+    persona: 安全事件分析师
+    tool: threat_intel_lookup
+    execution_mode: direct
+    mock_llm_response: >-
+      {"name":"threat_intel_lookup","arguments":{"ip":"8.8.8.8"}}
+    tool_args:
+      ip: "{{inputs.incident_ip}}"
+    prompt: >-
+      请调用 threat_intel_lookup，并显式使用路径参数：
+      ip={{inputs.incident_ip}}
+      返回后总结信誉、标签和一句话风险判断。
+  - id: create_ticket
+    persona: 应急响应指挥官
+    tool: create_security_ticket
+    execution_mode: direct
+    mock_llm_response: >-
+      {"name":"create_security_ticket","arguments":{"summary":"Security incident on finance-host-01","description":"Automated incident ticket from Onyx playbook","priority":"HIGH","project_key":"SEC"}}
+    tool_args:
+      summary: "Security incident on {{inputs.asset_hostname}}"
+      description: "Automated incident ticket from Onyx playbook"
+      priority: "HIGH"
+      project_key: "SEC"
+    prompt: >-
+      请调用 create_security_ticket，并显式使用以下字段创建安全工单。
+      资产：{{inputs.asset_hostname}}
+      告警：{{steps.search_alerts.full_message}}
+      资产上下文：{{steps.lookup_asset.full_message}}
+      威胁情报：{{steps.lookup_threat_intel.full_message}}
+      summary=Security incident on {{inputs.asset_hostname}}
+      description=综合以上调查结果生成简明工单描述
+      priority=HIGH
+      project_key=SEC
+  - id: send_alert
+    persona: 应急响应指挥官
+    tool: send_security_alert
+    execution_mode: direct
+    mock_llm_response: >-
+      {"name":"send_security_alert","arguments":{"alert_type":"UNAUTHORIZED_ACCESS","severity":"P1","title":"Incident escalation for finance-host-01","description":"Escalated from Onyx playbook","source_system":"Onyx Security Platform"}}
+    tool_args:
+      alert_type: "UNAUTHORIZED_ACCESS"
+      severity: "P1"
+      title: "Incident escalation for {{inputs.asset_hostname}}"
+      description: "Escalated from Onyx playbook"
+      source_system: "Onyx Security Platform"
+    prompt: >-
+      请调用 send_security_alert，并显式使用以下字段：
+      alert_type=UNAUTHORIZED_ACCESS
+      severity=P1
+      title=Incident escalation for {{inputs.asset_hostname}}
+      description=总结告警与威胁情报结果
+      source_system=Onyx Security Platform
+  - id: isolate_host
+    persona: 应急响应指挥官
+    tool: isolate_endpoint_host
+    execution_mode: direct
+    mock_llm_response: >-
+      {"name":"isolate_endpoint_host","arguments":{"host_id":"host-001","reason":"Suspicious incident on finance-host-01","requested_by":"Onyx playbook"}}
+    tool_args:
+      host_id: "{{inputs.host_id}}"
+      reason: "Suspicious incident on {{inputs.asset_hostname}}"
+      requested_by: "Onyx playbook"
+    prompt: >-
+      请调用 isolate_endpoint_host，并显式使用以下字段：
+      host_id={{inputs.host_id}}
+      reason=Suspicious incident on {{inputs.asset_hostname}}
+      requested_by=Onyx playbook

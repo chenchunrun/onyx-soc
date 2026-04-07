@@ -2,10 +2,33 @@ profiles:
   live:
     description: Production-like profile using real threat-intel refresh and real security integration endpoints.
     env:
+      SECURITY_PLATFORM_DEPLOYMENT_PROFILE: live
       THREAT_INTEL_SOURCE_PROFILE: live
       SECURITY_TOOLS_PROFILE: live
+    required_env:
+      - SECURITY_ALERT_WEBHOOK_URL
+      - SECURITY_TICKET_API_URL
+      - SECURITY_TICKET_API_KEY
+      - THREAT_INTEL_API_URL
+      - THREAT_INTEL_API_KEY
+      - SECURITY_SIEM_API_URL
+      - SECURITY_SIEM_API_KEY
+      - SECURITY_EDR_API_URL
+      - SECURITY_EDR_API_KEY
+      - SECURITY_ASSET_API_URL
+      - SECURITY_ASSET_API_KEY
+    expectations:
+      threat_intel_source_profile: live
+      security_tools_profile: live
   demo:
     description: Demo/offline profile using local threat-intel corpus and mock security tool endpoints.
     env:
+      SECURITY_PLATFORM_DEPLOYMENT_PROFILE: demo
       THREAT_INTEL_SOURCE_PROFILE: mock
       SECURITY_TOOLS_PROFILE: mock
+    required_env:
+      - SECURITY_TOOLS_MOCK_SERVER_URL
+      - SECURITY_TOOLS_MOCK_API_KEY
+    expectations:
+      threat_intel_source_profile: mock
+      security_tools_profile: mock

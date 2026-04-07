@@ -1,0 +1,87 @@
+name: incident-triage-readonly
+display_name: 事件研判只读流程
+description: >-
+  由安全事件分析师和应急响应指挥官完成的只读研判流程，先查询告警、资产和情报，
+  再输出事件判断和响应建议。
+inputs:
+  - name: incident_ip
+    required: true
+    description: 需要查询的可疑 IP
+  - name: asset_hostname
+    required: true
+    description: 需要查询的资产主机名
+  - name: alert_query
+    required: true
+    description: SIEM 告警查询关键字
+example_inputs:
+  incident_ip: 8.8.8.8
+  asset_hostname: finance-host-01
+  alert_query: powershell
+steps:
+  - id: search_alerts
+    persona: 安全事件分析师
+    tool: search_security_alerts
+    execution_mode: direct
+    mock_llm_response: >-
+      {"name":"search_security_alerts","arguments":{"query":"powershell","time_range":"24h","severity":"high","limit":5}}
+    tool_args:
+      query: "{{inputs.alert_query}}"
+      time_range: "24h"
+      severity: "high"
+      limit: 5
+    prompt: >-
+      请调用 search_security_alerts，并显式使用以下参数：
+      query={{inputs.alert_query}}
+      time_range=24h
+      severity=high
+      limit=5
+      返回后总结告警标题、严重级别、状态和涉及资产。
+  - id: lookup_asset
+    persona: 安全事件分析师
+    tool: lookup_asset_context
+    execution_mode: direct
+    mock_llm_response: >-
+      {"name":"lookup_asset_context","arguments":{"hostname":"finance-host-01","limit":1}}
+    tool_args:
+      hostname: "{{inputs.asset_hostname}}"
+      limit: 1
+    prompt: >-
+      请调用 lookup_asset_context，并显式使用以下参数：
+      hostname={{inputs.asset_hostname}}
+      limit=1
+      返回后总结环境、业务归属、关键性和标签。
+  - id: lookup_threat_intel
+    persona: 安全事件分析师
+    tool: threat_intel_lookup
+    execution_mode: direct
+    mock_llm_response: >-
+      {"name":"threat_intel_lookup","arguments":{"ip":"8.8.8.8"}}
+    tool_args:
+      ip: "{{inputs.incident_ip}}"
+    prompt: >-
+      请调用 threat_intel_lookup，并显式使用路径参数：
+      ip={{inputs.incident_ip}}
+      返回后总结信誉、标签和一句话风险判断。
+  - id: commander_summary
+    persona: 应急响应指挥官
+    execution_mode: template
+    response_template: |-
+      事件级别：P2，继续研判
+
+      立即动作：
+      - 继续跟踪 {{inputs.asset_hostname}} 上与 `{{inputs.alert_query}}` 相关的高优先级告警。
+      - 保留主机与网络证据，暂不执行隔离。
+      - 结合资产上下文确认是否涉及生产核心链路。
+
+      协同分工：
+      - 安全事件分析师：复核告警时间线和同源事件。
+      - 应急响应指挥官：评估是否升级到处置流程。
+
+      调查摘要：
+      - 告警结果：{{steps.search_alerts.full_message}}
+      - 资产结果：{{steps.lookup_asset.full_message}}
+      - 威胁情报：{{steps.lookup_threat_intel.full_message}}
+
+      下一步建议：
+      - 若同主机再次出现可疑 PowerShell 或外联行为，切换到 containment playbook。
+      - 若资产关键性升高或出现更多受影响主机，升级处置等级并创建正式工单。

@@ -94,6 +94,20 @@ def test_validate_integration_config_rejects_unknown_persona() -> None:
         raise AssertionError("Expected validate_integration_config() to fail")
 
 
+def test_custom_headers_for_template_supports_new_templates() -> None:
+    module = _load_module()
+
+    assert module.custom_headers_for_template("siem_search_api", "token-1") == [
+        {"key": "Authorization", "value": "Bearer token-1"}
+    ]
+    assert module.custom_headers_for_template("edr_response_api", "token-2") == [
+        {"key": "Authorization", "value": "Bearer token-2"}
+    ]
+    assert module.custom_headers_for_template("asset_inventory_api", "token-3") == [
+        {"key": "Authorization", "value": "Bearer token-3"}
+    ]
+
+
 def test_load_integration_configs_reads_yaml_directory(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -239,6 +253,7 @@ def test_apply_tool_definitions_updates_persona_via_api_without_db(
 
     monkeypatch.setattr(module, "load_template", lambda template_name: {"servers": []})
     monkeypatch.setattr(module, "get_tool_id", lambda base_url, cookie, tool_name: None)
+    monkeypatch.setattr(module, "get_tool_by_name", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         module,
         "create_tool",
@@ -262,14 +277,35 @@ def test_apply_tool_definitions_updates_persona_via_api_without_db(
     )
     monkeypatch.setattr(
         module,
-        "get_persona_tool_ids",
+        "get_persona",
         lambda base_url, cookie, persona_id: {
-            2: [1, 3, 4],
-            3: [1, 3, 4, 6],
-            4: [1, 3, 4, 6],
-            5: [1, 3, 4],
-        }[persona_id],
+            "tools": {
+                2: [
+                    {"id": 1, "display_name": "Internal Search", "in_code_tool_id": "SearchTool"},
+                    {"id": 3, "display_name": "Web Search", "in_code_tool_id": "WebSearchTool"},
+                    {"id": 4, "display_name": "Open URL", "in_code_tool_id": "OpenURLTool"},
+                ],
+                3: [
+                    {"id": 1, "display_name": "Internal Search", "in_code_tool_id": "SearchTool"},
+                    {"id": 3, "display_name": "Web Search", "in_code_tool_id": "WebSearchTool"},
+                    {"id": 4, "display_name": "Open URL", "in_code_tool_id": "OpenURLTool"},
+                    {"id": 6, "display_name": "Code Interpreter", "in_code_tool_id": "PythonTool"},
+                ],
+                4: [
+                    {"id": 1, "display_name": "Internal Search", "in_code_tool_id": "SearchTool"},
+                    {"id": 3, "display_name": "Web Search", "in_code_tool_id": "WebSearchTool"},
+                    {"id": 4, "display_name": "Open URL", "in_code_tool_id": "OpenURLTool"},
+                    {"id": 6, "display_name": "Code Interpreter", "in_code_tool_id": "PythonTool"},
+                ],
+                5: [
+                    {"id": 1, "display_name": "Internal Search", "in_code_tool_id": "SearchTool"},
+                    {"id": 3, "display_name": "Web Search", "in_code_tool_id": "WebSearchTool"},
+                    {"id": 4, "display_name": "Open URL", "in_code_tool_id": "OpenURLTool"},
+                ],
+            }[persona_id]
+        },
     )
+    monkeypatch.setattr(module, "attach_tools_to_persona_db", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         module,
         "update_persona_tools",
@@ -288,10 +324,10 @@ def test_apply_tool_definitions_updates_persona_via_api_without_db(
 
     assert result["errors"] == []
     assert updated == [
-        (3, [1, 3, 4, 6, 11, 12]),
-        (2, [1, 3, 4, 12, 13]),
-        (4, [1, 3, 4, 6, 12, 13]),
-        (5, [1, 3, 4, 12]),
+        (3, [11, 12]),
+        (2, [12, 13]),
+        (4, [12, 13]),
+        (5, [12]),
     ]
 
 
@@ -377,7 +413,18 @@ def test_apply_tool_definitions_uses_profile_overrides_for_mock(
         lambda **kwargs: captured.append(kwargs) or {"id": 13},
     )
     monkeypatch.setattr(module, "get_persona_id_by_name", lambda *args, **kwargs: 2)
-    monkeypatch.setattr(module, "get_persona_tool_ids", lambda *args, **kwargs: [1, 3, 4])
+    monkeypatch.setattr(
+        module,
+        "get_persona",
+        lambda *args, **kwargs: {
+            "tools": [
+                {"id": 1, "display_name": "Internal Search", "in_code_tool_id": "SearchTool"},
+                {"id": 3, "display_name": "Web Search", "in_code_tool_id": "WebSearchTool"},
+                {"id": 4, "display_name": "Open URL", "in_code_tool_id": "OpenURLTool"},
+            ]
+        },
+    )
+    monkeypatch.setattr(module, "attach_tools_to_persona_db", lambda *args, **kwargs: None)
     monkeypatch.setattr(module, "update_persona_tools", lambda *args, **kwargs: True)
 
     result = module.apply_tool_definitions(
@@ -447,7 +494,19 @@ def test_apply_tool_definitions_updates_existing_tool_for_target_profile(
         lambda **kwargs: updated.append(kwargs) or {"id": 16},
     )
     monkeypatch.setattr(module, "get_persona_id_by_name", lambda *args, **kwargs: 2)
-    monkeypatch.setattr(module, "get_persona_tool_ids", lambda *args, **kwargs: [1, 3, 4, 16])
+    monkeypatch.setattr(
+        module,
+        "get_persona",
+        lambda *args, **kwargs: {
+            "tools": [
+                {"id": 1, "display_name": "Internal Search", "in_code_tool_id": "SearchTool"},
+                {"id": 3, "display_name": "Web Search", "in_code_tool_id": "WebSearchTool"},
+                {"id": 4, "display_name": "Open URL", "in_code_tool_id": "OpenURLTool"},
+                {"id": 16, "name": "threat_intel_lookup"},
+            ]
+        },
+    )
+    monkeypatch.setattr(module, "attach_tools_to_persona_db", lambda *args, **kwargs: None)
     monkeypatch.setattr(module, "update_persona_tools", lambda *args, **kwargs: True)
 
     result = module.apply_tool_definitions(
@@ -515,9 +574,18 @@ def test_apply_tool_definitions_skips_update_when_persona_already_has_tools(
     )
     monkeypatch.setattr(
         module,
-        "get_persona_tool_ids",
-        lambda base_url, cookie, persona_id: [1, 3, 4, 12, 13],
+        "get_persona",
+        lambda base_url, cookie, persona_id: {
+            "tools": [
+                {"id": 1, "display_name": "Internal Search", "in_code_tool_id": "SearchTool"},
+                {"id": 3, "display_name": "Web Search", "in_code_tool_id": "WebSearchTool"},
+                {"id": 4, "display_name": "Open URL", "in_code_tool_id": "OpenURLTool"},
+                {"id": 12, "name": "create_security_ticket"},
+                {"id": 13, "name": "threat_intel_lookup"},
+            ]
+        },
     )
+    monkeypatch.setattr(module, "attach_tools_to_persona_db", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         module,
         "update_persona_tools",

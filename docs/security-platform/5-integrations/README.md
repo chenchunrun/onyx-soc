@@ -31,6 +31,9 @@ python knowledge-base/security-automation/setup_security_tools.py --validate-con
 - `security-alert.yaml`
 - `security-ticket.yaml`
 - `threat-intel.yaml`
+- `siem-search.yaml`
+- `edr-response.yaml`
+- `asset-inventory.yaml`
 
 与实现的对应关系：
 

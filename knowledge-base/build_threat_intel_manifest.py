@@ -17,10 +17,13 @@ import re
 import subprocess
 from typing import Any
 
+import yaml
+
 ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parent
 FEEDS_DIR = ROOT / "威胁情报" / "feeds"
 DEFAULT_MANIFEST_PATH = ROOT / "threat-intelligence" / "feed_manifest.json"
+CURATION_POLICY_PATH = ROOT / "threat-intelligence" / "curation_policy.yaml"
 MANIFEST_VERSION = 1
 SOURCE_PATTERN = re.compile(r"^\*Source:\s*(.+?)\*\s*$")
 RETRIEVED_PATTERN = re.compile(r"^\*(Retrieved|Last Updated):\s*(.*?)\*\s*$")
@@ -28,6 +31,29 @@ RETRIEVED_PATTERN = re.compile(r"^\*(Retrieved|Last Updated):\s*(.*?)\*\s*$")
 
 def normalize_relative_path(path: Path) -> str:
     return str(path.relative_to(REPO_ROOT)).replace("\\", "/")
+
+
+def load_manifest_exclude_paths(path: Path = CURATION_POLICY_PATH) -> set[str]:
+    if not path.exists():
+        return set()
+
+    policy = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(policy, dict):
+        raise ValueError(f"Invalid curation policy: {path}")
+
+    excluded_paths = policy.get("manifest_exclude_paths", [])
+    if excluded_paths is None:
+        return set()
+    if not isinstance(excluded_paths, list):
+        raise ValueError(f"Invalid manifest_exclude_paths in curation policy: {path}")
+
+    normalized: set[str] = set()
+    for raw_path in excluded_paths:
+        value = str(raw_path).strip()
+        if not value:
+            continue
+        normalized.add(value.replace("\\", "/"))
+    return normalized
 
 
 def git_tracked_feed_paths() -> list[Path]:
@@ -49,10 +75,14 @@ def git_tracked_feed_paths() -> list[Path]:
     if completed.returncode != 0:
         raise RuntimeError(completed.stderr.strip() or "git ls-files failed")
 
+    excluded_paths = load_manifest_exclude_paths()
     paths = []
     for line in completed.stdout.splitlines():
         relative_path = line.strip().strip('"')
         if not relative_path:
+            continue
+        normalized = relative_path.replace("\\", "/")
+        if normalized in excluded_paths:
             continue
         paths.append(REPO_ROOT / relative_path)
     return sorted(paths)

@@ -36,9 +36,8 @@ import {
   LLMConfigurationModalWrapper,
 } from "@/sections/modals/llmConfig/shared";
 import { toast } from "@/hooks/useToast";
-import { Button } from "@/components/buttons/button/components";
-import SvgPlus from "@/icons/plus";
-import SvgX from "@/icons/x";
+import { Button } from "@opal/components";
+import { SvgPlus, SvgX } from "@opal/icons";
 
 const DEFAULT_API_BASE = "http://localhost:4000";
 

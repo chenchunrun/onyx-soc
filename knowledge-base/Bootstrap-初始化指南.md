@@ -90,6 +90,19 @@
 - 为 RBAC 和工具初始化提供稳定的 persona 名称入口
 
 
+### `playbooks`
+
+调用：
+
+- `knowledge-base/run_security_playbook.py --verify-definitions`
+
+职责：
+
+- 校验声明式安全 playbook 定义
+- 校验 playbook `example_inputs` 是否完整
+- 为后续安全流程验证提供稳定入口
+
+
 ### `rbac`
 
 调用：
@@ -162,7 +175,7 @@ python knowledge-base/bootstrap_security_platform.py --verify
 说明：
 
 - 校验已导入文档、已创建工具和 RBAC 配置状态
-- 默认会在最后执行 `acceptance` 阶段
+- 默认会执行 `playbooks` 和 `acceptance` 阶段
 
 
 ## 5. 按阶段执行
@@ -189,6 +202,12 @@ python knowledge-base/bootstrap_security_platform.py --dry-run --stage rbac
 
 ```bash
 python knowledge-base/bootstrap_security_platform.py --verify --stage acceptance
+```
+
+只执行 playbook 定义校验：
+
+```bash
+python knowledge-base/bootstrap_security_platform.py --verify --stage playbooks
 ```
 
 只执行部署后冒烟：

@@ -1,0 +1,102 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Security SIEM Search API",
+    "description": "安全日志与告警检索集成（SIEM / XDR / 日志平台）",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "{API_BASE_URL}",
+      "description": "SIEM API 基础 URL",
+      "variables": {
+        "API_BASE_URL": {
+          "default": "https://siem.example.com/api/v1"
+        }
+      }
+    }
+  ],
+  "paths": {
+    "/alerts/search": {
+      "get": {
+        "operationId": "searchSecurityAlerts",
+        "summary": "查询安全告警",
+        "description": "按关键字、资产、时间范围和严重级别查询安全告警。",
+        "security": [{"apiKeyAuth": []}],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {"type": "string"},
+            "description": "告警检索语句，可包含资产、IOC、用户名、规则名。"
+          },
+          {
+            "name": "time_range",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "string", "default": "24h"},
+            "description": "时间范围，例如 1h、24h、7d。"
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["critical", "high", "medium", "low", "informational"]
+            },
+            "description": "按严重级别过滤。"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {"type": "integer", "default": 10, "minimum": 1, "maximum": 100},
+            "description": "返回结果数。"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "查询成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "alerts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "string"},
+                          "title": {"type": "string"},
+                          "severity": {"type": "string"},
+                          "status": {"type": "string"},
+                          "source": {"type": "string"},
+                          "asset": {"type": "string"},
+                          "created_at": {"type": "string"}
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {"description": "认证失败"},
+          "429": {"description": "请求频率超限"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization"
+      }
+    }
+  }
+}
