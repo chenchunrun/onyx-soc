@@ -247,6 +247,8 @@
   - 按 `source / year / quality` 组织 archive candidate 评审和归档动作
   - 已生成 phase-based archive batches，便于分批执行历史内容归档评审
   - 已支持按 `batch_id` 生成逐文件 worklist，便于实际处理第一批历史内容
+  - 已支持按 `batch_id` 生成 patch preview，提前评估 manifest/source/year 影响
+  - 已支持按 `batch_id` 生成 archive action script，为真实归档执行提供无副作用预演脚本
 
 
 ### 4.3 扩展 threat-intel 上游源

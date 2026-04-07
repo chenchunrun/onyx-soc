@@ -42,3 +42,5 @@ output:
   archive_plan_path: knowledge-base/threat-intelligence/archive_plan.json
   archive_batches_path: knowledge-base/threat-intelligence/archive_batches.json
   archive_worklist_dir: knowledge-base/threat-intelligence/archive_worklists
+  archive_patch_preview_dir: knowledge-base/threat-intelligence/archive_patch_previews
+  archive_action_script_dir: knowledge-base/threat-intelligence/archive_action_scripts
