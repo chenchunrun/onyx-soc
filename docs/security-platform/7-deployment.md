@@ -68,6 +68,7 @@ helm upgrade --install onyx . -n onyx --create-namespace \
 - 本地 threat-intel feed 目录：`knowledge-base/威胁情报/feeds`
 - threat-intel 同步计划：`knowledge-base/threat-intelligence/sync_plan.yaml`
 - threat-intel 正式内容清单：`knowledge-base/threat-intelligence/feed_manifest.json`
+- threat-intel 生命周期报告：`knowledge-base/threat-intelligence/lifecycle_report.json`
 
 
 ### 4.2.1 Docker Compose 覆盖配置

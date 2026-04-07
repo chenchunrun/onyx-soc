@@ -208,7 +208,7 @@
 
 ### 4.2 完善 threat-intel 生命周期治理
 
-状态：`Later`
+状态：`Next`
 
 目标：
 
@@ -225,6 +225,23 @@
 
 - 内容治理状态不只停留在 managed/unmanaged 二分
 - 可以说明何时纳管、何时淘汰、何时仅保留运行态
+
+当前进展：
+
+- 已新增 governed corpus 生命周期评估脚本：`knowledge-base/assess_threat_intel_lifecycle.py`
+- 已补质量分层：
+  - `authoritative`
+  - `standard`
+  - `limited`
+- 已补生命周期状态：
+  - `active`
+  - `archive_candidate`
+  - `retained_historical`
+- `setup_security_threat_intel.py --verify --local-only` 现已输出生命周期摘要
+- 当前真实评估结果：
+  - `active=638`
+  - `archive_candidates=203`
+  - `retained_historical=1061`
 
 
 ### 4.3 扩展 threat-intel 上游源

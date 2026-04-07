@@ -37,6 +37,7 @@ from build_threat_intel_manifest import manifest_summary_lines
 from build_threat_intel_manifest import unmanaged_local_feed_paths
 from build_threat_intel_manifest import write_manifest
 from build_threat_intel_manifest import build_manifest as build_feed_manifest
+from assess_threat_intel_lifecycle import build_lifecycle_report
 from curate_threat_intel_corpus import build_unmanaged_report
 
 ROOT = MODULE_DIR
@@ -234,6 +235,28 @@ def print_curation_summary(strict_promotion_candidates: bool = False) -> list[st
         preview = ", ".join(item["cve_id"] for item in report["promotion_candidates"][:5])
         suffix = " ..." if len(report["promotion_candidates"]) > 5 else ""
         mismatches.append(f"Unpromoted threat-intel candidates remain: {preview}{suffix}")
+    return mismatches
+
+
+def print_lifecycle_summary(strict_archive_candidates: bool = False) -> list[str]:
+    report = build_lifecycle_report(MANIFEST_PATH)
+    summary = report["summary"]
+    quality_counts = summary.get("quality_counts", {}) or {}
+    quality_line = ", ".join(
+        f"{name}={count}" for name, count in sorted(quality_counts.items())
+    )
+    print(
+        "  Governed feed lifecycle: "
+        f"active={summary['active_total']}, "
+        f"archive_candidates={summary['archive_candidate_total']}, "
+        f"retained_historical={summary['retained_historical_total']}, "
+        f"quality=[{quality_line}]"
+    )
+    mismatches: list[str] = []
+    if strict_archive_candidates and report["archive_candidates"]:
+        preview = ", ".join(item["cve_id"] for item in report["archive_candidates"][:5])
+        suffix = " ..." if len(report["archive_candidates"]) > 5 else ""
+        mismatches.append(f"Threat-intel archive candidates remain: {preview}{suffix}")
     return mismatches
 
 
@@ -472,10 +495,15 @@ def dry_run(args: argparse.Namespace) -> int:
     curation_mismatches = print_curation_summary(
         strict_promotion_candidates=bool(getattr(args, "strict_promotion_candidates", False))
     )
+    lifecycle_mismatches = print_lifecycle_summary(
+        strict_archive_candidates=bool(getattr(args, "strict_archive_candidates", False))
+    )
     if mismatches:
         print("[WARN] Governed threat-intel manifest drift detected during dry-run.")
     if curation_mismatches:
         print("[WARN] Threat-intel curation gate would fail in current state.")
+    if lifecycle_mismatches:
+        print("[WARN] Threat-intel lifecycle gate would fail in current state.")
     if args.refresh:
         if profile["allow_upstream_refresh"]:
             print("Would refresh local threat-intel feeds before upload.")
@@ -555,12 +583,19 @@ def verify_threat_intel(args: argparse.Namespace) -> int:
     curation_mismatches = print_curation_summary(
         strict_promotion_candidates=bool(getattr(args, "strict_promotion_candidates", False))
     )
+    lifecycle_mismatches = print_lifecycle_summary(
+        strict_archive_candidates=bool(getattr(args, "strict_archive_candidates", False))
+    )
     if mismatches:
         for mismatch in mismatches[:10]:
             print(f"[ERROR] {mismatch}")
         return 1
     if curation_mismatches:
         for mismatch in curation_mismatches[:10]:
+            print(f"[ERROR] {mismatch}")
+        return 1
+    if lifecycle_mismatches:
+        for mismatch in lifecycle_mismatches[:10]:
             print(f"[ERROR] {mismatch}")
         return 1
 
@@ -626,6 +661,11 @@ def parse_args() -> argparse.Namespace:
         "--strict-promotion-candidates",
         action="store_true",
         help="Fail verification if unmanaged feeds contain promotion candidates that should be curated into the governed package.",
+    )
+    parser.add_argument(
+        "--strict-archive-candidates",
+        action="store_true",
+        help="Fail verification if governed feeds contain archive candidates that should be reviewed for archive/retirement.",
     )
     parser.add_argument(
         "--write-manifest",

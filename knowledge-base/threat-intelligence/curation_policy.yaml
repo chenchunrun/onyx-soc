@@ -17,5 +17,25 @@ review_rules:
     - No description available.
     - "*Last Updated: *"
     - "*Retrieved: *"
+quality_rules:
+  authoritative_sources:
+    - NIST National Vulnerability Database (NVD)
+  required_fields:
+    - source
+    - retrieved_at
+    - title
+  limited_quality_markers:
+    - No description available.
+lifecycle_rules:
+  active_year_threshold: 2023
+  archive_candidate_year_threshold: 2015
+  archive_candidate_quality_tiers:
+    - authoritative
+    - standard
+    - limited
+  archive_exempt_sources: []
+  archive_exempt_cve_ids:
+    - CVE-2026-35616
 output:
   report_path: knowledge-base/threat-intelligence/unmanaged_feed_report.json
+  lifecycle_report_path: knowledge-base/threat-intelligence/lifecycle_report.json

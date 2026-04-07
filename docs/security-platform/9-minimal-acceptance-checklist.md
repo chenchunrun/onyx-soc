@@ -12,6 +12,7 @@
 - bootstrap 初始化链路
 - 安全文档集
 - threat-intel 同步状态
+- threat-intel 生命周期状态
 - 安全 persona
 - 安全工具
 - RBAC 初始化
@@ -75,6 +76,7 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - 安全团队用户已创建
 - `acceptance` 阶段返回成功
 - `acceptance` 输出包含 threat-intel sync 的 `profile / last_run / status`
+- `acceptance` 输出包含 threat-intel corpus 的 `active / archive_candidates / retained_historical`
 - `acceptance` 输出包含 security tools 的 `profile` 以及全部声明式安全工具的 `server / headers` 摘要
 - `acceptance` 输出包含 `Deployment profile`
 - `smoke` 阶段返回成功
@@ -127,11 +129,28 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - 演示或离线环境下，`profile=mock` 符合预期
 - 如 Onyx 跑在 Docker 中且 mock server 跑在宿主机上，工具端点应显示为 `host.docker.internal` 而不是 `localhost`
 - `setup_security_threat_intel.py --verify --local-only` 能显示 `Governed feeds` 与 `Unmanaged local feeds`
+- `setup_security_threat_intel.py --verify --local-only` 能显示 `active / archive_candidates / retained_historical`
 - `curate_threat_intel_corpus.py --show-summary` 能显示 `Promotion candidates / Keep runtime only`
 - 如本环境要求只使用 Git 已纳管内容包，则 `--strict-local-corpus` 也应通过
 
 
-### 5.4 安全工具
+### 5.4 Threat-Intel 生命周期状态
+
+检查项：
+
+- `python knowledge-base/assess_threat_intel_lifecycle.py --show-summary`
+
+通过标准：
+
+- 输出包含 `Active feeds`
+- 输出包含 `Archive candidates`
+- 输出包含 `Retained historical`
+- 输出包含 `Quality tiers`
+- 当前阶段不要求 `Archive candidates = 0`
+- 但需要能说明哪些内容进入后续归档评审
+
+
+### 5.5 安全工具
 
 检查项：
 
@@ -148,7 +167,7 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - persona 上能看到对应工具绑定关系
 
 
-### 5.5 安全团队用户
+### 5.6 安全团队用户
 
 检查项：
 
@@ -204,13 +223,14 @@ pytest backend/tests/integration/tests/security_tools/ -v
 1. `bootstrap --verify` 输出缺失项
 2. `bootstrap --verify` 中 `acceptance` 阶段输出失败项
 3. `Threat-intel sync` 中的 `profile / last_run / status` 是否符合预期
+4. `Threat-intel corpus` 中的 `active / archive_candidates / retained_historical` 是否符合当前治理口径
 4. `Security tools profile` 是否与部署档位一致，全部声明式安全工具的 `server / headers` 是否符合当前环境
 5. `Deployment profile` 是否与本次部署选择一致
-4. Onyx 登录与 API 可达性
-5. PostgreSQL 可达性
-6. 工具相关环境变量是否已配置
-7. persona 和 document set 是否被意外手工修改
-8. `smoke` 阶段输出是否提示聊天链路或工具链路异常
+6. Onyx 登录与 API 可达性
+7. PostgreSQL 可达性
+8. 工具相关环境变量是否已配置
+9. persona 和 document set 是否被意外手工修改
+10. `smoke` 阶段输出是否提示聊天链路或工具链路异常
 
 
 ## 8. 当前结论口径

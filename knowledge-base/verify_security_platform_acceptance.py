@@ -37,6 +37,8 @@ from onyx.server.manage.security_platform.api import SecurityPlatformUserStatus
 from onyx.server.manage.security_platform.api import build_health_status
 from onyx.server.manage.security_platform.api import build_recommended_next_actions
 
+from assess_threat_intel_lifecycle import build_lifecycle_report
+
 
 SECURITY_DOCUMENT_SET_NAME = "安全知识库"
 ROOT = MODULE_DIR
@@ -163,6 +165,7 @@ def load_threat_intel_sync_summary(
 def load_threat_intel_curation_summary() -> dict[str, Any]:
     manifest_summary: dict[str, Any] = {}
     curation_summary: dict[str, Any] = {}
+    lifecycle_summary: dict[str, Any] = {}
 
     try:
         with open(THREAT_INTEL_MANIFEST_PATH, "r", encoding="utf-8") as handle:
@@ -181,6 +184,14 @@ def load_threat_intel_curation_summary() -> dict[str, Any]:
     if isinstance(curation_doc, dict):
         curation_summary = curation_doc.get("summary", {}) or {}
 
+    try:
+        lifecycle_doc = build_lifecycle_report(THREAT_INTEL_MANIFEST_PATH)
+    except Exception:
+        lifecycle_doc = {}
+
+    if isinstance(lifecycle_doc, dict):
+        lifecycle_summary = lifecycle_doc.get("summary", {}) or {}
+
     return {
         "governed_feeds": int(manifest_summary.get("total_feeds", 0) or 0),
         "governed_source_counts": manifest_summary.get("source_counts", {}) or {},
@@ -188,6 +199,10 @@ def load_threat_intel_curation_summary() -> dict[str, Any]:
         "promotion_candidates": int(curation_summary.get("promotion_candidate_total", 0) or 0),
         "manual_review": int(curation_summary.get("manual_review_total", 0) or 0),
         "keep_runtime_only": int(curation_summary.get("keep_runtime_only_total", 0) or 0),
+        "active_feeds": int(lifecycle_summary.get("active_total", 0) or 0),
+        "archive_candidates": int(lifecycle_summary.get("archive_candidate_total", 0) or 0),
+        "retained_historical": int(lifecycle_summary.get("retained_historical_total", 0) or 0),
+        "quality_counts": lifecycle_summary.get("quality_counts", {}) or {},
     }
 
 
@@ -1041,11 +1056,15 @@ def evaluate_acceptance(
             "threat_intel_last_sync_run_at": threat_intel_sync_summary["last_sync_run_at"],
             "threat_intel_due_status": threat_intel_sync_summary["due_status"],
             "threat_intel_due_feeds": threat_intel_sync_summary["due_feeds"],
-            "threat_intel_governed_feeds": threat_intel_curation_summary["governed_feeds"],
-            "threat_intel_unmanaged_local_feeds": threat_intel_curation_summary["unmanaged_local_feeds"],
-            "threat_intel_promotion_candidates": threat_intel_curation_summary["promotion_candidates"],
-            "threat_intel_manual_review": threat_intel_curation_summary["manual_review"],
-            "threat_intel_keep_runtime_only": threat_intel_curation_summary["keep_runtime_only"],
+            "threat_intel_governed_feeds": threat_intel_curation_summary.get("governed_feeds", 0),
+            "threat_intel_active_feeds": threat_intel_curation_summary.get("active_feeds", 0),
+            "threat_intel_archive_candidates": threat_intel_curation_summary.get("archive_candidates", 0),
+            "threat_intel_retained_historical": threat_intel_curation_summary.get("retained_historical", 0),
+            "threat_intel_unmanaged_local_feeds": threat_intel_curation_summary.get("unmanaged_local_feeds", 0),
+            "threat_intel_promotion_candidates": threat_intel_curation_summary.get("promotion_candidates", 0),
+            "threat_intel_manual_review": threat_intel_curation_summary.get("manual_review", 0),
+            "threat_intel_keep_runtime_only": threat_intel_curation_summary.get("keep_runtime_only", 0),
+            "threat_intel_quality_counts": threat_intel_curation_summary.get("quality_counts", {}),
             "playbook_count": playbook_definitions_summary["count"],
             "playbook_names": playbook_definitions_summary["names"],
             "playbooks_with_examples": playbook_definitions_summary["playbooks_with_examples"],
@@ -1091,11 +1110,20 @@ def print_human_result(result: dict[str, Any]) -> None:
     print(
         "Threat-intel corpus: "
         f"governed={result['summary']['threat_intel_governed_feeds']}, "
+        f"active={result['summary']['threat_intel_active_feeds']}, "
+        f"archive_candidates={result['summary']['threat_intel_archive_candidates']}, "
+        f"retained_historical={result['summary']['threat_intel_retained_historical']}, "
         f"unmanaged={result['summary']['threat_intel_unmanaged_local_feeds']}, "
         f"promotion_candidates={result['summary']['threat_intel_promotion_candidates']}, "
         f"manual_review={result['summary']['threat_intel_manual_review']}, "
         f"keep_runtime_only={result['summary']['threat_intel_keep_runtime_only']}"
     )
+    quality_counts = result["summary"].get("threat_intel_quality_counts", {})
+    if quality_counts:
+        print(
+            "Threat-intel quality tiers: "
+            + ", ".join(f"{name}={count}" for name, count in sorted(quality_counts.items()))
+        )
     print(
         "Playbooks: "
         f"count={result['summary']['playbook_count']}, "

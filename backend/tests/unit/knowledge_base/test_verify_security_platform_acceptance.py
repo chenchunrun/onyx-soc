@@ -433,6 +433,18 @@ def test_load_threat_intel_curation_summary_reads_manifest_and_report(
             }
         },
     )
+    monkeypatch.setattr(
+        module,
+        "build_lifecycle_report",
+        lambda manifest_path: {
+            "summary": {
+                "active_total": 1500,
+                "archive_candidate_total": 125,
+                "retained_historical_total": 277,
+                "quality_counts": {"authoritative": 1902},
+            }
+        },
+    )
 
     summary = module.load_threat_intel_curation_summary()
 
@@ -441,10 +453,14 @@ def test_load_threat_intel_curation_summary_reads_manifest_and_report(
         "governed_source_counts": {
             "NIST National Vulnerability Database (NVD)": 349,
         },
+        "active_feeds": 1500,
+        "archive_candidates": 125,
+        "retained_historical": 277,
         "unmanaged_local_feeds": 1,
         "promotion_candidates": 0,
         "manual_review": 0,
         "keep_runtime_only": 1,
+        "quality_counts": {"authoritative": 1902},
     }
 
 
