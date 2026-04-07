@@ -51,6 +51,14 @@ def test_generate_batch_artifacts_returns_expected_labels(monkeypatch) -> None:
     monkeypatch.setattr(module, "build_action_script", lambda preview: "#!/usr/bin/env bash\n")
     monkeypatch.setattr(module, "build_execution_plan", lambda **kwargs: "plan")
     monkeypatch.setattr(module, "build_execution_record", lambda **kwargs: "record")
+    monkeypatch.setattr(
+        module,
+        "generate_historical_package",
+        lambda batch_id: {
+            "manifest": Path(f"/tmp/{batch_id}.historical-manifest.json"),
+            "readme": Path(f"/tmp/{batch_id}.historical-readme.md"),
+        },
+    )
 
     def _writer(name):
         def inner(*args, **kwargs):
@@ -77,6 +85,8 @@ def test_generate_batch_artifacts_returns_expected_labels(monkeypatch) -> None:
         "action_script",
         "execution_plan",
         "execution_record",
+        "historical_manifest",
+        "historical_readme",
     }
     assert calls == [
         "worklist",

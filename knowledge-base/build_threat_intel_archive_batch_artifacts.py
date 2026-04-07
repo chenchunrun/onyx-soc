@@ -35,6 +35,7 @@ from build_threat_intel_archive_patch_preview import (
     load_manifest,
     write_report,
 )
+from build_threat_intel_historical_package import generate_historical_package
 from build_threat_intel_archive_worklist import (
     build_worklist,
     default_worklist_path,
@@ -87,12 +88,16 @@ def generate_batch_artifacts(batch_id: str) -> dict[str, Path]:
     execution_record_path = default_record_path(batch_id, policy)
     write_record(execution_record, execution_record_path)
 
+    historical_paths = generate_historical_package(batch_id)
+
     return {
         "worklist": worklist_path,
         "patch_preview": preview_path,
         "action_script": action_script_path,
         "execution_plan": execution_plan_path,
         "execution_record": execution_record_path,
+        "historical_manifest": historical_paths["manifest"],
+        "historical_readme": historical_paths["readme"],
     }
 
 
