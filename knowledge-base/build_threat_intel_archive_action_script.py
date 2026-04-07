@@ -42,10 +42,20 @@ def build_action_script(preview: dict) -> str:
         "",
         f"# Generated archive action script for {batch_id}",
         f"echo '[INFO] Applying archive batch: {batch_id}'",
+        'PYTHON_BIN="${PYTHON_BIN:-}"',
+        'if [ -z "$PYTHON_BIN" ]; then',
+        '  if [ -x ".venv/bin/python" ]; then',
+        '    PYTHON_BIN=".venv/bin/python"',
+        '  elif [ -x "/Users/newmba/Downloads/onyx-main/.venv/bin/python" ]; then',
+        '    PYTHON_BIN="/Users/newmba/Downloads/onyx-main/.venv/bin/python"',
+        '  else',
+        '    PYTHON_BIN="python3"',
+        '  fi',
+        'fi',
         "",
     ]
     if paths:
-        joined = " \\\n+  ".join(shell_quote(path) for path in paths)
+        joined = " \\\n  ".join(shell_quote(path) for path in paths)
         lines.extend(
             [
                 "git rm \\",
@@ -55,11 +65,11 @@ def build_action_script(preview: dict) -> str:
         )
     lines.extend(
         [
-            "python knowledge-base/build_threat_intel_manifest.py --write",
-            "python knowledge-base/assess_threat_intel_lifecycle.py --write-report",
-            f"python knowledge-base/build_threat_intel_archive_worklist.py --batch-id {batch_id} --write-report",
-            f"python knowledge-base/build_threat_intel_archive_patch_preview.py --batch-id {batch_id} --write-report",
-            "python knowledge-base/setup_security_threat_intel.py --verify --local-only",
+            '$PYTHON_BIN knowledge-base/build_threat_intel_manifest.py --write',
+            '$PYTHON_BIN knowledge-base/assess_threat_intel_lifecycle.py --write-report',
+            f'$PYTHON_BIN knowledge-base/build_threat_intel_archive_worklist.py --batch-id {batch_id} --write-report',
+            f'$PYTHON_BIN knowledge-base/build_threat_intel_archive_patch_preview.py --batch-id {batch_id} --write-report',
+            '$PYTHON_BIN knowledge-base/setup_security_threat_intel.py --verify --local-only',
             "",
             "echo '[OK] Archive batch script completed'",
             "",

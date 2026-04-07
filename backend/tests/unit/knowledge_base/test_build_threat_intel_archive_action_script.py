@@ -34,9 +34,11 @@ def test_build_action_script_contains_git_rm_and_followup_steps() -> None:
     script = module.build_action_script(preview)
 
     assert "git rm" in script
-    assert "build_threat_intel_manifest.py --write" in script
-    assert "assess_threat_intel_lifecycle.py --write-report" in script
-    assert "setup_security_threat_intel.py --verify --local-only" in script
+    assert '$PYTHON_BIN knowledge-base/build_threat_intel_manifest.py --write' in script
+    assert '$PYTHON_BIN knowledge-base/assess_threat_intel_lifecycle.py --write-report' in script
+    assert '$PYTHON_BIN knowledge-base/setup_security_threat_intel.py --verify --local-only' in script
+    assert "\n+  " not in script
+    assert 'PYTHON_BIN="${PYTHON_BIN:-}"' in script
 
 
 def test_default_script_path_uses_policy_output() -> None:
