@@ -120,6 +120,7 @@ class SecurityPlatformRuntimeStatus(BaseModel):
     security_tools_profile: str
     threat_intel_sync: dict[str, Any]
     threat_intel_corpus: dict[str, Any]
+    historical_packages: dict[str, Any]
     playbooks: dict[str, Any]
     health: dict[str, Any]
     recommended_next_actions: list[str]
@@ -286,6 +287,7 @@ def build_health_status(
 
     threat_sync = snapshot.get("threat_intel_sync", {})
     threat_corpus = snapshot.get("threat_intel_corpus", {})
+    historical_packages = snapshot.get("historical_packages", {})
     threat_issues: list[str] = []
     if str(threat_sync.get("source_profile", "unknown")) != threat_intel_source_profile:
         threat_issues.append(
@@ -317,6 +319,39 @@ def build_health_status(
             remediations=[
                 "Run setup_security_threat_intel.py --verify or the scheduled sync wrapper to refresh threat-intel state.",
                 "Promote governed corpus candidates before treating the platform as release-ready."
+            ],
+        )
+    )
+
+    historical_package_issues: list[str] = []
+    historical_package_count = int(
+        historical_packages.get("package_count", 0) or 0
+    )
+    historical_package_items = int(
+        historical_packages.get("total_item_count", 0) or 0
+    )
+    package_ids = historical_packages.get("package_ids", [])
+    if not isinstance(package_ids, list):
+        package_ids = []
+    if historical_package_count != len(package_ids):
+        historical_package_issues.append(
+            "Historical package catalog summary does not match package id count"
+        )
+    if historical_package_count > 0 and historical_package_items <= 0:
+        historical_package_issues.append(
+            "Historical package catalog reports packages but zero archived items"
+        )
+    checks.append(
+        _health_check(
+            name="historical_packages",
+            status="failing" if historical_package_issues else "healthy",
+            summary=(
+                f"packages={historical_package_count}, "
+                f"items={historical_package_items}"
+            ),
+            issues=historical_package_issues,
+            remediations=[
+                "Run build_threat_intel_historical_package_index.py --write-index to rebuild the historical package catalog."
             ],
         )
     )
@@ -419,6 +454,11 @@ def build_remediation_commands(
     if status_by_name.get("threat_intel") in {"failing", "warning"}:
         commands.append(
             "python knowledge-base/setup_security_threat_intel.py --verify"
+        )
+
+    if status_by_name.get("historical_packages") == "failing":
+        commands.append(
+            "python knowledge-base/build_threat_intel_historical_package_index.py --write-index"
         )
 
     if status_by_name.get("playbooks") == "failing":
@@ -535,6 +575,12 @@ def load_static_snapshot() -> dict[str, Any]:
                 "promotion_candidates": 0,
                 "manual_review": 0,
                 "keep_runtime_only": 0,
+            },
+            "historical_packages": {
+                "package_count": 0,
+                "total_item_count": 0,
+                "total_size_bytes": 0,
+                "package_ids": [],
             },
             "playbooks": {"count": 0, "with_examples": 0, "items": []},
         }
@@ -667,6 +713,7 @@ def get_security_platform_status(
         security_tools_profile=security_tools_profile,
         threat_intel_sync=snapshot.get("threat_intel_sync", {}),
         threat_intel_corpus=snapshot.get("threat_intel_corpus", {}),
+        historical_packages=snapshot.get("historical_packages", {}),
         playbooks=snapshot.get("playbooks", {}),
         health=health,
         recommended_next_actions=recommended_next_actions,

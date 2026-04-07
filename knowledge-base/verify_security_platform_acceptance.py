@@ -52,6 +52,9 @@ SECURITY_TOOL_INTEGRATIONS_DIR = (
 SECURITY_TOOL_PROFILES_PATH = SECURITY_TOOL_INTEGRATIONS_DIR / "profiles.yaml"
 DEPLOYMENT_PROFILES_PATH = ROOT.parent / "docs" / "security-platform" / "deployment-profiles.yaml"
 PLAYBOOKS_DIR = ROOT.parent / "docs" / "security-platform" / "playbooks"
+HISTORICAL_PACKAGE_INDEX_PATH = (
+    ROOT / "threat-intelligence" / "historical_packages" / "index.json"
+)
 
 SECURITY_PERSONA_BUILTIN_REQUIREMENTS = {
     "安全事件分析师": {"Internal Search", "Web Search", "Open URL"},
@@ -258,6 +261,32 @@ def load_playbook_definitions_summary() -> dict[str, Any]:
         "names": names,
         "playbooks_with_examples": playbooks_with_examples,
         "invalid_files": invalid_files,
+    }
+
+
+def load_historical_package_summary() -> dict[str, Any]:
+    try:
+        with open(HISTORICAL_PACKAGE_INDEX_PATH, "r", encoding="utf-8") as handle:
+            index_doc = json.load(handle) or {}
+    except Exception:
+        index_doc = {}
+
+    summary = index_doc.get("summary", {}) if isinstance(index_doc, dict) else {}
+    packages = index_doc.get("packages", []) if isinstance(index_doc, dict) else []
+    if not isinstance(summary, dict):
+        summary = {}
+    if not isinstance(packages, list):
+        packages = []
+
+    return {
+        "package_count": int(summary.get("package_count", 0) or 0),
+        "total_item_count": int(summary.get("total_item_count", 0) or 0),
+        "total_size_bytes": int(summary.get("total_size_bytes", 0) or 0),
+        "package_ids": [
+            str(package.get("batch_id")).strip()
+            for package in packages
+            if isinstance(package, dict) and str(package.get("batch_id", "")).strip()
+        ],
     }
 
 
@@ -716,6 +745,7 @@ def build_runtime_health_summary(
     db_state: dict[str, Any],
     threat_intel_sync_summary: dict[str, Any],
     threat_intel_curation_summary: dict[str, Any],
+    historical_package_summary: dict[str, Any],
     security_tool_profile_summary: dict[str, Any],
     deployment_profile_summary: dict[str, Any],
     playbook_definitions_summary: dict[str, Any],
@@ -850,6 +880,12 @@ def build_runtime_health_summary(
                 "keep_runtime_only": threat_intel_curation_summary.get(
                     "keep_runtime_only", 0
                 ),
+                "historical_package_count": historical_package_summary.get(
+                    "package_count", 0
+                ),
+                "historical_package_items": historical_package_summary.get(
+                    "total_item_count", 0
+                ),
             },
             "playbooks": {
                 "count": playbook_definitions_summary.get("count", 0),
@@ -872,6 +908,7 @@ def evaluate_acceptance(
     db_state: dict[str, Any],
     threat_intel_sync_summary: dict[str, Any],
     threat_intel_curation_summary: dict[str, Any],
+    historical_package_summary: dict[str, Any],
     security_tool_profile_summary: dict[str, Any],
     deployment_profile_summary: dict[str, Any],
     playbook_definitions_summary: dict[str, Any],
@@ -1026,6 +1063,7 @@ def evaluate_acceptance(
         db_state=db_state,
         threat_intel_sync_summary=threat_intel_sync_summary,
         threat_intel_curation_summary=threat_intel_curation_summary,
+        historical_package_summary=historical_package_summary,
         security_tool_profile_summary=security_tool_profile_summary,
         deployment_profile_summary=deployment_profile_summary,
         playbook_definitions_summary=playbook_definitions_summary,
@@ -1065,6 +1103,10 @@ def evaluate_acceptance(
             "threat_intel_manual_review": threat_intel_curation_summary.get("manual_review", 0),
             "threat_intel_keep_runtime_only": threat_intel_curation_summary.get("keep_runtime_only", 0),
             "threat_intel_quality_counts": threat_intel_curation_summary.get("quality_counts", {}),
+            "historical_package_count": historical_package_summary.get("package_count", 0),
+            "historical_package_total_items": historical_package_summary.get("total_item_count", 0),
+            "historical_package_total_size_bytes": historical_package_summary.get("total_size_bytes", 0),
+            "historical_package_ids": historical_package_summary.get("package_ids", []),
             "playbook_count": playbook_definitions_summary["count"],
             "playbook_names": playbook_definitions_summary["names"],
             "playbooks_with_examples": playbook_definitions_summary["playbooks_with_examples"],
@@ -1118,6 +1160,17 @@ def print_human_result(result: dict[str, Any]) -> None:
         f"manual_review={result['summary']['threat_intel_manual_review']}, "
         f"keep_runtime_only={result['summary']['threat_intel_keep_runtime_only']}"
     )
+    print(
+        "Threat-intel historical packages: "
+        f"count={result['summary']['historical_package_count']}, "
+        f"items={result['summary']['historical_package_total_items']}, "
+        f"size={result['summary']['historical_package_total_size_bytes']}"
+    )
+    if result["summary"]["historical_package_ids"]:
+        print(
+            "Historical package ids: "
+            + ", ".join(result["summary"]["historical_package_ids"])
+        )
     quality_counts = result["summary"].get("threat_intel_quality_counts", {})
     if quality_counts:
         print(
@@ -1202,6 +1255,7 @@ def main() -> int:
         db_state=fetch_db_state(db_password=args.db_password),
         threat_intel_sync_summary=load_threat_intel_sync_summary(deployment_profile_summary),
         threat_intel_curation_summary=load_threat_intel_curation_summary(),
+        historical_package_summary=load_historical_package_summary(),
         security_tool_profile_summary=load_security_tool_profile_summary(
             openapi_tools, deployment_profile_summary
         ),

@@ -1,4 +1,13 @@
 {
+  "historical_packages": {
+    "package_count": 2,
+    "package_ids": [
+      "phase-1-cisa-limited-historical",
+      "phase-2-nvd-authoritative-historical"
+    ],
+    "total_item_count": 203,
+    "total_size_bytes": 242152
+  },
   "playbooks": {
     "count": 2,
     "items": [

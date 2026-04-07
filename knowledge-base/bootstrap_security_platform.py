@@ -368,6 +368,20 @@ def print_summary(results: list[StageResult]) -> None:
                 f"{health.get('overall_status', 'unknown')} "
                 f"(failing={health.get('failing_checks', 0)}, warning={health.get('warning_checks', 0)})"
             )
+            summary = result.parsed_json.get("summary", {})
+            if isinstance(summary, dict):
+                historical_package_count = int(
+                    summary.get("historical_package_count", 0) or 0
+                )
+                historical_package_total_items = int(
+                    summary.get("historical_package_total_items", 0) or 0
+                )
+                if historical_package_count or historical_package_total_items:
+                    print(
+                        "  historical packages: "
+                        f"count={historical_package_count}, "
+                        f"items={historical_package_total_items}"
+                    )
             actions = result.parsed_json.get("recommended_next_actions", [])
             if actions:
                 print("  recommended next actions:")

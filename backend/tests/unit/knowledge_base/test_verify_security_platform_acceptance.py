@@ -183,6 +183,15 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
             "manual_review": 0,
             "keep_runtime_only": 1,
         },
+        historical_package_summary={
+            "package_count": 2,
+            "total_item_count": 203,
+            "total_size_bytes": 242152,
+            "package_ids": [
+                "phase-1-cisa-limited-historical",
+                "phase-2-nvd-authoritative-historical",
+            ],
+        },
         security_tool_profile_summary={
             "profile": "mock",
             "tools": {
@@ -259,6 +268,12 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
     assert result["summary"]["threat_intel_due_status"] == "WAIT"
     assert result["summary"]["threat_intel_governed_feeds"] == 1902
     assert result["summary"]["threat_intel_promotion_candidates"] == 0
+    assert result["summary"]["historical_package_count"] == 2
+    assert result["summary"]["historical_package_total_items"] == 203
+    assert result["summary"]["historical_package_ids"] == [
+        "phase-1-cisa-limited-historical",
+        "phase-2-nvd-authoritative-historical",
+    ]
     assert result["summary"]["playbook_count"] == 2
 
 
@@ -313,6 +328,12 @@ def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
             "promotion_candidates": 345,
             "manual_review": 0,
             "keep_runtime_only": 1,
+        },
+        historical_package_summary={
+            "package_count": 0,
+            "total_item_count": 0,
+            "total_size_bytes": 0,
+            "package_ids": [],
         },
         security_tool_profile_summary={
             "profile": "live",

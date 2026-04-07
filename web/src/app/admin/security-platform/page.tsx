@@ -34,6 +34,12 @@ interface SecurityPlatformRuntimeStatus {
     manual_review: number;
     keep_runtime_only: number;
   };
+  historical_packages: {
+    package_count: number;
+    total_item_count: number;
+    total_size_bytes: number;
+    package_ids: string[];
+  };
   playbooks: {
     count: number;
     with_examples: number;
@@ -262,7 +268,7 @@ function Main() {
         </div>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <SummaryCard title="Deployment Profile">
           <div className="text-2xl font-semibold">
             {runtimeData.deployment_profile}
@@ -292,6 +298,18 @@ function Main() {
           <div className="mt-2 text-sm text-muted-foreground">
             unmanaged={runtimeData.threat_intel_corpus.unmanaged} / promotion=
             {runtimeData.threat_intel_corpus.promotion_candidates}
+          </div>
+        </SummaryCard>
+
+        <SummaryCard title="Historical Packages">
+          <div className="text-2xl font-semibold">
+            {runtimeData.historical_packages.package_count}
+          </div>
+          <div className="mt-2 text-sm text-muted-foreground">
+            items={runtimeData.historical_packages.total_item_count}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            size={runtimeData.historical_packages.total_size_bytes}
           </div>
         </SummaryCard>
 
@@ -385,6 +403,14 @@ function Main() {
               runtime-only corpus: {runtimeData.threat_intel_corpus.keep_runtime_only}
             </div>
             <div>manual review: {runtimeData.threat_intel_corpus.manual_review}</div>
+            <div>
+              historical packages: {runtimeData.historical_packages.package_count}
+            </div>
+            <div>
+              historical ids: {runtimeData.historical_packages.package_ids.length > 0
+                ? runtimeData.historical_packages.package_ids.join(", ")
+                : "none"}
+            </div>
           </div>
         </SummaryCard>
       </div>

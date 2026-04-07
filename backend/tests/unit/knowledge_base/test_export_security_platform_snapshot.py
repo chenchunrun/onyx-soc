@@ -66,11 +66,30 @@ def test_build_snapshot_contains_expected_sections(monkeypatch) -> None:
             'due_feeds': [],
         },
     )
+    monkeypatch.setattr(
+        module,
+        'load_historical_package_summary',
+        lambda: {
+            'package_count': 2,
+            'total_item_count': 203,
+            'total_size_bytes': 242152,
+            'package_ids': [
+                'phase-1-cisa-limited-historical',
+                'phase-2-nvd-authoritative-historical',
+            ],
+        },
+    )
 
     snapshot = module.build_snapshot()
 
     assert snapshot['threat_intel_sync']['source_profile'] == 'mock'
     assert snapshot['threat_intel_corpus']['governed'] == 1902
+    assert snapshot['historical_packages']['package_count'] == 2
+    assert snapshot['historical_packages']['total_item_count'] == 203
+    assert snapshot['historical_packages']['package_ids'] == [
+        'phase-1-cisa-limited-historical',
+        'phase-2-nvd-authoritative-historical',
+    ]
     assert snapshot['playbooks']['count'] == 2
     assert snapshot['playbooks']['with_examples'] == 2
     assert snapshot['playbooks']['items'][0]['name'] == 'a'

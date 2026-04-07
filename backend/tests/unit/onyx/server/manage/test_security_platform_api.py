@@ -212,12 +212,75 @@ def test_build_health_status_reports_warning_for_due_threat_intel_only() -> None
                 "keep_runtime_only": 1,
             },
             "playbooks": {"count": 2, "with_examples": 2, "items": []},
+            "historical_packages": {
+                "package_count": 2,
+                "total_item_count": 203,
+                "total_size_bytes": 242152,
+                "package_ids": [
+                    "phase-1-cisa-limited-historical",
+                    "phase-2-nvd-authoritative-historical",
+                ],
+            },
         },
     )
 
     assert health["overall_status"] == "warning"
     assert health["failing_checks"] == 0
     assert health["warning_checks"] == 1
+
+
+def test_build_health_status_reports_historical_package_catalog_drift() -> None:
+    health = build_health_status(
+        profile_name="demo",
+        expected_threat_profile="mock",
+        expected_tools_profile="mock",
+        threat_intel_source_profile="mock",
+        security_tools_profile="mock",
+        required_env=[],
+        missing_required_env=[],
+        deployment_profile_issues=[],
+        document_set_status=SecurityPlatformDocumentSetStatus(
+            id=1,
+            name="安全知识库",
+            exists=True,
+            is_public=False,
+            shared_user_count=4,
+        ),
+        personas=[],
+        tools=[],
+        security_users=[],
+        persona_user_links=4,
+        document_set_user_links=4,
+        snapshot={
+            "threat_intel_sync": {
+                "source_profile": "mock",
+                "due_status": "WAIT",
+                "last_sync_run_at": "2026-04-07T00:00:00Z",
+                "due_feeds": [],
+            },
+            "threat_intel_corpus": {
+                "governed": 1902,
+                "unmanaged": 1,
+                "promotion_candidates": 0,
+                "manual_review": 0,
+                "keep_runtime_only": 1,
+            },
+            "historical_packages": {
+                "package_count": 2,
+                "total_item_count": 0,
+                "total_size_bytes": 123,
+                "package_ids": ["phase-1-cisa-limited-historical"],
+            },
+            "playbooks": {"count": 2, "with_examples": 2, "items": []},
+        },
+    )
+
+    historical_check = next(
+        check for check in health["checks"] if check["name"] == "historical_packages"
+    )
+    assert historical_check["status"] == "failing"
+    assert any("catalog summary does not match package id count" in issue for issue in historical_check["issues"])
+    assert any("zero archived items" in issue for issue in historical_check["issues"])
 
 
 def test_build_recommended_next_actions_prefers_non_healthy_checks() -> None:
@@ -270,4 +333,19 @@ def test_build_remediation_commands_maps_checks_to_copy_ready_commands() -> None
         "SECURITY_PLATFORM_DEPLOYMENT_PROFILE=demo python knowledge-base/bootstrap_security_platform.py --verify",
         "python knowledge-base/security-automation/setup_security_tools.py --apply --profile mock",
         "python knowledge-base/setup_security_threat_intel.py --verify",
+    ]
+
+
+def test_build_remediation_commands_includes_historical_package_rebuild() -> None:
+    commands = build_remediation_commands(
+        profile_name="demo",
+        health={
+            "checks": [
+                {"name": "historical_packages", "status": "failing"},
+            ]
+        },
+    )
+
+    assert commands == [
+        "python knowledge-base/build_threat_intel_historical_package_index.py --write-index"
     ]

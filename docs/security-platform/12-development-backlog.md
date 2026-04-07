@@ -238,6 +238,10 @@
   - `active`
   - `archive_candidate`
   - `retained_historical`
+- 已补两批 historical package 与统一 catalog：
+  - `phase-1-cisa-limited-historical`
+  - `phase-2-nvd-authoritative-historical`
+- `acceptance`、`bootstrap --verify`、安全工作台已开始显示 historical package catalog 摘要
 - `setup_security_threat_intel.py --verify --local-only` 现已输出生命周期摘要
 - 当前真实评估结果：
   - `active=638`

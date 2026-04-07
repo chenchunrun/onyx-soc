@@ -297,6 +297,10 @@ def test_print_summary_includes_acceptance_health_and_actions() -> None:
                             "failing_checks": 1,
                             "warning_checks": 0,
                         },
+                        "summary": {
+                            "historical_package_count": 2,
+                            "historical_package_total_items": 203,
+                        },
                         "recommended_next_actions": [
                             "Fill the missing required env vars for the selected deployment profile."
                         ],
@@ -308,4 +312,5 @@ def test_print_summary_includes_acceptance_health_and_actions() -> None:
     output = buffer.getvalue()
     assert "- acceptance: FAILED" in output
     assert "health: failing (failing=1, warning=0)" in output
+    assert "historical packages: count=2, items=203" in output
     assert "Fill the missing required env vars for the selected deployment profile." in output

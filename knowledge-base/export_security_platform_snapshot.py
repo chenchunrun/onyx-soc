@@ -29,6 +29,7 @@ from build_threat_intel_manifest import load_manifest
 from curate_threat_intel_corpus import build_unmanaged_report
 from verify_security_platform_acceptance import load_threat_intel_sync_summary
 from verify_security_platform_acceptance import load_playbook_definitions_summary
+from verify_security_platform_acceptance import load_historical_package_summary
 
 
 def build_snapshot() -> dict[str, Any]:
@@ -42,6 +43,7 @@ def build_snapshot() -> dict[str, Any]:
     )
     playbooks_summary = load_playbook_definitions_summary()
     threat_intel_sync = load_threat_intel_sync_summary()
+    historical_packages_summary = load_historical_package_summary()
 
     return {
         "version": 1,
@@ -63,6 +65,18 @@ def build_snapshot() -> dict[str, Any]:
             "keep_runtime_only": int(
                 unmanaged_summary.get("keep_runtime_only_total", 0) or 0
             ),
+        },
+        "historical_packages": {
+            "package_count": int(
+                historical_packages_summary.get("package_count", 0) or 0
+            ),
+            "total_item_count": int(
+                historical_packages_summary.get("total_item_count", 0) or 0
+            ),
+            "total_size_bytes": int(
+                historical_packages_summary.get("total_size_bytes", 0) or 0
+            ),
+            "package_ids": historical_packages_summary.get("package_ids", []),
         },
         "playbooks": {
             "count": int(playbooks_summary.get("count", 0) or 0),

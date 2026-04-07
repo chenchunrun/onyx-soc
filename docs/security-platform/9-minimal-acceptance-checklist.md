@@ -13,6 +13,7 @@
 - 安全文档集
 - threat-intel 同步状态
 - threat-intel 生命周期状态
+- threat-intel historical package catalog
 - 安全 persona
 - 安全工具
 - RBAC 初始化
@@ -77,6 +78,7 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - `acceptance` 阶段返回成功
 - `acceptance` 输出包含 threat-intel sync 的 `profile / last_run / status`
 - `acceptance` 输出包含 threat-intel corpus 的 `active / archive_candidates / retained_historical`
+- `acceptance` 输出包含 threat-intel historical packages 的 `count / items / size`
 - `acceptance` 输出包含 security tools 的 `profile` 以及全部声明式安全工具的 `server / headers` 摘要
 - `acceptance` 输出包含 `Deployment profile`
 - `smoke` 阶段返回成功
@@ -122,6 +124,8 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - 输出包含 `Threat-intel sync`
 - 输出包含 `Security tools profile`
 - 输出包含 `Deployment profile`
+- 输出包含 `Threat-intel historical packages`
+- 输出包含 `Historical package ids`
 - 输出包含当前全部声明式安全工具的端点摘要
 - 能看到当前 `profile`
 - 能看到最近一次 `last_run`
@@ -130,6 +134,7 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - 如 Onyx 跑在 Docker 中且 mock server 跑在宿主机上，工具端点应显示为 `host.docker.internal` 而不是 `localhost`
 - `setup_security_threat_intel.py --verify --local-only` 能显示 `Governed feeds` 与 `Unmanaged local feeds`
 - `setup_security_threat_intel.py --verify --local-only` 能显示 `active / archive_candidates / retained_historical`
+- historical package catalog 已生成并可追踪 package 数量与 item 数量
 - `curate_threat_intel_corpus.py --show-summary` 能显示 `Promotion candidates / Keep runtime only`
 - 如本环境要求只使用 Git 已纳管内容包，则 `--strict-local-corpus` 也应通过
 
@@ -150,7 +155,23 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - 但需要能说明哪些内容进入后续归档评审
 
 
-### 5.5 安全工具
+### 5.5 Threat-Intel Historical Package Catalog
+
+检查项：
+
+- `knowledge-base/threat-intelligence/historical_packages/index.json`
+- `verify_security_platform_acceptance.py` 或 `bootstrap --verify` 的 `acceptance` 输出
+
+通过标准：
+
+- 能看到 `package_count`
+- 能看到 `total_item_count`
+- 能看到 `Historical package ids`
+- historical package catalog 与实际 package 目录一致
+- 如存在 historical package，则 `total_item_count` 不为 `0`
+
+
+### 5.6 安全工具
 
 检查项：
 
@@ -167,7 +188,7 @@ python knowledge-base/bootstrap_security_platform.py --verify --stage smoke
 - persona 上能看到对应工具绑定关系
 
 
-### 5.6 安全团队用户
+### 5.7 安全团队用户
 
 检查项：
 
