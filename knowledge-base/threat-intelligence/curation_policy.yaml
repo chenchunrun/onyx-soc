@@ -45,3 +45,4 @@ output:
   archive_patch_preview_dir: knowledge-base/threat-intelligence/archive_patch_previews
   archive_action_script_dir: knowledge-base/threat-intelligence/archive_action_scripts
   archive_execution_plan_dir: knowledge-base/threat-intelligence/archive_execution_plans
+  archive_execution_record_dir: knowledge-base/threat-intelligence/archive_execution_records

@@ -250,6 +250,7 @@
   - 已支持按 `batch_id` 生成 patch preview，提前评估 manifest/source/year 影响
   - 已支持按 `batch_id` 生成 archive action script，为真实归档执行提供无副作用预演脚本
   - 已支持按 `batch_id` 生成 archive execution plan，收口前置检查、执行步骤、验证目标与回滚命令
+  - 已支持按 `batch_id` 生成 archive execution record 模板，用于记录审批、执行、验证与回滚结果
 
 
 ### 4.3 扩展 threat-intel 上游源
