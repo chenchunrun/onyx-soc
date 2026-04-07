@@ -75,7 +75,7 @@ from shared_configs.configs import MULTI_TENANT
 router = APIRouter(prefix="/manage/admin/security-platform", tags=PUBLIC_API_TAGS)
 SNAPSHOT_PATH = Path(__file__).resolve().parent / "static_snapshot.json"
 ROOT_PATH = Path(__file__).resolve().parents[5]
-INTEGRATIONS_DIR = ROOT_PATH / "docs" / "security-platform" / "5-integrations"
+INTEGRATIONS_DIR = Path(__file__).resolve().parent / "tool_configs"
 INTEGRATION_PROFILES_PATH = INTEGRATIONS_DIR / "profiles.yaml"
 
 SECURITY_DOCUMENT_SET_NAME = "安全知识库"

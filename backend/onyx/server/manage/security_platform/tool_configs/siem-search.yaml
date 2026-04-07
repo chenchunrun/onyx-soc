@@ -1,0 +1,11 @@
+name: search_security_alerts
+template: siem_search_api
+description: >-
+  Search recent SIEM/XDR alerts by IOC, hostname, username, or rule name. Use
+  this when triaging a suspected security incident and you need related alerts,
+  asset context, and alert status before escalating or creating a ticket.
+api_url_env: SECURITY_SIEM_API_URL
+api_key_env: SECURITY_SIEM_API_KEY
+persona_bindings:
+  - 安全事件分析师
+  - 应急响应指挥官

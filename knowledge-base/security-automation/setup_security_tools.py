@@ -37,7 +37,13 @@ import yaml
 
 
 INTEGRATIONS_DIR = (
-    Path(__file__).resolve().parents[2] / "docs" / "security-platform" / "5-integrations"
+    Path(__file__).resolve().parents[2]
+    / "backend"
+    / "onyx"
+    / "server"
+    / "manage"
+    / "security_platform"
+    / "tool_configs"
 )
 INTEGRATION_PROFILES_PATH = INTEGRATIONS_DIR / "profiles.yaml"
 SECURITY_PERSONA_NAMES = {
