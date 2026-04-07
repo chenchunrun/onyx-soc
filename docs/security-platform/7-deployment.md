@@ -71,6 +71,7 @@ helm upgrade --install onyx . -n onyx --create-namespace \
 - threat-intel 生命周期报告：`knowledge-base/threat-intelligence/lifecycle_report.json`
 - threat-intel archive 行动清单：`knowledge-base/threat-intelligence/archive_plan.json`
 - threat-intel archive 批次清单：`knowledge-base/threat-intelligence/archive_batches.json`
+- threat-intel archive worklists：`knowledge-base/threat-intelligence/archive_worklists/`
 
 
 ### 4.2.1 Docker Compose 覆盖配置

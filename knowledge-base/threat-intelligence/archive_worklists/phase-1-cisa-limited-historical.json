@@ -1,0 +1,2819 @@
+{
+  "batch_id": "phase-1-cisa-limited-historical",
+  "description": "First archive review batch for low-value historical CISA placeholder feeds.",
+  "items": [
+    {
+      "cve_id": "CVE-2002-0367",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2002_0367.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "2b787cf37dc86c205be0539121e3424a4250484e2e074447557436f2f9774784",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2002-0367: N/A",
+      "year": "2002"
+    },
+    {
+      "cve_id": "CVE-2004-0210",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2004_0210.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "b30df42865f838a12ec2844ee8ae5b06b9829a86e855ae4c318b916c5f0f16b0",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2004-0210: N/A",
+      "year": "2004"
+    },
+    {
+      "cve_id": "CVE-2004-1464",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2004_1464.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "3bbbd15126ed57cb67d444cfce385637ceb6433077afcc2ec4e895ed7f65d59b",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2004-1464: N/A",
+      "year": "2004"
+    },
+    {
+      "cve_id": "CVE-2005-2773",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2005_2773.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "baff779fe88a81b668aa5a17a8e0cabd0c7a5221ce0da5b0f1f84215c54284d3",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2005-2773: N/A",
+      "year": "2005"
+    },
+    {
+      "cve_id": "CVE-2006-1547",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2006_1547.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "01a2db7eed60ab77ccc2882b9af54c3537395a16f4540323386cf29c55097e8e",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2006-1547: N/A",
+      "year": "2006"
+    },
+    {
+      "cve_id": "CVE-2006-2492",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2006_2492.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "59e4eff63e43a3c258f96e1a8cfd4fbf6da4d5b3db5ffdbd79764f74910b08f4",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2006-2492: N/A",
+      "year": "2006"
+    },
+    {
+      "cve_id": "CVE-2007-0671",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2007_0671.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "4df90f50457fb368ae43db2a3e84601c71b4d133aab7edb75482112cdaa6e036",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2007-0671: N/A",
+      "year": "2007"
+    },
+    {
+      "cve_id": "CVE-2007-3010",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2007_3010.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "803e2328ddb8800296cb1d61fa65891b407de5556a59392e2a9c88d79225b9a2",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2007-3010: N/A",
+      "year": "2007"
+    },
+    {
+      "cve_id": "CVE-2007-5659",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2007_5659.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "ce76ba39e6be3bc1e45c5331ff8187575e346155ca54a7e4ac81391ff1957932",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2007-5659: N/A",
+      "year": "2007"
+    },
+    {
+      "cve_id": "CVE-2008-0015",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2008_0015.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "634bd43d6d8a49d63cbf7cc8494cd536bdd4d930dd81fd399d9a0d6f257480c5",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2008-0015: N/A",
+      "year": "2008"
+    },
+    {
+      "cve_id": "CVE-2008-0655",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2008_0655.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "4cc9f2c1a8b4e0d23b355c6af3819156757d30364e3aef0054d2b704fccf1bda",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2008-0655: N/A",
+      "year": "2008"
+    },
+    {
+      "cve_id": "CVE-2008-2992",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2008_2992.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "2ebd6910a00c2694a4355d9ce0a7da54c93c8e215385130ec3440bf7962c7ece",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2008-2992: N/A",
+      "year": "2008"
+    },
+    {
+      "cve_id": "CVE-2008-3431",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2008_3431.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "c3c32d2da7ed4489fc70bd875779bc29bf41d122329d47b627c30d08d3de2b83",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2008-3431: N/A",
+      "year": "2008"
+    },
+    {
+      "cve_id": "CVE-2009-0556",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_0556.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "837fe5a532d8da650569b3b7d8a8941f98f8bcaa424bab59394d1a18c6fe6378",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-0556: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2009-0557",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_0557.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "c12e65fcee47d39503e5a86fc50da591764b1d057c3d66d0148d476fdcbe47d0",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-0557: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2009-0563",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_0563.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "d5574b9b53f61a833ae9a74ab7f3156913c8cffdf4ae1eee263d514381443985",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-0563: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2009-0927",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_0927.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "871eb60c7620f5228bd32dfe53170bb1436ad5a813b7e7dc30a42e99d92acd0a",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-0927: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2009-1123",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_1123.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "829f89de3b2a1e6f03eea2fb8d0af611b5d49de2bdc43d04d820d14b7f877b35",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-1123: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2009-1151",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_1151.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "5b70b611d72a43aa36c1496be0b71ff3b1cba898823d3f1eeace518390e75e65",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-1151: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2009-1862",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_1862.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "5064a54477d77bc36cdf158d14bf6c77153b8c0cd938455074983cf9339e5669",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-1862: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2009-2055",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_2055.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "2ffa0eb76c00f08e307dd24c9387c47ba64faa7cd26631d787899a42d58e5be5",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-2055: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2009-3129",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_3129.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "b2a5b07af14cd79f88cf2e2f0de50affd8fb49bc6af1f60a1a51ba69fe62cbf2",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-3129: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2009-3953",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_3953.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a77dc517e6023843bdd328c73eab82103d0d7287e7932a5b25f177e79428bef1",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-3953: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2009-3960",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_3960.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "5ac86d6693462bde1a87b48bd0bc6f4fe2989fb72195271b2cd402ffefb25e6f",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-3960: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2009-4324",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2009_4324.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a0526e9365cc240e4a649b6de121dc543ce4843c5272a08856fe4ca0bb1f95d0",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2009-4324: N/A",
+      "year": "2009"
+    },
+    {
+      "cve_id": "CVE-2010-0188",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_0188.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "96919d7fdf1d0be5fadcd094ee3bddeec12d6f98c63c78f5c6ddf9ebb13c63e6",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-0188: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-0232",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_0232.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "1749c6c8a04331c6fd3b269cb2cb06f93a0ca5251bf2db0eeb24666046100624",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-0232: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-0738",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_0738.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "8b6193c45674ed166023ad5b1714e090648f73e0ad5a927271b597790fcf1c93",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-0738: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-0840",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_0840.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "f6af5cc429c3f5154598610e4bb4e6d0065b5a3ca5aa67675dbebb834f660545",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-0840: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-1297",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_1297.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "4175f1600c3ce72331b49e5907504a3d437406cb1f657959cc3f6f0ad7a9a792",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-1297: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-1428",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_1428.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "1661d5888754f93bff713ca4199ec33d834d15fa5f4487b408108856885d0868",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-1428: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-1871",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_1871.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "1c23153f5a2d71b5e206a0ce6a2fa578ac10b21179ebb394843c00a596459347",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-1871: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-2572",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_2572.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "932b8622b339bb35a04dcc672a9cccb5aedbe91ea054778d68d7b032aa3c8114",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-2572: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-2861",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_2861.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "d91f2caf4d47f6ae57698e4cea9056a73dd2a92e73ea98b345b1e5c43e30ee73",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-2861: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-2883",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_2883.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "48a40fcbd3db6317641fc2e2a0d21999503d2118485e12afbcc6c32ad8cd938f",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-2883: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-3035",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_3035.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "43542271f731da385ce3f55cf1ef9a37ac731a64690c619c27ce4573ea7bb3de",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-3035: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-3333",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_3333.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "088660094d53bc51355c57391a8aa8b1d2f68d4dbacf032a995da4b4e13b521f",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-3333: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-3765",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_3765.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "d1c98ba9775019472d578f2d9b63ae310fe2c0ecea7f3b38a664e02b8d45c43a",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-3765: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-3904",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_3904.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "29263723cb8b573b3be8ccc306ff002874f6f8915c73cd1f7119af37aef60f5e",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-3904: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-3962",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_3962.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "09ebce13e9d6af20c1d961159e3cfbec50ebdce626cf8e0c89ecf711e6a85b93",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-3962: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-4344",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_4344.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "8d70797cf908febfac06a1f0a854f1432982d684718a7877a9a20141f0e51919",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-4344: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-4345",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_4345.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "7d3c461ca90f157f8e64238bb25457511aea39c0daea2039963c67d237708125",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-4345: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-4398",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_4398.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "cff10ae2e7df5164daca1145ccb199c76e495bd030a9634cbe2e0d4e2eeafa2c",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-4398: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-5326",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_5326.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "0ae2a2dbeaaeb29df31159aee74f6e3d14673574792ceef7172704cb1d4bde17",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-5326: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-5330",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_5330.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "aaa1024dbae629323bbedc92f26fc55b2a32b0769346e319265c907cbb052af7",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2010-5330: N/A",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2011-0609",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_0609.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "12f654bfd62f3718f3c4ecf4f22ca3fbb4e358a4cf256d69569bbb0cc8083c77",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2011-0609: N/A",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-0611",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_0611.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "dbe032a460dceaa578d5398e02c2c9b7dc0e5b5c0f4b7bd62ba423e2e09ca5d4",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2011-0611: N/A",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-1823",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_1823.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "fc300afb960e9cea0a676d11b2fb705f98e304b291d79768cb4181aca4baff1d",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2011-1823: N/A",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-1889",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_1889.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "6b24ca6e3d120865fb59cd2e6310fccd71c7b55f6e8ca2efb2705f3d678aa3c6",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2011-1889: N/A",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-2005",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_2005.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "dd3fabe2188ef9ec7911fdd0c2f37bcb8328747bfa9a3f2f10ada8dacad50888",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2011-2005: N/A",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-2462",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_2462.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "046466e6eb0beb5b33d763977de513d043d4f37001fe1e3246745f28ea86b0b9",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2011-2462: N/A",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-3402",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_3402.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a878f763795016a684d0864d1181e4cd399e3479c4c791695b2f1b22a53d7a98",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2011-3402: N/A",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-3544",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_3544.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "21c8cfd08a744b5da3abf036ba501e0dba1dd42080b603cca33565493a77b32d",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2011-3544: N/A",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-4723",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_4723.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "e8c3402cbe1f13f1fcb4aa787fdbaa12eb3e7a754b7a287281a197c016f88a40",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2011-4723: N/A",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2012-0151",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_0151.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "70f62e89d3ec281fc3b2b6c18e6ab4e293155ce328d4575b432d4e44d18befef",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-0151: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-0158",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_0158.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "91e2c9e0b0ab59bf92e5a74bf0ea2833f53c89c2b0641aaaefe101257bc55f0e",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-0158: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-0391",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_0391.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "b27377ac03647ad7f59e910627c037e6584635a11cdce150e3199cc24f233f35",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-0391: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-0507",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_0507.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "d54c026202d475229e686d0383d0cdfbb1ce6b08c1c8eb33ef9355d82a8c2acb",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-0507: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-0518",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_0518.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "f304e99bdba97cf32add45e946ac59c8426b5276a3fd750181a99d17b561f342",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-0518: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-0754",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_0754.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "c0b38f4291db9ad7afa415711c60b984254e0350be05a0d77e341474faf3e3a2",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-0754: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-0767",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_0767.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "e1b780eb48fe7c0d5714e7ab20106374d40ab8ff2df58674211534d5f0aff205",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-0767: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-1535",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_1535.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "e815c9444bd8a5d994863621f71908cbd72c561198e655117377d55f8ede7d07",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-1535: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-1710",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_1710.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "bbbacfe39e7af7e7dd48c2198fa65324fe8023bd886bb9da867cadcf1dc38931",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-1710: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-1723",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_1723.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "37be1bb0e60d05c31be24aeff627ad417fb6945a83a0d28539b950cf714300b8",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-1723: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-1823",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_1823.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a85c9d09d7abdd7e5d1b1e676755584732de06fb8645ddc4f3676cca305cc8ee",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-1823: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-1856",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_1856.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a837a4f10dfd6cccc13ff9d5450bf07c10732c448d06cfde650048c35b492339",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-1856: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-1889",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_1889.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "544c6772e094ffcb6dedfdb15e9777bf2769dd1ae88ae1f1a397f08d24199d13",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-1889: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-2034",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_2034.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "5663c3643c4ce5fd0fbaca52f7027b722d8ae59cd1c6a78b22b8ec637f7bfcb4",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-2034: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-2539",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_2539.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "2016401cc4d5fc8f464b3c92300edec2a04ce674b741d1199810a792d35e6571",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-2539: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-3152",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_3152.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "cde785023bcc56a49f372fdbd021be03dbc91fcc91198e511571edea55e9a603",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-3152: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-4681",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_4681.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "2097e32968699d93c9f53f15b64741fcb3bf7666bc8f141fc29aca92530b97b5",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-4681: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-4792",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_4792.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "f451290b28f8df4786cad1fe851a512399d4d1be10e08144055d35cc0252d206",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-4792: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-4969",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_4969.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "f306347d53751cf3573b4f0b79d820bbfede43c9ad333aae5238de6346afcac4",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-4969: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-5054",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_5054.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "dd5c88085204dcaf6cb485694efe2b2ac9b369e919e728a0b28fd87a4406bc23",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-5054: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-5076",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_5076.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "7c9b6fbd5ee478a56a50077ec9a2b470d6fc76f7547c5583bf69b29b5119e1ef",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2012-5076: N/A",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2013-0074",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0074.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "349ac08d7d7e5b262b44cb2402fcb208b863ed76b454ad6fb80662a2c8bd2dcf",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-0074: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-0422",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0422.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a1ef142c0955c49b79459722a646f4448918b2a7b73efdea1c9d3d7bb222de94",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-0422: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-0431",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0431.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "c5ab5d060c245ef48a6ec6ddcdbc382126090717681d4b9799fbd8ad6756990d",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-0431: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-0625",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0625.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "4eeef65ab05ac4107ba5295da8fa5d6ecbd00f1c9dc078a37a2830ba1b6478e6",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-0625: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-0629",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0629.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "f4ae497949ded6edead081c1589bb6428fff6a72a46fcbc93d978a843d610ea6",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-0629: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-0631",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0631.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "16f2ca05dd485fbfc2e6dd7282461ebf0c885311369f761cb2fea5cbebae3e40",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-0631: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-0632",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0632.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "22d605a70b2cb75eb984adaea32df384a2c3f5a77e9b5e90702e0e4982e475ab",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-0632: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-0640",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0640.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "820c06185b367a48e546653d87c1d452f569a5cc65bd2e01698efec782be6c9d",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-0640: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-0641",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0641.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "39feed3e4e506567900257acd95e9e0d33438de5f00c6f6881907e2fe9f3c57f",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-0641: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-0643",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0643.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "191f85375447d08005ee09a460c8390706230eac3030421739e0a23c418372d6",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-0643: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-0648",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0648.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "be3cf695c5088298416024ae071a1a410a72e311d772e57717150cb4a272129f",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-0648: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-1331",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_1331.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "8dafdc97c59dbca78efb2962a7412df90d7f67cbc5a288a2971f7f2f5af313da",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-1331: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-1347",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_1347.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "9a4ada7841fbb14ac217444b966bdf6fe412354ff9896d34ea2b524e1fad1de7",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-1347: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-1675",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_1675.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "101a6331587ea223f35c10de37d7a0a334df8d9c5218a841fbf28661173732bf",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-1675: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-1690",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_1690.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "4a9d29214d623c5de7fa734b6f99cea6d26f3b43eac3402c72b56b2f2a1dd119",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-1690: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2094",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2094.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "412577e62808eafdc70cbd4c6715843c8ffb6755c220825cbd73066af331266e",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-2094: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2251",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2251.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "d532654b26d8170d2668e4310524cae623fbb9adfff0f327f103f9a9429daf5f",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-2251: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2423",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2423.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "9fc221f9e57adc4036e63a4822d4273d96fac7bc365340ed3f088eda3c473e6b",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-2423: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2465",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2465.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "dfda19f6bd28d9df1f8dec6e27754c612aacfbb06d37e54f1c8b9a1520262fb5",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-2465: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2551",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2551.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "b7a9d639e8dfa5d948546da6a8fbb38dcbf233fd4eee18e1fa75b824f84b6bc2",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-2551: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2596",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2596.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "7d39abe9748c8f637837106e9778f79207d97133e14595e13a03384bc1d72589",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-2596: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2597",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2597.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "f3f229bd5b595d4033f888674f95c2c18cb75d4834d53b42180514793f26893a",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-2597: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2729",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2729.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a349660626e5a5d6e64a34340b7b9dc0bdd5bef2b3b6f3aacf47ed9e7c519f0c",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-2729: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-3163",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_3163.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "243da8ccb92256280cb6e6e84ff0d17d5487b9c4f743b1a07d372e03066af85f",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-3163: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-3346",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_3346.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "dcb9e75475490b8a49483d4252de4885a6e431552687ebb91e0eddea79dee778",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-3346: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-3660",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_3660.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "cbc833b129dadba0cfeb37942486c32fc7784fd80e28c3899dabadfdd3a041ef",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-3660: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-3893",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_3893.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a5b62a90ebd86fc2f522eab53e9e30782c3b871c5a8726d7a4644abd2ca01f38",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-3893: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-3896",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_3896.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "2488b2d97c380a90c59457feae50a8fff0a09b24866959ae2b7d4aef6c6dbf31",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-3896: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-3897",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_3897.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "b34dfa7dfeae853b0dc50028fb823fa0187d274d1a208c956ea6dee935c949d0",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-3897: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-3900",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_3900.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a76fa1c2e4cfb7f8240a6cd0aaa75f19cbaaa30158b61d3ba21c0ef004d798db",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-3900: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-3906",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_3906.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a688bd15e7990eedfcbe9f6cb4b6bfc1ddb03affcd9489cfb1e417e5259de9dd",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-3906: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-3918",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_3918.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "13696cfe2683b5471419316bccfcf9a22d7d1744747c9af7d28efe596f935d68",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-3918: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-3993",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_3993.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "7f8061a2f704642c2a2faf8fe9ee524d50f8cf8dbb936d2612d929b4c151887c",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-3993: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-4810",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_4810.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "f20e04d999cb842112b17fe4d13135f35118fe63383529565d2f54c243eae8d2",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-4810: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-5065",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_5065.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "1e54fe614491d50889368f76d18837ad43ca8aef367d9936adb33fa1542ef662",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-5065: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-5223",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_5223.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a07e0620ecba7b8ce9c5970ed2e97afcd4329012b60cf3dc2021d8cc677c9e4e",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-5223: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-6282",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_6282.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "89a00676ff437ddb3665b0aa4a87197a5e87616ec77c46b7f409465cd3b7652b",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-6282: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-7331",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_7331.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "71bac13afb3504f36525931b344c687b7898f87c35bc1783eed8371faea63a8d",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2013-7331: N/A",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2014-0130",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0130.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "1c935ba94d9ae4df3b62316c87fb4aacaed47171c915e9a8bc40e60dc6b6ff08",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-0130: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-0160",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0160.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "81e7645b4f1c86c8243bd318ceb567e1863a0d6166b7151615160bb1c0a52a8f",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-0160: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-0196",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0196.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "272a4a9df5c0917f54d2b2aad62fbd30f153d7246e8257ff56b13263b45253df",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-0196: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-0322",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0322.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "0acc929ee8dc08677a714ff53bdd08d6ad3cc2cbe1908558903fc28c7ef2ee70",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-0322: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-0496",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0496.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "aa9a1764ba95c2ce03986686f5fefc8e979db1a7169bdd46da76dd4774b25003",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-0496: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-0497",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0497.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "55ce66052fa0b3cb29ac6c2fa37fb5da7e2fed2ed48f5f210b970d120a1f3730",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-0497: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-0502",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0502.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a100a305a94e879bb9af8ef1ed90f6508d25e3e03242eee5718f49b9c61f3a80",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-0502: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-0546",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0546.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a0cece0e78fe019ff8da1f1c96bfd2ec1a1bde3326e716137aba189c44ebc88f",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-0546: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-0780",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0780.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "e8bf4609a1bc64af065bc7320c34e02cf5731e21a489b54655f64f38b5cd79e6",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-0780: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-100005",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_100005.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "8239c021f028d526a9be239be9dbd715661fa061aec79a03aaf0f58bcd25ab87",
+      "size_bytes": 968,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-100005: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-1761",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_1761.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "287c44ee453456265cae6e61ac984672497be97e87e62ecb834377e927639678",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-1761: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-1776",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_1776.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "c5bf40ae25a73e65b16ce0589893aef0076863c5c63192528289c5528aa3f6b4",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-1776: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-1812",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_1812.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "f7adf42d0d12128b7c8501edf109baa8cbec2075ae4c7b24f084a9c4c41f83cc",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-1812: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-2120",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_2120.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "7879a497045dd75935479f470929e0babec946e184359aecf789b254b0c12e59",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-2120: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-2817",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_2817.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "d8057c8d1c8b2c3f795ea457af561f613139665a564cbe6755a2b8d349b874e9",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-2817: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-3120",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_3120.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "4ff0f61dbddf2c78588fd1ae990252201948cd057075fd3da6f604979cd91500",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-3120: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-3153",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_3153.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a72ba76d0fa6c45b2d192ca94b1cc4e3cf05f75c02d9d634e2337bdd2ec1f919",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-3153: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-3931",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_3931.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "2cf5d4d64246ee920c3cb8d07a056b6d0f207bfcbe12cfa4a3eb3959a9ae3f1e",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-3931: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-4077",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_4077.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "c2995332c5b0e255504c9b3dd30b5cd40ebac9f5c1b9a7a915405839737e730a",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-4077: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-4113",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_4113.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "7e47c6d37a348e3b483654bf4c65476c5ef393f87170ddc83923fc6e4ccce111",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-4113: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-4114",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_4114.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "2de6ba7c7e343c2ca536529181b747afd363a1e18e0c26bb861b215ca541c627",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-4114: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-4123",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_4123.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "3b15e0c8119814c25dc69b29f06d845f33726ef32510d6a4d8bf6f6fce2e2ac6",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-4123: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-4148",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_4148.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "4837476a6c4a7fa1f88c941df76bb52e97612788902fd2c5fc46d8eca4f68f58",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-4148: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-4404",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_4404.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "562271d942d920ff5569f6a40eb2d3a5f2dc1de8491af078371f4ad2cf35023a",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-4404: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-6271",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_6271.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "da638f211afb9fa3f93926315b367b24928df48924017afe18b88c29af322b60",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-6271: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-6278",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_6278.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "1090008052109d216278425bfb6d1b3e3c401e46ea5371178b141d87ac23183f",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-6278: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-6287",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_6287.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "b3b878615c913dabed8404e65e078685a177e21a1e1c880ed60dae158f2fe882",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-6287: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-6324",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_6324.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "33ee18ecc236be5a2eb17014fc49e0bc22e8ecb807586a0cb3867042d674ae93",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-6324: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-6332",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_6332.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "5e0e892a8acf851dd4729641c48fa868b2e48bb2f9bcae93641a449404152a03",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-6332: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-6352",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_6352.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "160ca4337493b26ccc549675169a890323ee036de296ad4dfdc7197980055798",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-6352: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-7169",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_7169.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "a97395878785e0de069f4ebecffa1d7e102ac7e6725b64efbe6e3558257b01fe",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-7169: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-8361",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_8361.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "fb1bc1f13f38a3e9ed2137e92fcd4e0fc2c86e86cd6f5f8203a72a41fea11874",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-8361: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-8439",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_8439.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "5caef81534f664d4db2453c7e264dd158897dff489a11abbb8d32d6c71767ed9",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-8439: N/A",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-9163",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_9163.md",
+      "quality_reasons": [
+        "missing_retrieved_at",
+        "limited_marker:No description available."
+      ],
+      "quality_tier": "limited",
+      "retrieved_at": "",
+      "sha256": "8f3de9205b6a9c88279e6ddd062a5bfe0b4f4570abba8d7739277d628b7907c2",
+      "size_bytes": 964,
+      "source": "CISA Known Exploited Vulnerabilities Catalog",
+      "title": "CVE-2014-9163: N/A",
+      "year": "2014"
+    }
+  ],
+  "recommended_action": "Archive or remove placeholder-heavy historical CISA feeds from the governed package after review.",
+  "summary": {
+    "candidate_count": 147,
+    "quality_tier": "limited",
+    "source": "CISA Known Exploited Vulnerabilities Catalog",
+    "years": [
+      "2002",
+      "2004",
+      "2005",
+      "2006",
+      "2007",
+      "2008",
+      "2009",
+      "2010",
+      "2011",
+      "2012",
+      "2013",
+      "2014"
+    ]
+  }
+}

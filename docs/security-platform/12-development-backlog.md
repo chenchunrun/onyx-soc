@@ -246,6 +246,7 @@
 - 当前下一步已收敛为：
   - 按 `source / year / quality` 组织 archive candidate 评审和归档动作
   - 已生成 phase-based archive batches，便于分批执行历史内容归档评审
+  - 已支持按 `batch_id` 生成逐文件 worklist，便于实际处理第一批历史内容
 
 
 ### 4.3 扩展 threat-intel 上游源
