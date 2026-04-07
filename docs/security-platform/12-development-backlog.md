@@ -254,6 +254,7 @@
   - 已支持 archive action `preview/apply` 双模式，并在执行后自动生成 execution result 摘要
   - 已支持通过统一入口按 `batch_id` 一次性生成整套 archive artifacts，便于扩展到后续批次
   - 已支持为 archive batch 生成独立 historical package，避免归档动作退化成单纯删除
+  - 已支持 historical package catalog/index，统一管理已生成的历史包
 
 
 ### 4.3 扩展 threat-intel 上游源

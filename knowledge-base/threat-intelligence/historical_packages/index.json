@@ -1,0 +1,62 @@
+{
+  "catalog_version": 1,
+  "packages": [
+    {
+      "batch_id": "phase-1-cisa-limited-historical",
+      "description": "First archive review batch for low-value historical CISA placeholder feeds.",
+      "item_count": 147,
+      "manifest_path": "knowledge-base/threat-intelligence/historical_packages/phase-1-cisa-limited-historical/manifest.json",
+      "quality_counts": {
+        "limited": 147
+      },
+      "readme_path": "knowledge-base/threat-intelligence/historical_packages/phase-1-cisa-limited-historical/README.md",
+      "recommended_action": "Archive or remove placeholder-heavy historical CISA feeds from the governed package after review.",
+      "source_counts": {
+        "CISA Known Exploited Vulnerabilities Catalog": 147
+      },
+      "total_size_bytes": 141712,
+      "year_counts": {
+        "2002": 1,
+        "2004": 2,
+        "2005": 1,
+        "2006": 2,
+        "2007": 3,
+        "2008": 4,
+        "2009": 12,
+        "2010": 20,
+        "2011": 9,
+        "2012": 21,
+        "2013": 38,
+        "2014": 34
+      }
+    },
+    {
+      "batch_id": "phase-2-nvd-authoritative-historical",
+      "description": "Second archive review batch for historical authoritative NVD feeds.",
+      "item_count": 56,
+      "manifest_path": "knowledge-base/threat-intelligence/historical_packages/phase-2-nvd-authoritative-historical/manifest.json",
+      "quality_counts": {
+        "authoritative": 56
+      },
+      "readme_path": "knowledge-base/threat-intelligence/historical_packages/phase-2-nvd-authoritative-historical/README.md",
+      "recommended_action": "Review whether historical authoritative NVD feeds should be archived into a separate historical package.",
+      "source_counts": {
+        "NIST National Vulnerability Database (NVD)": 56
+      },
+      "total_size_bytes": 100440,
+      "year_counts": {
+        "2008": 1,
+        "2010": 3,
+        "2011": 18,
+        "2012": 11,
+        "2013": 9,
+        "2014": 14
+      }
+    }
+  ],
+  "summary": {
+    "package_count": 2,
+    "total_item_count": 203,
+    "total_size_bytes": 242152
+  }
+}
