@@ -1,0 +1,916 @@
+{
+  "batch_id": "phase-2-nvd-authoritative-historical",
+  "description": "Second archive review batch for historical authoritative NVD feeds.",
+  "items": [
+    {
+      "cve_id": "CVE-2008-0176",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2008_0176.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "3942813da61527e746bc75a39c495dbfa35b4ca6d464bda8d7a17fdcbfa0bb4a",
+      "size_bytes": 1797,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2008-0176: Heap-based buffer overflow in w32rtr.exe in GE Fanuc CIMPLICITY HMI SCADA system 7.0 before 7.0 SIM ...",
+      "year": "2008"
+    },
+    {
+      "cve_id": "CVE-2010-2568",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_2568.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "0073ba930dc774abc6ced5eb3f4eb1c236b62a2f7501533a158f1bb92a2ca2f3",
+      "size_bytes": 2925,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2010-2568: Windows Shell in Microsoft Windows XP SP3, Server 2003 SP2, Vista SP1 and SP2, Server 2008 SP2 and R...",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-2772",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_2772.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "0cb6d77e07907e51538fa88571ad449b2ab590db814e8c8270022baf0f207926",
+      "size_bytes": 3274,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2010-2772: Siemens Simatic WinCC and PCS 7 SCADA system uses a hard-coded password, which allows local users to...",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2010-4740",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2010_4740.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "04fdcaec7f7820eff104c93ac78855ce102b5ea03ee5a4f75f2aefc334695ad4",
+      "size_bytes": 1731,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2010-4740: Stack-based buffer overflow in WTclient.dll in SCADA Engine BACnet OPC Client before 1.0.25 allows u...",
+      "year": "2010"
+    },
+    {
+      "cve_id": "CVE-2011-1565",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_1565.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "1b0ddb6403f247c94bf1b94c02d1fbd6ae18e575ec71d3485e5954efcec46052",
+      "size_bytes": 1712,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-1565: Directory traversal vulnerability in IGSSdataServer.exe 9.00.00.11063 and earlier in 7-Technologies ...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-1566",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_1566.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "6ab131f9abc73158dc0e1c4876422101c201c7e43f0c1f62eebecb7778a740b3",
+      "size_bytes": 1665,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-1566: Directory traversal vulnerability in dc.exe 9.00.00.11059 and earlier in 7-Technologies Interactive ...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-1567",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_1567.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "6c5090533a99dea8cb3ce17e62912cc22755146e9adf4d76a5ecdd3ee9030ebe",
+      "size_bytes": 1903,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-1567: Multiple stack-based buffer overflows in IGSSdataServer.exe 9.00.00.11063 and earlier in 7-Technolog...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-1568",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_1568.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "1cf74eafb0ad324f37c04e32977ed0617d4e5483dfc47d7aab3349350a8f6a9c",
+      "size_bytes": 1873,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-1568: Format string vulnerability in the logText function in shmemmgr9.dll in IGSSdataServer.exe 9.00.00.1...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-2214",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_2214.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "08d88945dc449b5aa47b12b2c0c388dd8aaa34026ec4f06a85adc67c410dddc3",
+      "size_bytes": 1483,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-2214: Unspecified vulnerability in the Open Database Connectivity (ODBC) component in 7T Interactive Graph...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-2959",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_2959.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "e782bc0f89912608b19919b4f6d2123f535d3cabea406af443aa0c3081b949db",
+      "size_bytes": 1873,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-2959: Stack-based buffer overflow in the Open Database Connectivity (ODBC) service (Odbcixv9se.exe) in 7-T...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-3322",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_3322.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "c723b79d77dbb2136ca9804044a86bdb0942affcb18e6f9432128e590169a9ad",
+      "size_bytes": 1875,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-3322: Core Server HMI Service (Coreservice.exe) in Scadatec Limited Procyon SCADA 1.06, and other versions...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-3386",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_3386.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "94bd22a68f28b32d03891a51d369c5cff0457c467bc8c7ec734ffe452b7d7d6d",
+      "size_bytes": 3300,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-3386: Unspecified vulnerability in Medtronic Paradigm wireless insulin pump 512, 522, 712, and 722 allows ...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-3490",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_3490.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "a70a65acb904d6955fbff7f6ec794ac9ff25f312b7c772ac6cfc496de5725f69",
+      "size_bytes": 2148,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-3490: Multiple stack-based buffer overflows in service.exe in Measuresoft ScadaPro 4.0.0 and earlier allow...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-3495",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_3495.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "756e257a82fbf570ad296d18c2cd2875997946a1b3e2e4f8cd5d766fc1d3aa74",
+      "size_bytes": 1925,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-3495: Multiple directory traversal vulnerabilities in service.exe in Measuresoft ScadaPro 4.0.0 and earlie...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-3496",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_3496.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "1046237b7e2b8a3b1ce6ecca0126a17395f957fc03c982d2472306c6ebfd5ac6",
+      "size_bytes": 2061,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-3496: service.exe in Measuresoft ScadaPro 4.0.0 and earlier allows remote attackers to execute arbitrary c...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-3497",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_3497.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "86e2dbeae6789f4b25acb74b3d6186de25c05ecb5a66f4d4f4e8de6f90ae0c05",
+      "size_bytes": 1888,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-3497: service.exe in Measuresoft ScadaPro 4.0.0 and earlier allows remote attackers to execute arbitrary D...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-4050",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_4050.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "8d54939c8f4bf5d4a680775464347338d27a504ac782ebb0b774cd94226c3f98",
+      "size_bytes": 1301,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-4050: Buffer overflow in 7-Technologies (7T) Interactive Graphical SCADA System (IGSS) 9.0.0.11200 allows ...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-4053",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_4053.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "3b739d5ba1e19f0919473d65109d633b27a96335b0f94980760e6879b511a728",
+      "size_bytes": 1331,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-4053: Untrusted search path vulnerability in 7-Technologies (7T) Interactive Graphical SCADA System (IGSS)...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-4535",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_4535.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "b8fed53f5a4bc7e3d8685ca2e2e156afbdae45e8e9a883687857c2a41f20f1d2",
+      "size_bytes": 1491,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-4535: Buffer overflow in TurboPower Abbrevia before 4.0, as used in ScadaTEC ScadaPhone 5.3.11.1230 and ea...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-4537",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_4537.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "c7992bf1d04e6a9b488380fb21dfbc00351a6149766ea587e36d38be48b6e5a7",
+      "size_bytes": 1363,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-4537: Multiple buffer overflows in 7-Technologies (7T) Interactive Graphical SCADA System (IGSS) 9.0.0.113...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-5087",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_5087.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "7298e3b00382d294ba418c49c4ad9a0a30b8cbcd8b7df47e3a8931ebb92fd551",
+      "size_bytes": 1128,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-5087: Unspecified vulnerability in AdAstrA TRACE MODE Data Center allows remote attackers to read arbitrar...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2011-5163",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2011_5163.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "3e2d2ed110784bde95bbba010cf118fed090b3c0cc5ae9eb7352409c46645163",
+      "size_bytes": 1800,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2011-5163: Buffer overflow in an unspecified third-party component in the Batch module for Schneider Electric C...",
+      "year": "2011"
+    },
+    {
+      "cve_id": "CVE-2012-1824",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_1824.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "133b55bad431e4d0282d16dc30e0264145031829af20b1ca0e9dc0decea5d3d8",
+      "size_bytes": 1967,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2012-1824: Untrusted search path vulnerability in Measuresoft ScadaPro Client before 4.0.0 and ScadaPro Server ...",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-3011",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_3011.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "86c498ac68ea7ae65cad61d4f662598710b46869825657a2002efd377510f6aa",
+      "size_bytes": 1167,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2012-3011: Directory traversal vulnerability in the web server in Fultek WinTr Scada 4.0.5 and earlier allows r...",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-3815",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_3815.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "a6fc870ea63cbb49efbbcb80ce6f50da3e92c94158e4f059c944bd15c8194fc9",
+      "size_bytes": 2379,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2012-3815: Buffer overflow in RunTime.exe in Sielco Sistemi Winlog Pro SCADA before 2.07.18 and Winlog Lite SCA...",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-4353",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_4353.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "f622bd8591818098dc46e2da5514660530fd5419bf91763aff6b77fc623b0f29",
+      "size_bytes": 2313,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2012-4353: Stack-based buffer overflow in RunTime.exe in Sielco Sistemi Winlog Pro SCADA before 2.07.17 and Win...",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-4354",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_4354.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "b9346ba80121799ba9b31f8f3dd7361a7294180789180b7750fa46c34be5f87a",
+      "size_bytes": 2284,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2012-4354: TCPIPS_Story.dll in Sielco Sistemi Winlog Pro SCADA before 2.07.17 and Winlog Lite SCADA before 2.07...",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-4355",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_4355.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "92e724443cda4ec7cd341279d1f74cee7641165ffeeef3f2fc0a05716061a652",
+      "size_bytes": 2365,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2012-4355: TCPIPS_Story.dll in Sielco Sistemi Winlog Pro SCADA before 2.07.18 and Winlog Lite SCADA before 2.07...",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-4356",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_4356.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "482f6f4d868c1ebf3084a76ec7c2d6420f79b6f670ba08070cd9a9a062d6b348",
+      "size_bytes": 2264,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2012-4356: Multiple directory traversal vulnerabilities in Sielco Sistemi Winlog Pro SCADA before 2.07.17 and W...",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-4357",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_4357.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "36e7e0acdc0c83b27f1d95672e25b1fa5537c98c1f73933e1d81304fbaa6dfb3",
+      "size_bytes": 2196,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2012-4357: Array index error in Sielco Sistemi Winlog Pro SCADA before 2.07.17 and Winlog Lite SCADA before 2.0...",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-4358",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_4358.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "f6bbaf6fc951b1077d2b64b5089e7779e66acb14bbd714278dd5d52992f1a399",
+      "size_bytes": 2264,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2012-4358: Sielco Sistemi Winlog Pro SCADA before 2.07.17 and Winlog Lite SCADA before 2.07.17 do not validate ...",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-4359",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_4359.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "f18064b3d8a18840ed85108ef1905a238c9dd34154871c0b65bbec82238c7ccd",
+      "size_bytes": 2345,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2012-4359: Sielco Sistemi Winlog Pro SCADA before 2.07.18 and Winlog Lite SCADA before 2.07.18 do not validate ...",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2012-4700",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2012_4700.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "3cf67a0ed8b1f2546dbb3ae0b1bb91bbfee43fc1ad25b3236d7744d60951222b",
+      "size_bytes": 1381,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2012-4700: Multiple buffer overflows in an ActiveX control in PE3DO32A.ocx in IntegraXor SCADA Server 4.00 buil...",
+      "year": "2012"
+    },
+    {
+      "cve_id": "CVE-2013-0657",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_0657.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "3416554ac399c4b577d5a04ff32151ee3ebccf8698a6f9e354846d114532ba91",
+      "size_bytes": 1916,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2013-0657: Stack-based buffer overflow in Schneider Electric Interactive Graphical SCADA System (IGSS) 10 and e...",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2791",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2791.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "2fb5e3bd08d2cd2c8a6d79cf0d579d0ed3202d2d2efa7579c79c101c9e40d4e2",
+      "size_bytes": 1208,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2013-2791: MatrikonOPC SCADA DNP3 OPC Server 1.2.0 allows remote attackers to cause a denial of service (master...",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2793",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2793.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "a24f3ab90682a20f833e305a596b871ba6648db5994919cd990c55de3be7910d",
+      "size_bytes": 1809,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2013-2793: Triangle MicroWorks SCADA Data Gateway 2.50.0309 through 3.00.0616, DNP3 .NET Protocol components 3....",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2794",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2794.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "ba7fcb73d1fc133e86a5a4949b0c7e9be87440847398ddcc2d7d083103a8e466",
+      "size_bytes": 2137,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2013-2794: Triangle MicroWorks SCADA Data Gateway 2.50.0309 through 3.00.0616, DNP3 .NET Protocol components 3....",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2796",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2796.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "16c6c7ce4314be18295b6a22481222ded666749f47b62676ce10ebac095a0b7b",
+      "size_bytes": 1708,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2013-2796: Schneider Electric Vijeo Citect 7.20 and earlier, CitectSCADA 7.20 and earlier, and PowerLogic SCADA...",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2824",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2824.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "c3964906b2460e199a3a0a7b7cd8830574346b444d4bb71daf625f5a3cbd5025",
+      "size_bytes": 1951,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2013-2824: Schneider Electric StruxureWare SCADA Expert Vijeo Citect 7.40, Vijeo Citect 7.20 through 7.30SP1, C...",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-2829",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_2829.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "7a9050c93b792bc2929c019ff00bd7a29eb165b3774283a633f3306893803bd5",
+      "size_bytes": 943,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2013-2829: MatrikonOPC SCADA DNP3 OPC Server 1.2.2.0 and earlier allows remote attackers to cause a denial of s...",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-6142",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_6142.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "e01a83153f3f29e47abe6e0fac7eb9e213017f4ed3e37913494a8f6994afee04",
+      "size_bytes": 1371,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2013-6142: DNP3Driver.exe in the DNP3 driver in Schneider Electric ClearSCADA 2010 R2 through 2010 R3.1 and SCA...",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2013-7462",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2013_7462.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "41fd1a07e9180c100c47ecaaddb153b50c39a6b8789f048afc90a0e9c283716d",
+      "size_bytes": 1110,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2013-7462: A directory traversal vulnerability in the web application in McAfee (now Intel Security) SaaS Contr...",
+      "year": "2013"
+    },
+    {
+      "cve_id": "CVE-2014-0751",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0751.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "a47f2075f09ad8b4119bbbe4843f3e24d6efb96d35b063c9210f717c72b6e888",
+      "size_bytes": 2095,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-0751: The CIMPLICITY Web-based access component, CimWebServer, does not check",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-0752",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0752.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "28491c238e13995ab9f920eb8906661c229680769db488e10bcfb41a2adc126d",
+      "size_bytes": 1629,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-0752: The SCADA server in Ecava IntegraXor before 4.1.4369 allows remote attackers to read arbitrary proje...",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-0753",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0753.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "2fbee8e81f82a52b268ba93296e65c016b7beb08090a263c3b9c5600ba3b8a64",
+      "size_bytes": 1855,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-0753: Stack-based buffer overflow in the SCADA server in Ecava IntegraXor before 4.1.4390 allows remote at...",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-0779",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_0779.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "e2c22332e182f9678623e4231057f30ac751f63718232e8bbf0fd773a1c3af4a",
+      "size_bytes": 1927,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-0779: The PLC driver in ServerMain.exe in the Kepware KepServerEX 4 component in Schneider Electric Struxu...",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-2342",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_2342.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "81b2316bf445375d0f89a53a9cddbfd353e24afe443f044b365064f829404a28",
+      "size_bytes": 1930,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-2342: Triangle MicroWorks SCADA Data Gateway before 3.00.0635 allows remote attackers to cause a denial of...",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-2343",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_2343.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "eb4281531746a9bea4f380c1d5b5b0b72ba1a10ceff9479a7c7b1e0f5d6ac246",
+      "size_bytes": 1963,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-2343: Triangle MicroWorks SCADA Data Gateway before 3.00.0635 allows physically proximate attackers to cau...",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-2375",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_2375.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "ea0c34dc2c9941eb98c3981508620501f31d78d5af4457c71edb8350a30fab20",
+      "size_bytes": 1035,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-2375: Ecava IntegraXor SCADA Server Stable 4.1.4360 and earlier and Beta 4.1.4392 and earlier allows remot...",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-2376",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_2376.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "d3deaf3d0e7d9164edb47201aafc2e72ce43bbbd824af497adeeac217d5dbf19",
+      "size_bytes": 978,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-2376: SQL injection vulnerability in Ecava IntegraXor SCADA Server Stable 4.1.4360 and earlier and Beta 4....",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-2377",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_2377.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "71391926e8a723c5bb4a453aaafce8a736aa38ccaa143a1dab53ed08e50f9767",
+      "size_bytes": 939,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-2377: Ecava IntegraXor SCADA Server Stable 4.1.4360 and earlier and Beta 4.1.4392 and earlier allows remot...",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-5408",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_5408.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "4843de84f552ed86a2a6cdcdab53c7374216f5fbdb351b6fe9de365adcbc6b35",
+      "size_bytes": 1330,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-5408: Cross-site scripting (XSS) vulnerability in the login script in the Wind Farm Portal on Nordex Contr...",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-5411",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_5411.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "ee55fee9cf9167198f0a52b511fea05084f091506cbc0a944bbd2df95c26b0fe",
+      "size_bytes": 1625,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-5411: Multiple cross-site scripting (XSS) vulnerabilities in Schneider Electric StruxureWare SCADA Expert ...",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-5412",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_5412.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "6097a9a2e758433c1f6265f491eb342c9ede98a787c23521073939d6973acf40",
+      "size_bytes": 1565,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-5412: Schneider Electric StruxureWare SCADA Expert ClearSCADA 2010 R3 through 2014 R1 allows remote attack...",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-5413",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_5413.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "0bd5fcfcedccf992ffd5c45162915fc5a352744001bface089142fdfbc616ba6",
+      "size_bytes": 1633,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-5413: Schneider Electric StruxureWare SCADA Expert ClearSCADA 2010 R3 through 2014 R1 uses the MD5 algorit...",
+      "year": "2014"
+    },
+    {
+      "cve_id": "CVE-2014-5429",
+      "lifecycle_reasons": [
+        "older_than_threshold:2015"
+      ],
+      "lifecycle_state": "archive_candidate",
+      "path": "knowledge-base/威胁情报/feeds/CVE_2014_5429.md",
+      "quality_reasons": [],
+      "quality_tier": "authoritative",
+      "retrieved_at": "2026-04-06",
+      "sha256": "1be4c8a091946749c6fb72d7a840c91924717fb93d67248d78170ea956b53522",
+      "size_bytes": 1011,
+      "source": "NIST National Vulnerability Database (NVD)",
+      "title": "CVE-2014-5429: DNP Master Driver 3.02 and earlier in Elipse SCADA 2.29 build 141 and earlier, E3 1.0 through 4.6, a...",
+      "year": "2014"
+    }
+  ],
+  "recommended_action": "Review whether historical authoritative NVD feeds should be archived into a separate historical package.",
+  "summary": {
+    "candidate_count": 56,
+    "quality_tier": "authoritative",
+    "source": "NIST National Vulnerability Database (NVD)",
+    "years": [
+      "2008",
+      "2010",
+      "2011",
+      "2012",
+      "2013",
+      "2014"
+    ]
+  }
+}

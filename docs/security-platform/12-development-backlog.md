@@ -252,6 +252,7 @@
   - 已支持按 `batch_id` 生成 archive execution plan，收口前置检查、执行步骤、验证目标与回滚命令
   - 已支持按 `batch_id` 生成 archive execution record 模板，用于记录审批、执行、验证与回滚结果
   - 已支持 archive action `preview/apply` 双模式，并在执行后自动生成 execution result 摘要
+  - 已支持通过统一入口按 `batch_id` 一次性生成整套 archive artifacts，便于扩展到后续批次
 
 
 ### 4.3 扩展 threat-intel 上游源

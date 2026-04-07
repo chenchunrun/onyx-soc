@@ -1,0 +1,12 @@
+{
+  "batch_id": "phase-2-nvd-authoritative-historical",
+  "completed": false,
+  "mode": "preview",
+  "summary": {
+    "actual_governed_total": 1902,
+    "archive_candidates_total": 203,
+    "projected_governed_total": 1846,
+    "remaining_candidate_count": 56,
+    "retained_historical_total": 1061
+  }
+}
