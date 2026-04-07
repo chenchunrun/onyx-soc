@@ -39,6 +39,10 @@
 - 安全工具是否存在
 - 安全用户与 RBAC 绑定是否存在
 - threat-intel 的 profile、最近同步时间与到期状态
+- threat-intel corpus 的 `active / archive_candidates / retained_historical / quality_counts`
+- historical package catalog 的 `package_count / total_item_count / total_size_bytes / package_ids`
+- security tools profile 与各声明式工具的 `server / headers` 摘要
+- deployment profile 与运行时必需环境变量检查结果
 
 对应入口：
 
@@ -53,11 +57,18 @@
 - `bootstrap --verify`
 - `personas + tools + rbac` 恢复执行
 - 最小验收自动化脚本执行
+- 安全平台集成回归执行
+- `glm5_live` 真实模型回归执行
 
 当前验收结果：
 
 - `Result: OK`
 - `acceptance` 已可显示 `Threat-intel sync: profile / last_run / status`
+- `acceptance` 已可显示 threat-intel corpus 与 historical package catalog 摘要
+- `acceptance` 已可显示 `Security tools profile`、逐工具端点配置摘要与 `Deployment profile`
+- 安全平台集成回归已通过，当前结果为 `14 passed, 10 skipped`
+- `glm5_live` 真实模型回归已通过，当前结果为 `3 passed`
+- 已验证默认文本模型为 `glm-5` 时，可完成真实安全分析、自主工具调用与多轮取数后综合研判
 
 
 ### 2.4 正式交付文档已成型
@@ -87,6 +98,8 @@
 
 2. Helm
 - `deployment/helm/charts/onyx/values.security-platform.yaml`
+- `deployment/helm/charts/onyx/values.security-platform.live.yaml`
+- `deployment/helm/charts/onyx/values.security-platform.demo.yaml`
 
 
 ## 3. 本阶段解决的关键问题
@@ -98,6 +111,9 @@
 - 修复 persona 更新时误清 `persona__user` 访问关系的问题
 - 去除对固定 persona ID 的依赖，改为按名称解析
 - 将验收从人工查看输出提升为脚本可判定结果
+- 补齐 historical package catalog 摘要，使验收结果可以直接反映批次规模和可追踪性
+- 修复 direct tool 模式下多 path OpenAPI 工具错误选取 operation 的问题，避免 `threat_intel_lookup` 命中错误端点
+- 将 playbook 定义校验增强为可拦截未知工具、persona 绑定不匹配、缺失 `tool_args`、模板引用未来步骤等错误
 
 
 ## 4. 当前剩余缺口
@@ -111,17 +127,17 @@
 - 尚未形成面向企业实际 secret manager 的接入说明
 
 
-### 4.2 Helm 覆盖配置仍是基础版
+### 4.2 Helm 覆盖配置仍待生产化收口
 
-- 已有 `values.security-platform.yaml`
+- 已有 `values.security-platform.yaml` 以及 `demo/live` overlay 样例
 - 但还不是完整生产 values 模板
 - 尚未覆盖更细的资源、域名、鉴权和运维参数分层
 
 
 ### 4.3 验收自动化仍偏最小闭环
 
-- 当前已覆盖核心资源和绑定关系
-- 但还没有把更多联调场景全部脚本化
+- 当前已覆盖核心资源、绑定关系以及 `glm-5` 真实模型回归
+- 但还没有把更多长链路联调场景全部脚本化
 
 
 ## 5. 风险判断

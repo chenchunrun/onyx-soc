@@ -1,0 +1,27 @@
+# Example Helm values overlay for a demo/offline security-platform deployment.
+#
+# Usage:
+#   helm upgrade --install onyx ./charts/onyx \
+#     -n onyx --create-namespace \
+#     -f values.yaml \
+#     -f values.security-platform.demo.yaml
+#
+# If the mock server runs on the host while Onyx runs in Kubernetes or Docker
+# Desktop, use a host-reachable DNS name instead of localhost.
+
+configMap:
+  WEB_DOMAIN: "https://onyx-demo.example.com"
+  SECURITY_PLATFORM_DEPLOYMENT_PROFILE: "demo"
+  THREAT_INTEL_SOURCE_PROFILE: "mock"
+  SECURITY_TOOLS_PROFILE: "mock"
+  SECURITY_TOOLS_MOCK_SERVER_URL: "http://host.docker.internal:9999"
+
+auth:
+  securityPlatform:
+    enabled: true
+    secretName: "onyx-security-platform-demo"
+    existingSecret: ""
+    secretKeys:
+      SECURITY_TOOLS_MOCK_API_KEY: security_tools_mock_api_key
+    values:
+      security_tools_mock_api_key: "mock-api-key-for-testing"

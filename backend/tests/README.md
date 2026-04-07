@@ -32,6 +32,23 @@ Full Onyx deployment running. No mocking. Prefer this over other test types when
 python -m dotenv -f .vscode/.env run -- pytest backend/tests/integration
 ```
 
+### Security Platform GLM5 Live Regressions
+
+Use the `glm5_live` marker to run only the real-model security platform regressions.
+These tests require a running Onyx deployment, reachable mock security tool services,
+and `glm-5` configured as the default text model.
+
+```bash
+python -m dotenv -f .vscode/.env run -- \
+pytest -xv backend/tests/integration/tests/security_platform/test_security_platform_regression.py -m glm5_live
+```
+
+Current coverage includes:
+
+- live security reasoning with the default `glm-5` model
+- model-driven security tool selection without `forced_tool_id`
+- multi-step live chat flows that combine tool retrieval and final analysis
+
 ### Playwright / E2E Tests (`web/tests/e2e/`)
 
 Full stack including web server. Use for frontend-backend coordination.

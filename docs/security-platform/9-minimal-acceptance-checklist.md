@@ -237,6 +237,32 @@ pytest backend/tests/integration/tests/security_tools/ -v
 - 回答符合各自角色定位
 
 
+### 6.3 GLM5 Live Regression
+
+执行：
+
+```bash
+python -m dotenv -f .vscode/.env run -- \
+pytest -xv backend/tests/integration/tests/security_platform/test_security_platform_regression.py -m glm5_live
+```
+
+环境前提：
+
+- Onyx 全栈服务已启动
+- 安全平台初始化和 `bootstrap --verify` 已通过
+- mock security tool server 可访问
+- 当前默认文本模型为 `glm-5`
+- 当前环境不依赖 `mock_llm_response`
+
+通过标准：
+
+- `glm5_live` 用例全部通过
+- 能验证 `glm-5` 已被配置为当前默认文本模型
+- 能验证真实 `glm-5` 在安全分析场景下输出结构化结论
+- 能验证真实 `glm-5` 会自主触发安全工具，而不是依赖 `forced_tool_id`
+- 能验证真实 `glm-5` 在多轮对话里完成“取数 + 综合分析”的链路
+
+
 ## 7. 失败处理建议
 
 若验收失败，优先检查：
@@ -245,13 +271,15 @@ pytest backend/tests/integration/tests/security_tools/ -v
 2. `bootstrap --verify` 中 `acceptance` 阶段输出失败项
 3. `Threat-intel sync` 中的 `profile / last_run / status` 是否符合预期
 4. `Threat-intel corpus` 中的 `active / archive_candidates / retained_historical` 是否符合当前治理口径
-4. `Security tools profile` 是否与部署档位一致，全部声明式安全工具的 `server / headers` 是否符合当前环境
-5. `Deployment profile` 是否与本次部署选择一致
-6. Onyx 登录与 API 可达性
-7. PostgreSQL 可达性
-8. 工具相关环境变量是否已配置
-9. persona 和 document set 是否被意外手工修改
-10. `smoke` 阶段输出是否提示聊天链路或工具链路异常
+5. `Security tools profile` 是否与部署档位一致，全部声明式安全工具的 `server / headers` 是否符合当前环境
+6. `Deployment profile` 是否与本次部署选择一致
+7. Onyx 登录与 API 可达性
+8. PostgreSQL 可达性
+9. 工具相关环境变量是否已配置
+10. persona 和 document set 是否被意外手工修改
+11. `smoke` 阶段输出是否提示聊天链路或工具链路异常
+12. `glm5_live` 失败时，确认 `/api/admin/llm/provider` 中默认文本模型仍为 `glm-5`
+13. `glm5_live` 失败时，确认 mock security tool server 的请求日志中是否还能看到 `/alerts/search`、`/assets/search` 等真实调用
 
 
 ## 8. 当前结论口径

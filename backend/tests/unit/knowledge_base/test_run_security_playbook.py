@@ -108,6 +108,153 @@ def test_validate_playbook_rejects_template_step_without_response_template() -> 
     )
 
 
+def test_validate_playbook_rejects_unknown_tool(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(runner, "load_declared_tool_bindings", lambda: {})
+
+    errors = runner.validate_playbook(
+        {
+            "name": "bad-tool-playbook",
+            "steps": [
+                {
+                    "id": "lookup",
+                    "persona": "安全事件分析师",
+                    "tool": "not_a_real_tool",
+                    "execution_mode": "direct",
+                    "tool_args": {"ioc": "8.8.8.8"},
+                    "prompt": "查询",
+                }
+            ],
+        }
+    )
+
+    assert "Step lookup references unknown tool not_a_real_tool" in errors
+
+
+def test_validate_playbook_rejects_tool_not_bound_to_persona(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        runner,
+        "load_declared_tool_bindings",
+        lambda: {"send_security_alert": {"应急响应指挥官"}},
+    )
+
+    errors = runner.validate_playbook(
+        {
+            "name": "bad-binding-playbook",
+            "steps": [
+                {
+                    "id": "alert",
+                    "persona": "安全事件分析师",
+                    "tool": "send_security_alert",
+                    "execution_mode": "direct",
+                    "tool_args": {"title": "test"},
+                    "prompt": "发送告警",
+                }
+            ],
+        }
+    )
+
+    assert (
+        "Step alert uses tool send_security_alert not bound to persona 安全事件分析师"
+        in errors
+    )
+
+
+def test_validate_playbook_rejects_future_step_reference(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        runner,
+        "load_declared_tool_bindings",
+        lambda: {"threat_intel_lookup": {"安全事件分析师"}},
+    )
+
+    errors = runner.validate_playbook(
+        {
+            "name": "future-step-playbook",
+            "inputs": [{"name": "incident_ip", "required": True}],
+            "steps": [
+                {
+                    "id": "summary",
+                    "persona": "安全事件分析师",
+                    "prompt": "总结 {{steps.lookup.full_message}}",
+                },
+                {
+                    "id": "lookup",
+                    "persona": "安全事件分析师",
+                    "tool": "threat_intel_lookup",
+                    "execution_mode": "direct",
+                    "tool_args": {"ip": "{{inputs.incident_ip}}"},
+                    "prompt": "查询 {{inputs.incident_ip}}",
+                },
+            ],
+        }
+    )
+
+    assert (
+        "Step summary: Unknown or future step reference: steps.lookup.full_message"
+        in errors
+    )
+
+
+def test_validate_playbook_requires_tool_args_for_direct_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        runner,
+        "load_declared_tool_bindings",
+        lambda: {"threat_intel_lookup": {"安全事件分析师"}},
+    )
+
+    errors = runner.validate_playbook(
+        {
+            "name": "missing-tool-args-playbook",
+            "steps": [
+                {
+                    "id": "lookup",
+                    "persona": "安全事件分析师",
+                    "tool": "threat_intel_lookup",
+                    "execution_mode": "direct",
+                    "prompt": "查询 8.8.8.8",
+                }
+            ],
+        }
+    )
+
+    assert (
+        "Step lookup with execution_mode=direct missing tool_args"
+        in errors
+    )
+
+
+def test_pick_openapi_operation_prefers_matching_required_parameters() -> None:
+    method, path, _operation = runner._pick_openapi_operation(
+        {
+            "paths": {
+                "/files/{hash}": {
+                    "get": {
+                        "parameters": [
+                            {"name": "hash", "in": "path", "required": True}
+                        ]
+                    }
+                },
+                "/ip_addresses/{ip}": {
+                    "get": {
+                        "parameters": [
+                            {"name": "ip", "in": "path", "required": True}
+                        ]
+                    }
+                },
+            }
+        },
+        {"ip": "8.8.8.8"},
+    )
+
+    assert method == "GET"
+    assert path == "/ip_addresses/{ip}"
+
+
 def test_required_inputs_returns_only_required_names(sample_playbook: dict[str, Any]) -> None:
     assert runner.required_inputs(sample_playbook) == ["incident_ip", "asset_hostname"]
 

@@ -24,6 +24,16 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent
 PLAYBOOKS_DIR = ROOT.parent / "docs" / "security-platform" / "playbooks"
+SECURITY_TOOL_INTEGRATIONS_DIR = (
+    ROOT.parent / "docs" / "security-platform" / "5-integrations"
+)
+SECURITY_PERSONA_NAMES = {
+    "安全事件分析师",
+    "应急响应指挥官",
+    "漏洞评估专家",
+    "合规审计员",
+}
+SUPPORTED_EXECUTION_MODES = {"chat", "direct", "template"}
 
 
 def get_cookie(base_url: str, email: str, password: str) -> str | None:
@@ -256,8 +266,74 @@ def parse_inputs(raw_inputs: list[str]) -> dict[str, str]:
     return parsed
 
 
+def load_declared_tool_bindings() -> dict[str, set[str]]:
+    tool_bindings: dict[str, set[str]] = {}
+    for path in sorted(SECURITY_TOOL_INTEGRATIONS_DIR.glob("*.yaml")):
+        if path.name == "profiles.yaml":
+            continue
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        if not isinstance(data, dict):
+            continue
+        tool_name = str(data.get("name", "")).strip()
+        if not tool_name:
+            continue
+        persona_bindings = {
+            str(persona_name).strip()
+            for persona_name in data.get("persona_bindings", [])
+            if str(persona_name).strip()
+        }
+        tool_bindings[tool_name] = persona_bindings
+    return tool_bindings
+
+
+def extract_template_references(value: Any) -> list[str]:
+    references: list[str] = []
+    if isinstance(value, str):
+        references.extend(
+            match.group(1).strip()
+            for match in PLACEHOLDER_PATTERN.finditer(value)
+            if match.group(1).strip()
+        )
+        return references
+    if isinstance(value, list):
+        for item in value:
+            references.extend(extract_template_references(item))
+        return references
+    if isinstance(value, dict):
+        for item in value.values():
+            references.extend(extract_template_references(item))
+    return references
+
+
+def validate_template_reference(
+    reference: str,
+    *,
+    input_names: set[str],
+    available_step_ids: set[str],
+) -> str | None:
+    if reference.startswith("inputs."):
+        input_name = reference.split(".", 2)[1].strip()
+        if input_name not in input_names:
+            return f"Unknown input reference: {reference}"
+        return None
+    if reference.startswith("steps."):
+        parts = reference.split(".", 2)
+        if len(parts) < 3 or not parts[1].strip():
+            return f"Invalid step reference: {reference}"
+        if parts[1].strip() not in available_step_ids:
+            return f"Unknown or future step reference: {reference}"
+        return None
+    return f"Unsupported template reference root: {reference}"
+
+
 def validate_playbook(playbook: dict[str, Any]) -> list[str]:
     errors: list[str] = []
+    declared_tool_bindings = load_declared_tool_bindings()
+    input_names = {
+        str(item.get("name", "")).strip()
+        for item in playbook.get("inputs", [])
+        if isinstance(item, dict) and str(item.get("name", "")).strip()
+    }
     if not str(playbook.get("name", "")).strip():
         errors.append("Missing playbook name")
     steps = playbook.get("steps")
@@ -276,12 +352,20 @@ def validate_playbook(playbook: dict[str, Any]) -> list[str]:
         mock_llm_response = step.get("mock_llm_response")
         execution_mode = str(step.get("execution_mode", "")).strip() or "chat"
         response_template = step.get("response_template")
+        tool_name = str(step.get("tool", "")).strip()
+        tool_args = step.get("tool_args")
         if not step_id:
             errors.append("Step missing id")
         elif step_id in step_ids:
             errors.append(f"Duplicate step id: {step_id}")
-        else:
-            step_ids.add(step_id)
+        if execution_mode not in SUPPORTED_EXECUTION_MODES:
+            errors.append(
+                f"Step {step_id or '<unknown>'} has unsupported execution_mode={execution_mode}"
+            )
+        if persona and persona not in SECURITY_PERSONA_NAMES:
+            errors.append(
+                f"Step {step_id or '<unknown>'} references unsupported persona {persona}"
+            )
         if execution_mode != "template" and not persona:
             errors.append(f"Step {step_id or '<unknown>'} missing persona")
         if execution_mode != "template" and not prompt:
@@ -297,6 +381,41 @@ def validate_playbook(playbook: dict[str, Any]) -> list[str]:
                 errors.append(
                     f"Step {step_id or '<unknown>'} has invalid mock_llm_response JSON"
                 )
+        if tool_name:
+            if tool_name not in declared_tool_bindings:
+                errors.append(
+                    f"Step {step_id or '<unknown>'} references unknown tool {tool_name}"
+                )
+            elif persona and persona not in declared_tool_bindings[tool_name]:
+                errors.append(
+                    f"Step {step_id or '<unknown>'} uses tool {tool_name} not bound to persona {persona}"
+                )
+        if execution_mode == "direct":
+            if not tool_name:
+                errors.append(
+                    f"Step {step_id or '<unknown>'} with execution_mode=direct missing tool"
+                )
+            if not isinstance(tool_args, dict) or not tool_args:
+                errors.append(
+                    f"Step {step_id or '<unknown>'} with execution_mode=direct missing tool_args"
+                )
+
+        references_to_validate: list[str] = []
+        references_to_validate.extend(extract_template_references(prompt))
+        references_to_validate.extend(extract_template_references(response_template))
+        references_to_validate.extend(extract_template_references(tool_args))
+        references_to_validate.extend(extract_template_references(mock_llm_response))
+        for reference in references_to_validate:
+            error = validate_template_reference(
+                reference,
+                input_names=input_names,
+                available_step_ids=step_ids,
+            )
+            if error:
+                errors.append(f"Step {step_id or '<unknown>'}: {error}")
+
+        if step_id and step_id not in step_ids:
+            step_ids.add(step_id)
     return errors
 
 
@@ -535,17 +654,52 @@ def execute_playbook(
     }
 
 
-def _pick_openapi_operation(definition: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
+def _pick_openapi_operation(
+    definition: dict[str, Any],
+    rendered_args: dict[str, Any] | None = None,
+) -> tuple[str, str, dict[str, Any]]:
     paths = definition.get("paths", {})
     if not isinstance(paths, dict) or not paths:
         raise ValueError("tool definition has no paths")
+    candidates: list[tuple[int, str, str, dict[str, Any]]] = []
     for path, path_item in paths.items():
         if not isinstance(path_item, dict):
             continue
         for method in ["get", "post", "put", "patch", "delete"]:
             operation = path_item.get(method)
             if isinstance(operation, dict):
-                return method.upper(), str(path), operation
+                score = 0
+                if rendered_args is not None:
+                    parameters = operation.get("parameters", [])
+                    if not isinstance(parameters, list):
+                        parameters = []
+                    parameter_names = {
+                        str(parameter.get("name", "")).strip()
+                        for parameter in parameters
+                        if isinstance(parameter, dict)
+                        and str(parameter.get("name", "")).strip()
+                    }
+                    required_parameter_names = {
+                        str(parameter.get("name", "")).strip()
+                        for parameter in parameters
+                        if isinstance(parameter, dict)
+                        and str(parameter.get("name", "")).strip()
+                        and bool(parameter.get("required"))
+                    }
+                    rendered_arg_names = {
+                        str(name).strip()
+                        for name in rendered_args.keys()
+                        if str(name).strip()
+                    }
+                    if required_parameter_names and not required_parameter_names.issubset(
+                        rendered_arg_names
+                    ):
+                        continue
+                    score = len(parameter_names & rendered_arg_names)
+                candidates.append((score, method.upper(), str(path), operation))
+    if candidates:
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        return candidates[0][1], candidates[0][2], candidates[0][3]
     raise ValueError("tool definition has no supported operation")
 
 
@@ -563,13 +717,13 @@ def execute_direct_tool_step(
     if not base_url:
         raise ValueError("tool definition missing server url")
 
-    method, path_template, operation = _pick_openapi_operation(definition)
-    parameters = operation.get("parameters", [])
-    if not isinstance(parameters, list):
-        parameters = []
     rendered_args = render_structure(step.get("tool_args", {}), context)
     if not isinstance(rendered_args, dict):
         raise ValueError("tool_args must render to an object")
+    method, path_template, operation = _pick_openapi_operation(definition, rendered_args)
+    parameters = operation.get("parameters", [])
+    if not isinstance(parameters, list):
+        parameters = []
 
     path = path_template
     query_params: dict[str, Any] = {}

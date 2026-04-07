@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+from urllib.parse import parse_qs
+from urllib.parse import urlparse
 import uuid
 from collections.abc import Generator
 from dataclasses import dataclass
@@ -232,6 +234,7 @@ PLAYBOOK_EXECUTION_SCENARIOS = [
         "expected_request_paths": [
             "/alerts/search",
             "/assets/search",
+            "/ip_addresses/8.8.8.8",
         ],
         "expected_step_ids": [
             "search_alerts",
@@ -239,10 +242,17 @@ PLAYBOOK_EXECUTION_SCENARIOS = [
             "lookup_threat_intel",
             "commander_summary",
         ],
+        "expected_step_tools": {
+            "search_alerts": "search_security_alerts",
+            "lookup_asset": "lookup_asset_context",
+            "lookup_threat_intel": "threat_intel_lookup",
+            "commander_summary": None,
+        },
         "expected_markers": [
             "finance-host-01",
             "powershell",
             "Suspicious PowerShell",
+            "8.8.8.8",
         ],
     },
     {
@@ -256,6 +266,7 @@ PLAYBOOK_EXECUTION_SCENARIOS = [
         "expected_request_paths": [
             "/alerts/search",
             "/assets/search",
+            "/ip_addresses/8.8.8.8",
             "/issue",
             "/",
             "/hosts/finance-host-01/isolate",
@@ -268,10 +279,19 @@ PLAYBOOK_EXECUTION_SCENARIOS = [
             "send_alert",
             "isolate_host",
         ],
+        "expected_step_tools": {
+            "search_alerts": "search_security_alerts",
+            "lookup_asset": "lookup_asset_context",
+            "lookup_threat_intel": "threat_intel_lookup",
+            "create_ticket": "create_security_ticket",
+            "send_alert": "send_security_alert",
+            "isolate_host": "isolate_endpoint_host",
+        },
         "expected_markers": [
             "queued",
             "finance-host-01",
             "SEC-",
+            "8.8.8.8",
         ],
     },
 ]
@@ -282,6 +302,8 @@ class SeededSecurityPlatform:
     admin_user: DATestUser
     mock_server_url: str
     supports_mock_llm: bool
+    default_text_model: str | None
+    available_text_models: set[str]
 
 
 def _extract_cookie(response: requests.Response) -> str:
@@ -422,6 +444,33 @@ def _supports_mock_llm(user: DATestUser, persona_id: int) -> bool:
     return result["error"] is None and "REGRESSION_MOCK_OK" in result["full_message"]
 
 
+def _get_llm_provider_state(user: DATestUser) -> tuple[str | None, set[str]]:
+    response = requests.get(
+        f"{FRONTEND_API_URL}/admin/llm/provider",
+        headers=user.headers,
+        cookies=user.cookies,
+        timeout=20,
+    )
+    response.raise_for_status()
+    data = response.json()
+
+    default_text = data.get("default_text") or {}
+    default_model = str(default_text.get("model_name", "")).strip() or None
+    model_names: set[str] = set()
+
+    for provider in data.get("providers", []):
+        if not isinstance(provider, dict):
+            continue
+        for config in provider.get("model_configurations", []):
+            if not isinstance(config, dict):
+                continue
+            model_name = str(config.get("name", "")).strip()
+            if model_name:
+                model_names.add(model_name)
+
+    return default_model, model_names
+
+
 def _list_personas(user: DATestUser) -> list[dict[str, Any]]:
     response = requests.get(
         f"{FRONTEND_API_URL}/persona",
@@ -517,17 +566,82 @@ def _run_playbook(
     )
 
 
+def _find_mock_request(
+    requests_received: list[dict[str, Any]],
+    *,
+    method: str,
+    path_fragment: str | None = None,
+    exact_path: str | None = None,
+) -> dict[str, Any]:
+    assert path_fragment or exact_path
+    request = next(
+        (
+            request
+            for request in requests_received
+            if request["method"] == method
+            and (
+                (path_fragment is not None and path_fragment in request["path"])
+                or (exact_path is not None and request["path"] == exact_path)
+            )
+        ),
+        None,
+    )
+    assert request is not None, requests_received
+    return request
+
+
+def _query_params(path: str) -> dict[str, str]:
+    parsed = urlparse(path)
+    return {
+        key: values[0]
+        for key, values in parse_qs(parsed.query).items()
+        if values
+    }
+
+
+def _verify_playbook_definitions() -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            sys.executable,
+            str(PLAYBOOK_RUNNER),
+            "--verify-definitions",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+
+
 @pytest.fixture(scope="module")
 def seeded_security_platform(
     mock_security_tools_server: str,
 ) -> Generator[SeededSecurityPlatform, None, None]:
     admin_user = _login_admin_user()
     analyst_id = int(_get_persona_map(admin_user)["安全事件分析师"]["id"])
+    default_text_model, available_text_models = _get_llm_provider_state(admin_user)
     yield SeededSecurityPlatform(
         admin_user=admin_user,
         mock_server_url=mock_security_tools_server,
         supports_mock_llm=_supports_mock_llm(admin_user, analyst_id),
+        default_text_model=default_text_model,
+        available_text_models=available_text_models,
     )
+
+
+def test_security_platform_playbook_definition_regression() -> None:
+    process = _verify_playbook_definitions()
+
+    assert process.returncode == 0, process.stderr or process.stdout
+    assert "[OK] Verified" in process.stdout
+
+
+def test_security_platform_glm5_configuration_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    assert "glm-5" in seeded_security_platform.available_text_models
+    assert seeded_security_platform.default_text_model == "glm-5"
 
 
 def _tool_aliases(persona: dict[str, Any]) -> set[str]:
@@ -630,6 +744,248 @@ def test_security_platform_persona_live_chat_regression(
     )
 
 
+@pytest.mark.glm5_live
+def test_security_platform_glm5_reasoning_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    if seeded_security_platform.default_text_model != "glm-5":
+        pytest.skip(
+            f"Current default text model is {seeded_security_platform.default_text_model!r}, not glm-5"
+        )
+
+    analyst = _get_persona_map(seeded_security_platform.admin_user)["安全事件分析师"]
+    chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        int(analyst["id"]),
+        description=f"regression-glm5-analyst-{uuid.uuid4()}",
+    )
+
+    response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=(
+            "你正在处理一条安全告警。已知可疑 IP 为 8.8.8.8，资产主机名为 finance-host-01。"
+            "请用中文给出简短研判，输出中必须包含“事件判断”和“下一步建议”两个小标题，"
+            "并且必须显式提到 8.8.8.8 和 finance-host-01。"
+        ),
+    )
+
+    assert response["error"] is None, response
+    assert "事件判断" in response["full_message"], response["full_message"]
+    assert "下一步建议" in response["full_message"], response["full_message"]
+    assert "8.8.8.8" in response["full_message"], response["full_message"]
+    assert "finance-host-01" in response["full_message"], response["full_message"]
+
+
+@pytest.mark.glm5_live
+def test_security_platform_glm5_tool_selection_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    if seeded_security_platform.default_text_model != "glm-5":
+        pytest.skip(
+            f"Current default text model is {seeded_security_platform.default_text_model!r}, not glm-5"
+        )
+
+    analyst = _get_persona_map(seeded_security_platform.admin_user)["安全事件分析师"]
+    chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        int(analyst["id"]),
+        description=f"regression-glm5-tool-selection-{uuid.uuid4()}",
+    )
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=(
+            "请使用 search_security_alerts 查询 powershell 的高危告警，"
+            "并用中文一句话总结结果。"
+        ),
+    )
+
+    assert response["error"] is None, response
+
+    requests_received = get_mock_requests(seeded_security_platform.mock_server_url)
+    assert requests_received, "Expected GLM5 to trigger at least one mock security tool request"
+    assert any("/alerts/search" in request["path"] for request in requests_received), requests_received
+    assert any(
+        marker in response["full_message"]
+        for marker in ["finance-host-01", "PowerShell", "高危", "待处理"]
+    ), response["full_message"]
+
+
+@pytest.mark.glm5_live
+def test_security_platform_glm5_multi_step_live_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    if seeded_security_platform.default_text_model != "glm-5":
+        pytest.skip(
+            f"Current default text model is {seeded_security_platform.default_text_model!r}, not glm-5"
+        )
+
+    analyst = _get_persona_map(seeded_security_platform.admin_user)["安全事件分析师"]
+    chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        int(analyst["id"]),
+        description=f"regression-glm5-multi-step-{uuid.uuid4()}",
+    )
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    first_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=(
+            "请先查询 powershell 的高危告警，再查询 finance-host-01 的资产上下文，"
+            "然后用中文给出简短研判。"
+        ),
+    )
+
+    assert first_response["error"] is None, first_response
+    first_requests = get_mock_requests(seeded_security_platform.mock_server_url)
+    assert any("/alerts/search" in request["path"] for request in first_requests), first_requests
+    assert any("/assets/search" in request["path"] for request in first_requests), first_requests
+    assert "finance-host-01" in first_response["full_message"], first_response["full_message"]
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    second_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=(
+            "基于你刚才拿到的告警和资产信息，输出最终结论。"
+            "结果中必须包含“事件判断”和“下一步建议”两个小标题。"
+        ),
+    )
+
+    assert second_response["error"] is None, second_response
+    assert "事件判断" in second_response["full_message"], second_response["full_message"]
+    assert "下一步建议" in second_response["full_message"], second_response["full_message"]
+    assert any(
+        marker in second_response["full_message"]
+        for marker in ["finance-host-01", "PowerShell", "高危", "Finance"]
+    ), second_response["full_message"]
+
+
+@pytest.mark.glm5_live
+def test_security_platform_glm5_investigation_to_ticket_live_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    if seeded_security_platform.default_text_model != "glm-5":
+        pytest.skip(
+            f"Current default text model is {seeded_security_platform.default_text_model!r}, not glm-5"
+        )
+
+    analyst = _get_persona_map(seeded_security_platform.admin_user)["安全事件分析师"]
+    chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        int(analyst["id"]),
+        description=f"regression-glm5-investigation-ticket-{uuid.uuid4()}",
+    )
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    first_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=(
+            "请先查询 powershell 的高危告警，再查询 finance-host-01 的资产上下文，"
+            "最后用中文简要说明为什么这个事件值得继续跟进。"
+        ),
+    )
+
+    assert first_response["error"] is None, first_response
+    first_requests = get_mock_requests(seeded_security_platform.mock_server_url)
+    assert any("/alerts/search" in request["path"] for request in first_requests), first_requests
+    assert any("/assets/search" in request["path"] for request in first_requests), first_requests
+    assert any(
+        marker in first_response["full_message"]
+        for marker in ["finance-host-01", "PowerShell", "高危", "Finance"]
+    ), first_response["full_message"]
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    second_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=(
+            "基于你刚才拿到的上下文，请自主决定是否需要创建安全工单。"
+            "如果需要，请直接使用 create_security_ticket 创建一条工单，"
+            "并在回复中包含工单编号或创建结果，同时明确提到 finance-host-01。"
+        ),
+    )
+
+    assert second_response["error"] is None, second_response
+    second_requests = get_mock_requests(seeded_security_platform.mock_server_url)
+    ticket_request = _find_mock_request(
+        second_requests,
+        method="POST",
+        path_fragment="/issue",
+    )
+    assert ticket_request["body"]["project_key"] in {"SEC", "SOC"}
+    assert "finance-host-01" in ticket_request["body"]["summary"]
+    assert any(
+        marker in second_response["full_message"]
+        for marker in ["SEC-", "工单", "finance-host-01"]
+    ), second_response["full_message"]
+
+
+@pytest.mark.glm5_live
+def test_security_platform_glm5_investigation_to_isolation_live_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    if seeded_security_platform.default_text_model != "glm-5":
+        pytest.skip(
+            f"Current default text model is {seeded_security_platform.default_text_model!r}, not glm-5"
+        )
+
+    analyst = _get_persona_map(seeded_security_platform.admin_user)["安全事件分析师"]
+    chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        int(analyst["id"]),
+        description=f"regression-glm5-investigation-isolation-{uuid.uuid4()}",
+    )
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    first_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=(
+            "请先查询 powershell 的高危告警，再查询 finance-host-01 的资产上下文，"
+            "然后用中文简要说明该主机是否存在立即处置的必要。"
+        ),
+    )
+
+    assert first_response["error"] is None, first_response
+    first_requests = get_mock_requests(seeded_security_platform.mock_server_url)
+    assert any("/alerts/search" in request["path"] for request in first_requests), first_requests
+    assert any("/assets/search" in request["path"] for request in first_requests), first_requests
+    assert any(
+        marker in first_response["full_message"]
+        for marker in ["finance-host-01", "PowerShell", "高危", "Finance"]
+    ), first_response["full_message"]
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    second_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=(
+            "如果你判断需要立即处置，请直接使用 isolate_endpoint_host 隔离 host_id=finance-host-01，"
+            "reason 请明确写出与 powershell 告警相关，并在回复中确认隔离结果。"
+        ),
+    )
+
+    assert second_response["error"] is None, second_response
+    second_requests = get_mock_requests(seeded_security_platform.mock_server_url)
+    isolate_request = _find_mock_request(
+        second_requests,
+        method="POST",
+        path_fragment="/hosts/finance-host-01/isolate",
+    )
+    assert "finance-host-01" in isolate_request["body"]["reason"]
+    assert "powershell" in isolate_request["body"]["reason"].lower()
+    assert any(
+        marker in second_response["full_message"]
+        for marker in ["finance-host-01", "queued", "隔离", "isolate"]
+    ), second_response["full_message"]
+
+
 def test_security_platform_threat_intel_live_regression(
     seeded_security_platform: SeededSecurityPlatform,
 ) -> None:
@@ -728,6 +1084,8 @@ def test_security_platform_playbook_execution_regression(
 
     observed_step_ids = [step["id"] for step in result["steps"]]
     assert observed_step_ids == scenario["expected_step_ids"], result["steps"]
+    observed_step_tools = {step["id"]: step.get("tool") for step in result["steps"]}
+    assert observed_step_tools == scenario["expected_step_tools"], result["steps"]
 
     rendered_output = json.dumps(result, ensure_ascii=False)
     for marker in scenario["expected_markers"]:
@@ -737,6 +1095,83 @@ def test_security_platform_playbook_execution_regression(
     observed_paths = [request["path"] for request in requests_received]
     for expected_path in scenario["expected_request_paths"]:
         assert any(expected_path in path for path in observed_paths), observed_paths
+
+
+def test_security_platform_containment_playbook_request_rendering_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    process = _run_playbook(
+        playbook="incident-containment-and-ticketing",
+        inputs={
+            "incident_ip": "8.8.8.8",
+            "asset_hostname": "finance-host-01",
+            "host_id": "finance-host-01",
+            "alert_query": "powershell",
+        },
+    )
+
+    assert process.returncode == 0, process.stderr or process.stdout
+    result = json.loads(process.stdout)
+    assert result["ok"] is True, result
+    assert result["failures"] == [], result
+
+    requests_received = get_mock_requests(seeded_security_platform.mock_server_url)
+    assert len(requests_received) == 6, requests_received
+
+    alerts_request = _find_mock_request(
+        requests_received,
+        method="GET",
+        path_fragment="/alerts/search",
+    )
+    alerts_query = _query_params(alerts_request["path"])
+    assert alerts_query["query"] == "powershell"
+    assert alerts_query["severity"] == "high"
+    assert alerts_query["limit"] == "5"
+
+    asset_request = _find_mock_request(
+        requests_received,
+        method="GET",
+        path_fragment="/assets/search",
+    )
+    asset_query = _query_params(asset_request["path"])
+    assert asset_query["hostname"] == "finance-host-01"
+    assert asset_query["limit"] == "1"
+
+    threat_intel_request = _find_mock_request(
+        requests_received,
+        method="GET",
+        path_fragment="/ip_addresses/8.8.8.8",
+    )
+    assert threat_intel_request["body"] is None
+
+    create_ticket_request = _find_mock_request(
+        requests_received,
+        method="POST",
+        path_fragment="/issue",
+    )
+    assert create_ticket_request["body"]["summary"] == "Security incident on finance-host-01"
+    assert create_ticket_request["body"]["priority"] == "HIGH"
+    assert create_ticket_request["body"]["project_key"] == "SEC"
+    assert "Onyx playbook" in create_ticket_request["body"]["description"]
+
+    send_alert_request = _find_mock_request(
+        requests_received,
+        method="POST",
+        exact_path="/",
+    )
+    assert send_alert_request["body"]["alert_type"] == "UNAUTHORIZED_ACCESS"
+    assert send_alert_request["body"]["severity"] == "P1"
+    assert send_alert_request["body"]["title"] == "Incident escalation for finance-host-01"
+    assert send_alert_request["body"]["source_system"] == "Onyx Security Platform"
+
+    isolate_request = _find_mock_request(
+        requests_received,
+        method="POST",
+        path_fragment="/hosts/finance-host-01/isolate",
+    )
+    assert isolate_request["body"]["reason"] == "Suspicious incident on finance-host-01"
+    assert isolate_request["body"]["requested_by"] == "Onyx playbook"
 
 
 @pytest.mark.parametrize(("persona_name", "token"), PERSONA_CHAT_SCENARIOS)

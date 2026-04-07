@@ -38,6 +38,9 @@ from onyx.server.manage.security_platform.api import build_health_status
 from onyx.server.manage.security_platform.api import build_recommended_next_actions
 
 from assess_threat_intel_lifecycle import build_lifecycle_report
+from check_threat_intel_historical_package_consistency import (
+    evaluate_catalog_consistency,
+)
 
 
 SECURITY_DOCUMENT_SET_NAME = "安全知识库"
@@ -277,6 +280,18 @@ def load_historical_package_summary() -> dict[str, Any]:
         summary = {}
     if not isinstance(packages, list):
         packages = []
+    try:
+        consistency_result = evaluate_catalog_consistency()
+    except Exception:
+        consistency_result = {
+            "ok": False,
+            "summary": {
+                "package_count": len(packages),
+                "consistent_package_count": 0,
+                "issue_count": 1,
+            },
+            "issues": ["Failed to evaluate historical package consistency"],
+        }
 
     return {
         "package_count": int(summary.get("package_count", 0) or 0),
@@ -286,6 +301,39 @@ def load_historical_package_summary() -> dict[str, Any]:
             str(package.get("batch_id")).strip()
             for package in packages
             if isinstance(package, dict) and str(package.get("batch_id", "")).strip()
+        ],
+        "packages": [
+            {
+                "batch_id": str(package.get("batch_id", "")).strip(),
+                "description": str(package.get("description", "")).strip(),
+                "item_count": int(package.get("item_count", 0) or 0),
+                "total_size_bytes": int(package.get("total_size_bytes", 0) or 0),
+                "manifest_path": str(package.get("manifest_path", "")).strip(),
+                "readme_path": str(package.get("readme_path", "")).strip(),
+                "recommended_action": str(
+                    package.get("recommended_action", "")
+                ).strip(),
+                "source_counts": package.get("source_counts", {}) or {},
+                "quality_counts": package.get("quality_counts", {}) or {},
+                "year_counts": package.get("year_counts", {}) or {},
+            }
+            for package in packages
+            if isinstance(package, dict) and str(package.get("batch_id", "")).strip()
+        ],
+        "consistency_ok": bool(consistency_result.get("ok")),
+        "consistent_package_count": int(
+            (consistency_result.get("summary", {}) or {}).get(
+                "consistent_package_count", 0
+            )
+            or 0
+        ),
+        "consistency_issue_count": int(
+            (consistency_result.get("summary", {}) or {}).get("issue_count", 0) or 0
+        ),
+        "consistency_issues": [
+            str(issue).strip()
+            for issue in consistency_result.get("issues", [])
+            if str(issue).strip()
         ],
     }
 
@@ -971,6 +1019,12 @@ def evaluate_acceptance(
             "Threat-intel promotion candidates remain: "
             f"{threat_intel_curation_summary.get('promotion_candidates', 0)}"
         )
+    if historical_package_summary.get("consistency_issue_count", 0) > 0:
+        failures.append(
+            "Historical package catalog consistency issues: "
+            f"{historical_package_summary.get('consistency_issue_count', 0)}"
+        )
+        failures.extend(historical_package_summary.get("consistency_issues", []))
     if playbook_definitions_summary.get("count", 0) <= 0:
         failures.append("Missing security playbook definitions")
     if playbook_definitions_summary.get("invalid_files"):
@@ -1107,6 +1161,12 @@ def evaluate_acceptance(
             "historical_package_total_items": historical_package_summary.get("total_item_count", 0),
             "historical_package_total_size_bytes": historical_package_summary.get("total_size_bytes", 0),
             "historical_package_ids": historical_package_summary.get("package_ids", []),
+            "historical_package_consistent_count": historical_package_summary.get(
+                "consistent_package_count", 0
+            ),
+            "historical_package_consistency_issue_count": historical_package_summary.get(
+                "consistency_issue_count", 0
+            ),
             "playbook_count": playbook_definitions_summary["count"],
             "playbook_names": playbook_definitions_summary["names"],
             "playbooks_with_examples": playbook_definitions_summary["playbooks_with_examples"],
@@ -1164,7 +1224,9 @@ def print_human_result(result: dict[str, Any]) -> None:
         "Threat-intel historical packages: "
         f"count={result['summary']['historical_package_count']}, "
         f"items={result['summary']['historical_package_total_items']}, "
-        f"size={result['summary']['historical_package_total_size_bytes']}"
+        f"size={result['summary']['historical_package_total_size_bytes']}, "
+        f"consistent={result['summary']['historical_package_consistent_count']}, "
+        f"issues={result['summary']['historical_package_consistency_issue_count']}"
     )
     if result["summary"]["historical_package_ids"]:
         print(

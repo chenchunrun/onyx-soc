@@ -191,6 +191,9 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
                 "phase-1-cisa-limited-historical",
                 "phase-2-nvd-authoritative-historical",
             ],
+            "consistent_package_count": 2,
+            "consistency_issue_count": 0,
+            "consistency_issues": [],
         },
         security_tool_profile_summary={
             "profile": "mock",
@@ -274,6 +277,8 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
         "phase-1-cisa-limited-historical",
         "phase-2-nvd-authoritative-historical",
     ]
+    assert result["summary"]["historical_package_consistent_count"] == 2
+    assert result["summary"]["historical_package_consistency_issue_count"] == 0
     assert result["summary"]["playbook_count"] == 2
 
 
@@ -334,6 +339,9 @@ def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
             "total_item_count": 0,
             "total_size_bytes": 0,
             "package_ids": [],
+            "consistent_package_count": 0,
+            "consistency_issue_count": 1,
+            "consistency_issues": ["Missing historical package index"],
         },
         security_tool_profile_summary={
             "profile": "live",
@@ -371,6 +379,7 @@ def test_evaluate_acceptance_reports_missing_tools_and_links() -> None:
     assert any("Threat-intel source profile mismatch" in failure for failure in result["failures"])
     assert any("Security tools profile mismatch" in failure for failure in result["failures"])
     assert any("Threat-intel promotion candidates remain: 345" in failure for failure in result["failures"])
+    assert any("Historical package catalog consistency issues: 1" in failure for failure in result["failures"])
     assert any("Playbooks missing example_inputs" in failure for failure in result["failures"])
 
 
@@ -570,6 +579,46 @@ def test_load_playbook_definitions_summary_reads_yaml_files(
     assert summary["names"] == ["incident-triage-readonly"]
     assert summary["playbooks_with_examples"] == ["incident-triage-readonly"]
     assert summary["invalid_files"] == ["invalid.yaml"]
+
+
+def test_load_historical_package_summary_includes_consistency_status(
+    monkeypatch, tmp_path: Path
+) -> None:
+    module = _load_module()
+    index_path = tmp_path / "index.json"
+    index_path.write_text(
+        (
+            "{\n"
+            '  "summary": {"package_count": 1, "total_item_count": 12, "total_size_bytes": 2048},\n'
+            '  "packages": [{"batch_id": "phase-1", "item_count": 12, "total_size_bytes": 2048}]\n'
+            "}\n"
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "HISTORICAL_PACKAGE_INDEX_PATH", index_path)
+    monkeypatch.setattr(
+        module,
+        "evaluate_catalog_consistency",
+        lambda: {
+            "ok": False,
+            "summary": {
+                "package_count": 1,
+                "consistent_package_count": 0,
+                "issue_count": 2,
+            },
+            "issues": ["phase-1: Missing README", "phase-1: README does not mention item_count"],
+        },
+    )
+
+    summary = module.load_historical_package_summary()
+
+    assert summary["package_count"] == 1
+    assert summary["consistent_package_count"] == 0
+    assert summary["consistency_issue_count"] == 2
+    assert summary["consistency_issues"] == [
+        "phase-1: Missing README",
+        "phase-1: README does not mention item_count",
+    ]
 
 
 def test_validate_deployment_profile_runtime_rejects_localhost_for_demo(

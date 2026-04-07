@@ -42,6 +42,11 @@
 
 `deployment/helm/charts/onyx/values.security-platform.yaml`
 
+如需直接按环境套用，也可以使用：
+
+- `deployment/helm/charts/onyx/values.security-platform.live.yaml`
+- `deployment/helm/charts/onyx/values.security-platform.demo.yaml`
+
 示例：
 
 ```bash
@@ -53,9 +58,17 @@ helm upgrade --install onyx . -n onyx --create-namespace \
 
 该示例主要补充：
 
-- 安全工具相关 URL 配置
-- 安全工具相关 Secret 映射
+- `live / demo` deployment profile 入口
+- 全量安全工具 URL 配置
+- 全量安全工具 Secret 映射
+- mock server 配置入口
 - `WEB_DOMAIN` 示例值
+
+其中：
+
+- `values.security-platform.live.yaml` 适合生产化或联调环境
+- `values.security-platform.demo.yaml` 适合演示或离线环境
+- `demo` 环境下，`SECURITY_TOOLS_MOCK_SERVER_URL` 不应写为 `localhost`
 
 
 ### 4.2 准备基础资源
@@ -238,5 +251,5 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 
 ## 9. 推荐后续增强
 
-- 增加生产与演示环境配置模板
-- 增加更贴近生产环境的 Helm values 样例
+- 增加按环境拆分的 Helm values overlay（例如 `live` / `demo` 独立文件）
+- 增加更贴近企业 Secret Manager 的接入示例
