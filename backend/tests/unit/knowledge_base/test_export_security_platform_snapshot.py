@@ -77,6 +77,36 @@ def test_build_snapshot_contains_expected_sections(monkeypatch) -> None:
                 'phase-1-cisa-limited-historical',
                 'phase-2-nvd-authoritative-historical',
             ],
+            'packages': [
+                {
+                    'batch_id': 'phase-1-cisa-limited-historical',
+                    'item_count': 147,
+                    'total_size_bytes': 141712,
+                    'source_counts': {
+                        'CISA Known Exploited Vulnerabilities Catalog': 147,
+                    },
+                    'quality_counts': {'limited': 147},
+                    'year_counts': {'2014': 34},
+                    'description': 'phase 1',
+                    'manifest_path': 'a/manifest.json',
+                    'readme_path': 'a/README.md',
+                    'recommended_action': 'review',
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(
+        module,
+        'evaluate_catalog_consistency',
+        lambda: {
+            'ok': True,
+            'summary': {
+                'package_count': 2,
+                'consistent_package_count': 2,
+                'issue_count': 0,
+            },
+            'issues': [],
+            'package_checks': [],
         },
     )
 
@@ -90,6 +120,9 @@ def test_build_snapshot_contains_expected_sections(monkeypatch) -> None:
         'phase-1-cisa-limited-historical',
         'phase-2-nvd-authoritative-historical',
     ]
+    assert snapshot['historical_packages']['packages'][0]['batch_id'] == 'phase-1-cisa-limited-historical'
+    assert snapshot['historical_packages']['packages'][0]['item_count'] == 147
+    assert snapshot['historical_packages']['consistency']['ok'] is True
     assert snapshot['playbooks']['count'] == 2
     assert snapshot['playbooks']['with_examples'] == 2
     assert snapshot['playbooks']['items'][0]['name'] == 'a'

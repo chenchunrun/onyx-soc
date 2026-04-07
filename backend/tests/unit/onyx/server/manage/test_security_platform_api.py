@@ -220,6 +220,17 @@ def test_build_health_status_reports_warning_for_due_threat_intel_only() -> None
                     "phase-1-cisa-limited-historical",
                     "phase-2-nvd-authoritative-historical",
                 ],
+                "packages": [],
+                "consistency": {
+                    "ok": True,
+                    "summary": {
+                        "package_count": 2,
+                        "consistent_package_count": 2,
+                        "issue_count": 0,
+                    },
+                    "issues": [],
+                    "package_checks": [],
+                },
             },
         },
     )
@@ -270,6 +281,17 @@ def test_build_health_status_reports_historical_package_catalog_drift() -> None:
                 "total_item_count": 0,
                 "total_size_bytes": 123,
                 "package_ids": ["phase-1-cisa-limited-historical"],
+                "packages": [],
+                "consistency": {
+                    "ok": False,
+                    "summary": {
+                        "package_count": 2,
+                        "consistent_package_count": 1,
+                        "issue_count": 1,
+                    },
+                    "issues": ["README drift"],
+                    "package_checks": [],
+                },
             },
             "playbooks": {"count": 2, "with_examples": 2, "items": []},
         },
@@ -281,6 +303,7 @@ def test_build_health_status_reports_historical_package_catalog_drift() -> None:
     assert historical_check["status"] == "failing"
     assert any("catalog summary does not match package id count" in issue for issue in historical_check["issues"])
     assert any("zero archived items" in issue for issue in historical_check["issues"])
+    assert any("Catalog consistency issue: README drift" in issue for issue in historical_check["issues"])
 
 
 def test_build_recommended_next_actions_prefers_non_healthy_checks() -> None:
@@ -347,5 +370,6 @@ def test_build_remediation_commands_includes_historical_package_rebuild() -> Non
     )
 
     assert commands == [
-        "python knowledge-base/build_threat_intel_historical_package_index.py --write-index"
+        "python knowledge-base/build_threat_intel_historical_package_index.py --write-index",
+        "python knowledge-base/check_threat_intel_historical_package_consistency.py --json",
     ]

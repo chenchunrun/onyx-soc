@@ -26,6 +26,9 @@ if str(ROOT) not in sys.path:
 
 from build_threat_intel_manifest import DEFAULT_MANIFEST_PATH
 from build_threat_intel_manifest import load_manifest
+from check_threat_intel_historical_package_consistency import (
+    evaluate_catalog_consistency,
+)
 from curate_threat_intel_corpus import build_unmanaged_report
 from verify_security_platform_acceptance import load_threat_intel_sync_summary
 from verify_security_platform_acceptance import load_playbook_definitions_summary
@@ -44,6 +47,7 @@ def build_snapshot() -> dict[str, Any]:
     playbooks_summary = load_playbook_definitions_summary()
     threat_intel_sync = load_threat_intel_sync_summary()
     historical_packages_summary = load_historical_package_summary()
+    historical_package_consistency = evaluate_catalog_consistency()
 
     return {
         "version": 1,
@@ -77,6 +81,8 @@ def build_snapshot() -> dict[str, Any]:
                 historical_packages_summary.get("total_size_bytes", 0) or 0
             ),
             "package_ids": historical_packages_summary.get("package_ids", []),
+            "packages": historical_packages_summary.get("packages", []),
+            "consistency": historical_package_consistency,
         },
         "playbooks": {
             "count": int(playbooks_summary.get("count", 0) or 0),

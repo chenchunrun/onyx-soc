@@ -39,6 +39,33 @@ interface SecurityPlatformRuntimeStatus {
     total_item_count: number;
     total_size_bytes: number;
     package_ids: string[];
+    packages: {
+      batch_id: string;
+      description: string;
+      item_count: number;
+      total_size_bytes: number;
+      manifest_path: string;
+      readme_path: string;
+      recommended_action: string;
+      source_counts: Record<string, number>;
+      quality_counts: Record<string, number>;
+      year_counts: Record<string, number>;
+    }[];
+    consistency: {
+      ok: boolean;
+      summary: {
+        package_count: number;
+        consistent_package_count: number;
+        issue_count: number;
+      };
+      issues: string[];
+      package_checks: {
+        batch_id: string;
+        ok: boolean;
+        issue_count: number;
+        issues: string[];
+      }[];
+    };
   };
   playbooks: {
     count: number;
@@ -153,6 +180,40 @@ function ToolEndpoint({
       </div>
       <div className="mt-2 text-xs text-muted-foreground">
         personas: {tool.persona_names.length > 0 ? tool.persona_names.join(", ") : "none"}
+      </div>
+    </div>
+  );
+}
+
+function HistoricalPackageDetail({
+  item,
+}: {
+  item: SecurityPlatformRuntimeStatus["historical_packages"]["packages"][number];
+}) {
+  const sourceSummary =
+    Object.entries(item.source_counts)
+      .map(([name, count]) => `${name}=${count}`)
+      .join(" / ") || "none";
+  const qualitySummary =
+    Object.entries(item.quality_counts)
+      .map(([name, count]) => `${name}=${count}`)
+      .join(" / ") || "none";
+  const yearKeys = Object.keys(item.year_counts).sort();
+  const yearRange =
+    yearKeys.length > 0 ? `${yearKeys[0]}-${yearKeys[yearKeys.length - 1]}` : "n/a";
+
+  return (
+    <div className="rounded-md border p-3">
+      <div className="font-medium">{item.batch_id}</div>
+      <div className="mt-1 text-sm text-muted-foreground">{item.description}</div>
+      <div className="mt-2 text-xs text-muted-foreground">
+        items={item.item_count} / size={item.total_size_bytes}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">sources: {sourceSummary}</div>
+      <div className="mt-1 text-xs text-muted-foreground">quality: {qualitySummary}</div>
+      <div className="mt-1 text-xs text-muted-foreground">years: {yearRange}</div>
+      <div className="mt-2 text-xs text-muted-foreground">
+        action: {item.recommended_action || "none"}
       </div>
     </div>
   );
@@ -311,6 +372,10 @@ function Main() {
           <div className="mt-1 text-xs text-muted-foreground">
             size={runtimeData.historical_packages.total_size_bytes}
           </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            consistency=
+            {runtimeData.historical_packages.consistency.ok ? "ok" : "drift"}
+          </div>
         </SummaryCard>
 
         <SummaryCard title="Playbooks / RBAC">
@@ -411,9 +476,28 @@ function Main() {
                 ? runtimeData.historical_packages.package_ids.join(", ")
                 : "none"}
             </div>
+            <div>
+              historical consistency: {runtimeData.historical_packages.consistency.ok
+                ? "ok"
+                : runtimeData.historical_packages.consistency.issues.join(" | ")}
+            </div>
           </div>
         </SummaryCard>
       </div>
+
+      <SummaryCard title="Historical Package Details">
+        <div className="space-y-3">
+          {runtimeData.historical_packages.packages.length > 0 ? (
+            runtimeData.historical_packages.packages.map((item) => (
+              <HistoricalPackageDetail key={item.batch_id} item={item} />
+            ))
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              No historical package details available.
+            </div>
+          )}
+        </div>
+      </SummaryCard>
     </div>
   );
 }

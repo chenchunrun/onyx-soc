@@ -333,6 +333,12 @@ def build_health_status(
     package_ids = historical_packages.get("package_ids", [])
     if not isinstance(package_ids, list):
         package_ids = []
+    consistency = historical_packages.get("consistency", {})
+    if not isinstance(consistency, dict):
+        consistency = {}
+    consistency_summary = consistency.get("summary", {})
+    if not isinstance(consistency_summary, dict):
+        consistency_summary = {}
     if historical_package_count != len(package_ids):
         historical_package_issues.append(
             "Historical package catalog summary does not match package id count"
@@ -341,17 +347,22 @@ def build_health_status(
         historical_package_issues.append(
             "Historical package catalog reports packages but zero archived items"
         )
+    if not bool(consistency.get("ok", True)):
+        for issue in consistency.get("issues", []) or []:
+            historical_package_issues.append(f"Catalog consistency issue: {issue}")
     checks.append(
         _health_check(
             name="historical_packages",
             status="failing" if historical_package_issues else "healthy",
             summary=(
                 f"packages={historical_package_count}, "
-                f"items={historical_package_items}"
+                f"items={historical_package_items}, "
+                f"consistent={consistency_summary.get('consistent_package_count', historical_package_count)}"
             ),
             issues=historical_package_issues,
             remediations=[
-                "Run build_threat_intel_historical_package_index.py --write-index to rebuild the historical package catalog."
+                "Run build_threat_intel_historical_package_index.py --write-index to rebuild the historical package catalog.",
+                "Run check_threat_intel_historical_package_consistency.py --json to inspect catalog/package drift.",
             ],
         )
     )
@@ -459,6 +470,9 @@ def build_remediation_commands(
     if status_by_name.get("historical_packages") == "failing":
         commands.append(
             "python knowledge-base/build_threat_intel_historical_package_index.py --write-index"
+        )
+        commands.append(
+            "python knowledge-base/check_threat_intel_historical_package_consistency.py --json"
         )
 
     if status_by_name.get("playbooks") == "failing":
@@ -581,6 +595,17 @@ def load_static_snapshot() -> dict[str, Any]:
                 "total_item_count": 0,
                 "total_size_bytes": 0,
                 "package_ids": [],
+                "packages": [],
+                "consistency": {
+                    "ok": True,
+                    "summary": {
+                        "package_count": 0,
+                        "consistent_package_count": 0,
+                        "issue_count": 0,
+                    },
+                    "issues": [],
+                    "package_checks": [],
+                },
             },
             "playbooks": {"count": 0, "with_examples": 0, "items": []},
         }
