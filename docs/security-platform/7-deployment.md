@@ -115,6 +115,12 @@ docker compose \
 这层 override 不改动主 compose，只负责把安全底座相关环境变量注入
 `api_server`、`background`、`web_server`。
 
+注意：
+
+- `env.security-platform.template` 里的 `replace-me`、`your-company`、`example.com`、`mock-api-key-for-testing` 等值都只是模板占位符
+- 当前安全工作台状态页和 `knowledge-base/verify_security_platform_acceptance.py` 都会把这类“已设置但仍是示例值”的变量判为配置问题
+- 进入联调、试运行或验收环境前，应全部替换为真实环境值
+
 
 ### 4.3 执行初始化
 
@@ -185,6 +191,7 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
   - `env`
   - `required_env`
   - `expectations`
+- `required_env` 不仅检查“是否缺失”，也会检查是否仍然保留模板占位值
 
 
 ## 6. 工具相关额外配置
@@ -236,8 +243,14 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 - `acceptance` 输出中的 `Deployment profile` 与本次部署选择一致
 - `acceptance` 输出中的 `Security tools profile` 与当前部署档位一致
 - `acceptance` 输出中的全部声明式安全工具 `server / headers` 摘要符合当前环境
+- `acceptance` 输出中的 `Required env vars still use placeholder/example values` 应为空
 - `acceptance` 输出中的 `Playbooks: count=...` 与当前交付 playbook 集一致
 - `smoke` 阶段返回成功
+
+补充说明：
+
+- 安全工作台的 `Operational Checks` 也会展示 `placeholder env`
+- 如果这里非 `0`，说明变量虽然存在，但仍是模板/示例值，当前环境不应视为完成配置收口
 
 建议结合以下清单执行：
 

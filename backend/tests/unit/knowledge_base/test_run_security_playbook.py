@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -422,6 +424,113 @@ def test_execute_playbook_stops_on_first_failure_by_default(
     assert result["steps"][0]["id"] == "lookup_intel"
 
 
+def test_execute_playbook_continues_after_chat_failure_when_requested(
+    monkeypatch: pytest.MonkeyPatch, sample_playbook: dict[str, Any]
+) -> None:
+    monkeypatch.setattr(
+        runner,
+        "resolve_runtime",
+        lambda _base_url, _cookie: (
+            {
+                "安全事件分析师": {"id": 2, "name": "安全事件分析师"},
+                "应急响应指挥官": {"id": 3, "name": "应急响应指挥官"},
+            },
+            {"threat_intel_lookup": {"id": 15, "name": "threat_intel_lookup"}},
+        ),
+    )
+    monkeypatch.setattr(runner, "create_chat_session", lambda *_args, **_kwargs: "chat-1")
+
+    def fake_send_chat_message_with_timeout(
+        _base_url: str,
+        _cookie: str,
+        _chat_session_id: str,
+        message: str,
+        *,
+        forced_tool_id: int | None = None,
+        step_timeout_seconds: int = 90,
+        mock_llm_response: str | None = None,
+    ) -> dict[str, Any]:
+        if forced_tool_id is not None:
+            return {
+                "full_message": "",
+                "tool_call_debug": [{"tool_name": "threat_intel_lookup", "tool_args": {"ip": "8.8.8.8"}}],
+                "error": "step_timeout_after_20s",
+            }
+        return {
+            "full_message": f"summary for {message}",
+            "tool_call_debug": [],
+            "error": None,
+        }
+
+    monkeypatch.setattr(runner, "send_chat_message_with_timeout", fake_send_chat_message_with_timeout)
+
+    result = runner.execute_playbook(
+        sample_playbook,
+        "http://127.0.0.1:3000/api",
+        "cookie",
+        {"incident_ip": "8.8.8.8", "asset_hostname": "finance-host-01"},
+        stop_on_failure=False,
+    )
+
+    assert result["ok"] is False
+    assert len(result["steps"]) == 2
+    assert result["steps"][0]["id"] == "lookup_intel"
+    assert result["steps"][1]["id"] == "summary"
+    assert "Step lookup_intel: step_timeout_after_20s" in result["failures"]
+
+
+def test_execute_playbook_continues_after_direct_tool_failure_when_requested(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    playbook = {
+        "name": "direct-continue-playbook",
+        "inputs": [{"name": "incident_ip", "required": True}],
+        "steps": [
+            {
+                "id": "lookup_intel",
+                "persona": "安全事件分析师",
+                "tool": "threat_intel_lookup",
+                "execution_mode": "direct",
+                "tool_args": {"ip": "{{inputs.incident_ip}}"},
+                "prompt": "查询 {{inputs.incident_ip}}",
+            },
+            {
+                "id": "summary",
+                "persona": "应急响应指挥官",
+                "execution_mode": "template",
+                "response_template": "结论：{{inputs.incident_ip}} 继续观察",
+            },
+        ],
+    }
+    monkeypatch.setattr(
+        runner,
+        "resolve_runtime",
+        lambda _base_url, _cookie: (
+            {"安全事件分析师": {"id": 2, "name": "安全事件分析师"}},
+            {"threat_intel_lookup": {"id": 15, "name": "threat_intel_lookup"}},
+        ),
+    )
+    monkeypatch.setattr(runner, "create_chat_session", lambda *_args, **_kwargs: "chat-1")
+    monkeypatch.setattr(
+        runner,
+        "execute_direct_tool_step",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("mock tool down")),
+    )
+
+    result = runner.execute_playbook(
+        playbook,
+        "http://127.0.0.1:3000/api",
+        "cookie",
+        {"incident_ip": "8.8.8.8"},
+        stop_on_failure=False,
+    )
+
+    assert result["ok"] is False
+    assert len(result["steps"]) == 1
+    assert result["steps"][0]["id"] == "summary"
+    assert "Step lookup_intel: direct_tool_failed:mock tool down" in result["failures"]
+
+
 def test_execute_playbook_fails_when_persona_missing(
     monkeypatch: pytest.MonkeyPatch, sample_playbook: dict[str, Any]
 ) -> None:
@@ -468,3 +577,223 @@ def test_execute_playbook_supports_template_steps(
     assert result["ok"] is True
     assert result["steps"][0]["id"] == "summary"
     assert result["steps"][0]["full_message"] == "结论：finance-host-01 继续观察"
+
+
+def test_main_verify_definitions_returns_zero_for_valid_playbooks(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        runner.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: SimpleNamespace(
+            list_playbooks=False,
+            show_playbook=None,
+            verify_definitions=True,
+            dry_run=False,
+            execute=False,
+            playbook=None,
+            input=[],
+            url="http://example.com",
+            email="security-admin@example.com",
+            password="secret",
+            json=False,
+            step_timeout_seconds=90,
+            continue_on_failure=False,
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "list_playbooks",
+        lambda: [{"name": "incident-triage-readonly", "display_name": "事件研判只读流程"}],
+    )
+    monkeypatch.setattr(
+        runner,
+        "load_playbook_definition",
+        lambda _name: {
+            "name": "incident-triage-readonly",
+            "inputs": [{"name": "incident_ip", "required": True}],
+            "example_inputs": {"incident_ip": "8.8.8.8"},
+            "steps": [{"id": "lookup", "persona": "安全事件分析师", "prompt": "查询 {{inputs.incident_ip}}"}],
+        },
+    )
+    monkeypatch.setattr(runner, "validate_playbook", lambda _playbook: [])
+
+    result = runner.main()
+
+    assert result == 0
+    assert "[OK] Verified 1 playbook definitions" in capsys.readouterr().out
+
+
+def test_main_dry_run_json_returns_zero(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        runner.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: SimpleNamespace(
+            list_playbooks=False,
+            show_playbook=None,
+            verify_definitions=False,
+            dry_run=True,
+            execute=False,
+            playbook="incident-triage-readonly",
+            input=["incident_ip=8.8.8.8"],
+            url="http://example.com",
+            email="security-admin@example.com",
+            password="secret",
+            json=True,
+            step_timeout_seconds=90,
+            continue_on_failure=False,
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "load_playbook_definition",
+        lambda _name: {
+            "name": "incident-triage-readonly",
+            "inputs": [{"name": "incident_ip", "required": True}],
+            "steps": [
+                {
+                    "id": "lookup",
+                    "persona": "安全事件分析师",
+                    "tool": "threat_intel_lookup",
+                    "prompt": "查询 {{inputs.incident_ip}}",
+                }
+            ],
+        },
+    )
+    monkeypatch.setattr(runner, "validate_playbook", lambda _playbook: [])
+
+    result = runner.main()
+
+    assert result == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "playbook": "incident-triage-readonly",
+        "inputs": {"incident_ip": "8.8.8.8"},
+        "steps": [
+            {
+                "id": "lookup",
+                "persona": "安全事件分析师",
+                "tool": "threat_intel_lookup",
+                "prompt": "查询 8.8.8.8",
+            }
+        ],
+    }
+
+
+def test_main_execute_returns_one_when_login_fails(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(
+        runner.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: SimpleNamespace(
+            list_playbooks=False,
+            show_playbook=None,
+            verify_definitions=False,
+            dry_run=False,
+            execute=True,
+            playbook="incident-triage-readonly",
+            input=["incident_ip=8.8.8.8"],
+            url="http://example.com",
+            email="security-admin@example.com",
+            password="secret",
+            json=False,
+            step_timeout_seconds=90,
+            continue_on_failure=False,
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "load_playbook_definition",
+        lambda _name: {
+            "name": "incident-triage-readonly",
+            "inputs": [{"name": "incident_ip", "required": True}],
+            "steps": [{"id": "lookup", "persona": "安全事件分析师", "prompt": "查询 {{inputs.incident_ip}}"}],
+        },
+    )
+    monkeypatch.setattr(runner, "validate_playbook", lambda _playbook: [])
+    monkeypatch.setattr(runner, "get_cookie", lambda *_args, **_kwargs: None)
+
+    result = runner.main()
+
+    assert result == 1
+    assert "[ERROR] Login failed. Check credentials." in capsys.readouterr().out
+
+
+def test_main_execute_passes_continue_on_failure_to_runner(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    captured: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        runner.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: SimpleNamespace(
+            list_playbooks=False,
+            show_playbook=None,
+            verify_definitions=False,
+            dry_run=False,
+            execute=True,
+            playbook="incident-triage-readonly",
+            input=["incident_ip=8.8.8.8"],
+            url="http://example.com",
+            email="security-admin@example.com",
+            password="secret",
+            json=True,
+            step_timeout_seconds=45,
+            continue_on_failure=True,
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "load_playbook_definition",
+        lambda _name: {
+            "name": "incident-triage-readonly",
+            "inputs": [{"name": "incident_ip", "required": True}],
+            "steps": [{"id": "lookup", "persona": "安全事件分析师", "prompt": "查询 {{inputs.incident_ip}}"}],
+        },
+    )
+    monkeypatch.setattr(runner, "validate_playbook", lambda _playbook: [])
+    monkeypatch.setattr(runner, "get_cookie", lambda *_args, **_kwargs: "cookie")
+
+    def fake_execute_playbook(
+        playbook: dict[str, Any],
+        base_url: str,
+        cookie: str,
+        inputs: dict[str, str],
+        *,
+        step_timeout_seconds: int = 90,
+        show_progress: bool = False,
+        stop_on_failure: bool = True,
+    ) -> dict[str, Any]:
+        captured["playbook"] = playbook["name"]
+        captured["base_url"] = base_url
+        captured["cookie"] = cookie
+        captured["inputs"] = inputs
+        captured["step_timeout_seconds"] = step_timeout_seconds
+        captured["show_progress"] = show_progress
+        captured["stop_on_failure"] = stop_on_failure
+        return {"ok": True, "playbook": playbook["name"], "inputs": inputs, "steps": [], "failures": []}
+
+    monkeypatch.setattr(runner, "execute_playbook", fake_execute_playbook)
+
+    result = runner.main()
+
+    assert result == 0
+    assert captured == {
+        "playbook": "incident-triage-readonly",
+        "base_url": "http://example.com",
+        "cookie": "cookie",
+        "inputs": {"incident_ip": "8.8.8.8"},
+        "step_timeout_seconds": 45,
+        "show_progress": False,
+        "stop_on_failure": False,
+    }
+    assert json.loads(capsys.readouterr().out) == {
+        "ok": True,
+        "playbook": "incident-triage-readonly",
+        "inputs": {"incident_ip": "8.8.8.8"},
+        "steps": [],
+        "failures": [],
+    }

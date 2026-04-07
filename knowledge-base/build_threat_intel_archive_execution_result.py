@@ -47,7 +47,35 @@ def build_execution_result(
     projected_total = int(preview.get("summary", {}).get("projected_governed_total", 0))
     actual_total = int(manifest.get("summary", {}).get("total_feeds", 0))
     lifecycle_summary = lifecycle_report.get("summary", {})
-    completed = remaining_count == 0 and actual_total == projected_total
+    targeted_cve_ids = sorted(
+        {
+            str(item.get("cve_id", "")).strip()
+            for item in worklist.get("items", [])
+            if isinstance(item, dict) and str(item.get("cve_id", "")).strip()
+        }
+    )
+    remaining_archive_candidates = {
+        str(item.get("cve_id", "")).strip()
+        for item in lifecycle_report.get("archive_candidates", [])
+        if isinstance(item, dict) and str(item.get("cve_id", "")).strip()
+    }
+    unresolved_batch_targets = sorted(
+        cve_id for cve_id in targeted_cve_ids if cve_id in remaining_archive_candidates
+    )
+    consistency_issues: list[str] = []
+    if remaining_count != len(unresolved_batch_targets):
+        consistency_issues.append(
+            "worklist candidate_count does not match unresolved lifecycle candidates "
+            f"for batch {batch_id}: worklist={remaining_count}, "
+            f"lifecycle={len(unresolved_batch_targets)}"
+        )
+
+    completed = (
+        remaining_count == 0
+        and not unresolved_batch_targets
+        and actual_total == projected_total
+        and not consistency_issues
+    )
 
     return {
         "batch_id": batch_id,
@@ -55,6 +83,8 @@ def build_execution_result(
         "completed": completed,
         "summary": {
             "remaining_candidate_count": remaining_count,
+            "targeted_candidate_count": len(targeted_cve_ids),
+            "remaining_batch_candidate_count": len(unresolved_batch_targets),
             "projected_governed_total": projected_total,
             "actual_governed_total": actual_total,
             "archive_candidates_total": int(
@@ -63,7 +93,10 @@ def build_execution_result(
             "retained_historical_total": int(
                 lifecycle_summary.get("retained_historical_total", 0)
             ),
+            "unresolved_batch_targets_preview": unresolved_batch_targets[:10],
+            "consistency_issue_count": len(consistency_issues),
         },
+        "consistency_issues": consistency_issues,
     }
 
 
@@ -111,8 +144,14 @@ def main() -> int:
         print(f"Mode: {result['mode']}")
         print(f"Completed: {result['completed']}")
         print(f"Remaining candidates: {summary['remaining_candidate_count']}")
+        print(f"Remaining batch candidates: {summary['remaining_batch_candidate_count']}")
         print(f"Projected governed total: {summary['projected_governed_total']}")
         print(f"Actual governed total: {summary['actual_governed_total']}")
+        if result["consistency_issues"]:
+            print(
+                "Consistency issues: "
+                + "; ".join(result["consistency_issues"])
+            )
     return 0
 
 
