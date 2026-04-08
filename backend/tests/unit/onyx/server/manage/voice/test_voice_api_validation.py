@@ -14,6 +14,11 @@ def test_validate_voice_api_base_allows_private_for_azure() -> None:
     assert validated == "http://127.0.0.1:5000"
 
 
+def test_validate_voice_api_base_blocks_private_for_bigmodel() -> None:
+    with pytest.raises(OnyxError, match="Invalid target URI"):
+        _validate_voice_api_base("bigmodel", "http://127.0.0.1:5000")
+
+
 def test_validate_voice_api_base_blocks_metadata_for_azure() -> None:
     with pytest.raises(OnyxError, match="Invalid target URI"):
         _validate_voice_api_base("azure", "http://metadata.google.internal/")

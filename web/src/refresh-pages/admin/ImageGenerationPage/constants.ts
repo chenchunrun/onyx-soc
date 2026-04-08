@@ -2,6 +2,7 @@ export interface ImageProvider {
   image_provider_id: string; // Static unique key for UI-DB mapping
   model_name: string; // Actual model name for LLM API
   provider_name: string;
+  api_base?: string;
   title: string;
   description: string;
 }
@@ -67,6 +68,34 @@ export const IMAGE_PROVIDER_GROUPS: ProviderGroup[] = [
         title: "Azure OpenAI DALL-E 3",
         description:
           "DALL-E 3 image generation model hosted on Microsoft Azure.",
+      },
+    ],
+  },
+  {
+    name: "Zhipu BigModel",
+    providers: [
+      {
+        image_provider_id: "bigmodel_glm_image",
+        model_name: "glm-image",
+        provider_name: "bigmodel",
+        api_base: "https://open.bigmodel.cn/api/paas/v4",
+        title: "GLM-Image",
+        description:
+          "BigModel's official image generation model exposed through the GLM image API.",
+      },
+    ],
+  },
+  {
+    name: "MiniMax",
+    providers: [
+      {
+        image_provider_id: "minimax_image_01",
+        model_name: "image-01",
+        provider_name: "minimax",
+        api_base: "https://api.minimax.io",
+        title: "image-01",
+        description:
+          "MiniMax image generation model for text-to-image workflows.",
       },
     ],
   },

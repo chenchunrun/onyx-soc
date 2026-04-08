@@ -17,6 +17,9 @@ import { LLMProviderName } from "@/interfaces/llm";
 
 const PROVIDER_ICONS: Record<string, IconFunctionComponent> = {
   [LLMProviderName.OPENAI]: SvgOpenai,
+  bigmodel: SvgOpenai,
+  minimax: SvgServer,
+  kimi: SvgServer,
   [LLMProviderName.ANTHROPIC]: SvgClaude,
   [LLMProviderName.VERTEX_AI]: SvgGemini,
   [LLMProviderName.BEDROCK]: SvgAws,
@@ -34,6 +37,9 @@ const PROVIDER_ICONS: Record<string, IconFunctionComponent> = {
 
 const PROVIDER_PRODUCT_NAMES: Record<string, string> = {
   [LLMProviderName.OPENAI]: "GPT",
+  bigmodel: "BigModel",
+  minimax: "MiniMax",
+  kimi: "Kimi",
   [LLMProviderName.ANTHROPIC]: "Claude",
   [LLMProviderName.VERTEX_AI]: "Gemini",
   [LLMProviderName.BEDROCK]: "Amazon Bedrock",
@@ -51,6 +57,9 @@ const PROVIDER_PRODUCT_NAMES: Record<string, string> = {
 
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   [LLMProviderName.OPENAI]: "OpenAI",
+  bigmodel: "Zhipu BigModel (OpenAI-compatible)",
+  minimax: "MiniMax (OpenAI-compatible)",
+  kimi: "Moonshot Kimi (OpenAI-compatible)",
   [LLMProviderName.ANTHROPIC]: "Anthropic",
   [LLMProviderName.VERTEX_AI]: "Google Cloud Vertex AI",
   [LLMProviderName.BEDROCK]: "AWS",
