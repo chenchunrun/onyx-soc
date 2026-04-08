@@ -301,13 +301,13 @@ def ensure_document_set(base_url: str, cookie: str, dry_run: bool) -> int:
     markdown_files = collect_markdown_files()
     markdown_file_batches = chunk_markdown_files(markdown_files)
 
-    if existing is not None and connector_status is not None:
+    if dry_run and existing is not None and connector_status is not None:
         current_cc_pair_ids = {
             summary["id"] for summary in existing.get("cc_pair_summaries", [])
         }
         if connector_status["cc_pair_id"] in current_cc_pair_ids:
             print(
-                f"[SKIP] Document set already bound to {SECURITY_CONNECTOR_NAME}: "
+                f"[DRY RUN] Document set already bound to {SECURITY_CONNECTOR_NAME}: "
                 f"{SECURITY_DOCUMENT_SET_NAME} (id={existing['id']})"
             )
             return 0
