@@ -18,6 +18,7 @@ interface SecurityPlatformRuntimeStatus {
   };
   required_env: string[];
   missing_required_env: string[];
+  placeholder_required_env: string[];
   deployment_profile_issues: string[];
   threat_intel_source_profile: string;
   security_tools_profile: string;
@@ -114,6 +115,212 @@ interface SecurityPlatformRuntimeStatus {
     header_keys: string[];
     persona_names: string[];
   }[];
+  tool_audit: {
+    total_calls: number;
+    recent_call_count: number;
+    tool_counts: Record<string, number>;
+    persona_counts: Record<string, number>;
+    recent_calls: {
+      tool_name: string;
+      persona_name: string | null;
+      user_email: string | null;
+      time_sent: string | null;
+      turn_number: number;
+      is_nested: boolean;
+    }[];
+  };
+  tool_drift: {
+    mismatch_count: number;
+    missing_declared_configs: string[];
+    mismatched_tools: {
+      tool_name: string;
+      declared_persona_names: string[];
+      actual_persona_names: string[];
+      expected_server_url: string | null;
+      actual_server_url: string | null;
+      expected_header_keys: string[];
+      actual_header_keys: string[];
+      issues: string[];
+    }[];
+  };
+  failure_summary: {
+    total_failures: number;
+    recent_failure_count: number;
+    recent_failures: {
+      persona_name: string | null;
+      user_email: string | null;
+      time_sent: string | null;
+      error: string;
+    }[];
+  };
+  permission_inheritance: {
+    sync_cc_pair_count: number;
+    docs_with_external_acl_count: number;
+    docs_with_user_acl_count: number;
+    docs_with_group_acl_count: number;
+    recent_doc_sync_failure_count: number;
+    recent_group_sync_failure_count: number;
+    recent_doc_sync_attempts: {
+      attempt_id: number;
+      sync_type: string;
+      cc_pair_id: number | null;
+      status: string;
+      error_message: string | null;
+      time_created: string | null;
+      time_finished: string | null;
+    }[];
+    recent_group_sync_attempts: {
+      attempt_id: number;
+      sync_type: string;
+      cc_pair_id: number | null;
+      status: string;
+      error_message: string | null;
+      time_created: string | null;
+      time_finished: string | null;
+    }[];
+  };
+  service_accounts: {
+    api_key_count: number;
+    service_account_user_count: number;
+    ownerless_api_key_count: number;
+    role_counts: Record<string, number>;
+    recent_accounts: {
+      api_key_id: number;
+      api_key_name: string | null;
+      api_key_display: string;
+      role: string;
+      owner_email: string | null;
+      created_at: string | null;
+    }[];
+  };
+  scim: {
+    active_token_count: number;
+    has_active_token: boolean;
+    token_last_used_at: string | null;
+    user_mapping_count: number;
+    group_mapping_count: number;
+    recent_group_sync_failure_count: number;
+  };
+  query_history_usage: {
+    query_history_type: string;
+    query_history_enabled: boolean;
+    recent_query_count: number;
+    recent_chat_session_count: number;
+    recent_active_user_count: number;
+    recent_like_count: number;
+    recent_dislike_count: number;
+    recent_export_count: number;
+    recent_export_failure_count: number;
+    recent_exports: {
+      task_id: string;
+      status: string;
+      start_time: string | null;
+    }[];
+  };
+  custom_permissions: {
+    default_group_count: number;
+    custom_group_count: number;
+    stale_custom_group_count: number;
+    groups_with_custom_grants_count: number;
+    custom_permission_count: number;
+    manual_grant_count: number;
+    scim_grant_count: number;
+    admin_override_group_count: number;
+    permission_counts: Record<string, number>;
+  };
+  usage_limits: {
+    enabled: boolean;
+    global_limit_count: number;
+    enabled_global_limit_count: number;
+    user_limit_count: number;
+    enabled_user_limit_count: number;
+    user_group_limit_count: number;
+    enabled_user_group_limit_count: number;
+    limited_user_group_count: number;
+  };
+  hooks: {
+    hooks_enabled: boolean;
+    supported_hook_point_count: number;
+    configured_hook_count: number;
+    active_hook_count: number;
+    reachable_hook_count: number;
+    recent_execution_count: number;
+    recent_failure_count: number;
+    hook_point_names: string[];
+    recent_executions: {
+      hook_name: string;
+      hook_point: string;
+      is_success: boolean;
+      status_code: number | null;
+      error_message: string | null;
+      created_at: string | null;
+    }[];
+  };
+  custom_theming: {
+    branding_configured: boolean;
+    application_name: string;
+    application_name_is_default: boolean;
+    use_custom_logo: boolean;
+    use_custom_logotype: boolean;
+    logo_display_style: string;
+    custom_nav_item_count: number;
+    custom_header_content_enabled: boolean;
+    custom_lower_disclaimer_enabled: boolean;
+    first_visit_notice_enabled: boolean;
+    custom_popup_enabled: boolean;
+    consent_screen_enabled: boolean;
+    custom_greeting_enabled: boolean;
+  };
+  white_labeling: {
+    branding_configured: boolean;
+    custom_logo_enabled: boolean;
+    custom_favicon_enabled: boolean;
+    application_name_configured: boolean;
+    white_label_ready: boolean;
+    residual_branding_count: number;
+    residual_external_link_count: number;
+    residual_branding_examples: string[];
+  };
+  custom_deployments: {
+    docker_compose_variant_count: number;
+    helm_values_variant_count: number;
+    has_install_script: boolean;
+    has_multitenant_compose: boolean;
+    has_lite_compose: boolean;
+    has_prod_compose: boolean;
+    has_security_platform_compose_overlay: boolean;
+    has_security_platform_helm_overlay: boolean;
+    supported_modes: string[];
+    overlay_examples: string[];
+  };
+  region_processing: {
+    aws_region_supported: boolean;
+    object_store_endpoint_configurable: boolean;
+    web_domain_configurable: boolean;
+    tenant_aware_deployment_supported: boolean;
+    cloud_deployment_supported: boolean;
+    region_hint_count: number;
+    region_hints: string[];
+  };
+  self_hosting: {
+    self_hosted_mode: boolean;
+    multi_tenant_mode: boolean;
+    enterprise_features_enabled: boolean;
+    license_enforcement_enabled: boolean;
+    has_license: boolean;
+    license_status: string | null;
+    license_source: string | null;
+    seat_count: number | null;
+    used_seat_count: number | null;
+    has_license_api: boolean;
+    has_admin_billing_page: boolean;
+    has_billing_service: boolean;
+    has_cloud_proxy: boolean;
+    cloud_data_plane_url_configured: boolean;
+    has_install_script: boolean;
+    has_docker_compose_path: boolean;
+    has_helm_install_path: boolean;
+  };
   security_users: {
     email: string;
     role: string;
@@ -122,6 +329,14 @@ interface SecurityPlatformRuntimeStatus {
   rbac: {
     persona_user_links: number;
     document_set_user_links: number;
+    all_user_role_counts: Record<string, number>;
+    security_user_role_counts: Record<string, number>;
+    user_group_count: number;
+    groups_with_permission_grants_count: number;
+    permission_grant_count: number;
+    users_with_effective_permissions_count: number;
+    curator_membership_count: number;
+    top_permissions: Record<string, number>;
   };
 }
 
@@ -219,6 +434,109 @@ function HistoricalPackageDetail({
   );
 }
 
+function ToolAuditCall({
+  item,
+}: {
+  item: SecurityPlatformRuntimeStatus["tool_audit"]["recent_calls"][number];
+}) {
+  return (
+    <div className="rounded-md border p-3">
+      <div className="font-medium">{item.tool_name}</div>
+      <div className="mt-1 text-sm text-muted-foreground">
+        persona={item.persona_name || "unknown"} / user={item.user_email || "unknown"}
+      </div>
+      <div className="mt-2 text-xs text-muted-foreground">
+        turn={item.turn_number} / nested={item.is_nested ? "yes" : "no"}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        time={item.time_sent || "unknown"}
+      </div>
+    </div>
+  );
+}
+
+function ToolDriftItem({
+  item,
+}: {
+  item: SecurityPlatformRuntimeStatus["tool_drift"]["mismatched_tools"][number];
+}) {
+  return (
+    <div className="rounded-md border p-3">
+      <div className="font-medium">{item.tool_name}</div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        expected personas:{" "}
+        {item.declared_persona_names.length > 0
+          ? item.declared_persona_names.join(", ")
+          : "none"}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        actual personas:{" "}
+        {item.actual_persona_names.length > 0 ? item.actual_persona_names.join(", ") : "none"}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        expected server: {item.expected_server_url || "none"}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        actual server: {item.actual_server_url || "none"}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        expected headers:{" "}
+        {item.expected_header_keys.length > 0 ? item.expected_header_keys.join(", ") : "none"}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        actual headers:{" "}
+        {item.actual_header_keys.length > 0 ? item.actual_header_keys.join(", ") : "none"}
+      </div>
+      <div className="mt-2 text-xs text-amber-700">
+        {item.issues.join(" | ")}
+      </div>
+    </div>
+  );
+}
+
+function FailureItem({
+  item,
+}: {
+  item: SecurityPlatformRuntimeStatus["failure_summary"]["recent_failures"][number];
+}) {
+  return (
+    <div className="rounded-md border p-3">
+      <div className="font-medium">{item.error}</div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        persona={item.persona_name || "unknown"} / user={item.user_email || "unknown"}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        time={item.time_sent || "unknown"}
+      </div>
+    </div>
+  );
+}
+
+function PermissionSyncAttemptItem({
+  item,
+}: {
+  item:
+    | SecurityPlatformRuntimeStatus["permission_inheritance"]["recent_doc_sync_attempts"][number]
+    | SecurityPlatformRuntimeStatus["permission_inheritance"]["recent_group_sync_attempts"][number];
+}) {
+  return (
+    <div className="rounded-md border p-3">
+      <div className="font-medium">
+        {item.sync_type} sync #{item.attempt_id}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        cc_pair={item.cc_pair_id ?? "unknown"} / status={item.status}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        created={item.time_created || "unknown"} / finished={item.time_finished || "unknown"}
+      </div>
+      <div className="mt-2 text-xs text-muted-foreground">
+        error={item.error_message || "none"}
+      </div>
+    </div>
+  );
+}
+
 function Main() {
   const {
     data: runtimeData,
@@ -269,27 +587,31 @@ function Main() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
-          <div className="text-sm font-medium">Recommended Next Actions</div>
-          <div className="mt-3 space-y-2 text-sm text-muted-foreground">
+        <div className="mt-5 rounded-md border border-border bg-background/60 p-4">
+          <div className="text-sm font-medium text-foreground">
+            Recommended Next Actions
+          </div>
+          <div className="mt-3 space-y-2 text-sm text-foreground">
             {runtimeData.recommended_next_actions.length > 0 ? (
               runtimeData.recommended_next_actions.map((action) => (
                 <div key={action}>{action}</div>
               ))
             ) : (
-              <div>No immediate action required.</div>
+              <div className="text-muted-foreground">No immediate action required.</div>
             )}
           </div>
         </div>
 
-        <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4">
-          <div className="text-sm font-medium">Remediation Commands</div>
+        <div className="mt-5 rounded-md border border-border bg-background/60 p-4">
+          <div className="text-sm font-medium text-foreground">
+            Remediation Commands
+          </div>
           <div className="mt-3 space-y-2">
             {runtimeData.remediation_commands.length > 0 ? (
               runtimeData.remediation_commands.map((command) => (
                 <pre
                   key={command}
-                  className="overflow-x-auto rounded-md border bg-background p-3 text-xs text-foreground"
+                  className="overflow-x-auto rounded-md border border-border bg-background p-3 text-xs text-foreground"
                 >
                   <code>{command}</code>
                 </pre>
@@ -329,7 +651,7 @@ function Main() {
         </div>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <SummaryCard title="Deployment Profile">
           <div className="text-2xl font-semibold">
             {runtimeData.deployment_profile}
@@ -387,7 +709,58 @@ function Main() {
             persona links={runtimeData.rbac.persona_user_links} / docset links=
             {runtimeData.rbac.document_set_user_links}
           </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            groups={runtimeData.rbac.user_group_count} / grants=
+            {runtimeData.rbac.permission_grant_count}
+          </div>
         </SummaryCard>
+
+        <SummaryCard title="Tool Audit">
+          <div className="text-2xl font-semibold">
+            {runtimeData.tool_audit.total_calls}
+          </div>
+          <div className="mt-2 text-sm text-muted-foreground">
+            recent={runtimeData.tool_audit.recent_call_count}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            tools={Object.keys(runtimeData.tool_audit.tool_counts).length}
+          </div>
+        </SummaryCard>
+
+        <SummaryCard title="Config Drift">
+          <div className="text-2xl font-semibold">
+            {runtimeData.tool_drift.mismatch_count}
+          </div>
+          <div className="mt-2 text-sm text-muted-foreground">
+            undeclared={runtimeData.tool_drift.missing_declared_configs.length}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            mismatched tools={runtimeData.tool_drift.mismatched_tools.length}
+          </div>
+        </SummaryCard>
+
+        <SummaryCard title="Recent Failures">
+          <div className="text-2xl font-semibold">
+            {runtimeData.failure_summary.total_failures}
+          </div>
+          <div className="mt-2 text-sm text-muted-foreground">
+            recent={runtimeData.failure_summary.recent_failure_count}
+          </div>
+        </SummaryCard>
+
+        <SummaryCard title="Permission Inheritance">
+          <div className="text-2xl font-semibold">
+            {runtimeData.permission_inheritance.sync_cc_pair_count}
+          </div>
+          <div className="mt-2 text-sm text-muted-foreground">
+            docs with ACL={runtimeData.permission_inheritance.docs_with_external_acl_count}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            doc failures={runtimeData.permission_inheritance.recent_doc_sync_failure_count} /
+            group failures={runtimeData.permission_inheritance.recent_group_sync_failure_count}
+          </div>
+        </SummaryCard>
+
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -418,7 +791,7 @@ function Main() {
         </SummaryCard>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-3">
         <SummaryCard title="Playbook Catalog">
           <div className="space-y-3">
             {runtimeData.playbooks.items.map((playbook) => (
@@ -433,6 +806,23 @@ function Main() {
                 </div>
               </div>
             ))}
+          </div>
+        </SummaryCard>
+
+        <SummaryCard title="Recent Tool Calls">
+          <div className="space-y-3">
+            {runtimeData.tool_audit.recent_calls.length > 0 ? (
+              runtimeData.tool_audit.recent_calls.map((item, index) => (
+                <ToolAuditCall
+                  key={`${item.tool_name}-${item.time_sent || "unknown"}-${index}`}
+                  item={item}
+                />
+              ))
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No recent security tool calls recorded.
+              </div>
+            )}
           </div>
         </SummaryCard>
 
@@ -452,6 +842,11 @@ function Main() {
             <div>
               missing env: {runtimeData.missing_required_env.length > 0
                 ? runtimeData.missing_required_env.join(", ")
+                : "none"}
+            </div>
+            <div>
+              placeholder env: {runtimeData.placeholder_required_env.length > 0
+                ? runtimeData.placeholder_required_env.join(", ")
                 : "none"}
             </div>
             <div>
@@ -481,9 +876,95 @@ function Main() {
                 ? "ok"
                 : runtimeData.historical_packages.consistency.issues.join(" | ")}
             </div>
+            <div>
+              tool counts: {Object.keys(runtimeData.tool_audit.tool_counts).length > 0
+                ? Object.entries(runtimeData.tool_audit.tool_counts)
+                    .map(([name, count]) => `${name}=${count}`)
+                    .join(" | ")
+                : "none"}
+            </div>
+            <div>
+              config drift: {runtimeData.tool_drift.mismatch_count}
+            </div>
+            <div>
+              undeclared tools: {runtimeData.tool_drift.missing_declared_configs.length > 0
+                ? runtimeData.tool_drift.missing_declared_configs.join(", ")
+                : "none"}
+            </div>
+            <div>
+              permission sync cc-pairs: {runtimeData.permission_inheritance.sync_cc_pair_count}
+            </div>
+            <div>
+              docs with external ACL: {runtimeData.permission_inheritance.docs_with_external_acl_count}
+            </div>
+            <div>
+              docs with user ACL: {runtimeData.permission_inheritance.docs_with_user_acl_count}
+            </div>
+            <div>
+              docs with group ACL: {runtimeData.permission_inheritance.docs_with_group_acl_count}
+            </div>
+            <div>
+              permission sync failures: doc=
+              {runtimeData.permission_inheritance.recent_doc_sync_failure_count} / group=
+              {runtimeData.permission_inheritance.recent_group_sync_failure_count}
+            </div>
           </div>
         </SummaryCard>
       </div>
+
+      <SummaryCard title="Tool Config Drift">
+        <div className="space-y-3">
+          {runtimeData.tool_drift.mismatched_tools.length > 0 ? (
+            runtimeData.tool_drift.mismatched_tools.map((item) => (
+              <ToolDriftItem key={item.tool_name} item={item} />
+            ))
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              No declared tool drift detected for the active profile.
+            </div>
+          )}
+        </div>
+      </SummaryCard>
+
+      <SummaryCard title="Failure Summary">
+        <div className="space-y-3">
+          {runtimeData.failure_summary.recent_failures.length > 0 ? (
+            runtimeData.failure_summary.recent_failures.map((item, index) => (
+              <FailureItem
+                key={`${item.error}-${item.time_sent || "unknown"}-${index}`}
+                item={item}
+              />
+            ))
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              No recent assistant failures recorded.
+            </div>
+          )}
+        </div>
+      </SummaryCard>
+
+      <SummaryCard title="Permission Sync Attempts">
+        <div className="space-y-3">
+          {[
+            ...runtimeData.permission_inheritance.recent_doc_sync_attempts,
+            ...runtimeData.permission_inheritance.recent_group_sync_attempts,
+          ].length > 0 ? (
+            [
+              ...runtimeData.permission_inheritance.recent_doc_sync_attempts,
+              ...runtimeData.permission_inheritance.recent_group_sync_attempts,
+            ].map((item) => (
+              <PermissionSyncAttemptItem
+                key={`${item.sync_type}-${item.attempt_id}`}
+                item={item}
+              />
+            ))
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              No recent permission sync attempts recorded.
+            </div>
+          )}
+        </div>
+      </SummaryCard>
 
       <SummaryCard title="Historical Package Details">
         <div className="space-y-3">

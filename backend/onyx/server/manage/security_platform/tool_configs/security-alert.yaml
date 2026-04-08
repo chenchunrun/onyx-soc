@@ -1,0 +1,12 @@
+name: send_security_alert
+template: security_alert_webhook
+description: >-
+  Send security alerts to Slack, Teams, or PagerDuty. Use this when a security
+  analyst detects a threat (phishing, malware, unauthorized access) and needs to
+  notify the security team immediately. Required parameters: alert_type
+  (PHISHING/MALWARE/DATA_BREACH/UNAUTHORIZED_ACCESS/DDoS/VULNERABILITY/COMPLIANCE_VIOLATION/INSIDER_THREAT),
+  severity (P0/P1/P2/P3/P4), title, description, source_system. Optional:
+  affected_assets, indicators (ips/domains/file_hashes/urls), recommended_actions.
+webhook_url_env: SECURITY_ALERT_WEBHOOK_URL
+persona_bindings:
+  - 应急响应指挥官

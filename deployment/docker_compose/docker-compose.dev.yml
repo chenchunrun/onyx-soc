@@ -11,7 +11,7 @@
 services:
   api_server:
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     deploy:
       resources:
         limits:
@@ -25,12 +25,12 @@ services:
 
   relational_db:
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
   index:
     ports:
-      - "19071:19071"
-      - "8081:8081"
+      - "127.0.0.1:19071:19071"
+      - "127.0.0.1:8081:8081"
     healthcheck:
       # We use 19071 because the application server at 8010 is not ready until
       # it is activated/configured by the application.
@@ -42,7 +42,7 @@ services:
 
   opensearch:
     ports:
-      - "9200:9200"
+      - "127.0.0.1:9200:9200"
     # Rootless Docker can reject the base OpenSearch ulimit settings, so clear
     # the inherited block entirely in the dev override.
     ulimits: !reset null
@@ -51,18 +51,18 @@ services:
 
   inference_model_server:
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
 
   cache:
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   minio:
     # use different ports to avoid conflicts with model servers
     ports:
-      - "9004:9000"
-      - "9005:9001"
+      - "127.0.0.1:9004:9000"
+      - "127.0.0.1:9005:9001"
 
   code-interpreter:
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"

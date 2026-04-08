@@ -1,0 +1,12 @@
+name: threat_intel_lookup
+template: threat_intel_api
+description: >-
+  Query threat intelligence databases (VirusTotal, AbuseIPDB, Shodan) for IP
+  addresses, domains, and file hashes. Use this when you need to verify if an
+  indicator (IP, domain, or hash) is known to be malicious. Required: the IP,
+  domain, or hash parameter.
+api_url_env: THREAT_INTEL_API_URL
+api_key_env: THREAT_INTEL_API_KEY
+persona_bindings:
+  - 安全事件分析师
+  - 漏洞评估专家

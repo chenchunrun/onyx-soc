@@ -1,7 +1,9 @@
 # Onyx 智能安全底座会议纪要版
 
-本次会议确认，智能安全底座当前版本已达到 `PoC / 内部试运行基线`，整体完成度约为 `80%-85%`。项目主链路已经从“方案和零散脚本”推进到“可部署、可初始化、可验收、可演示、可做真实模型回归”的状态，当前阶段可以作为阶段性交付基线使用。
+本次会议确认，智能安全底座当前版本已达到 `PoC / 内部试运行基线`。当前阶段的核心判断是：主体能力已经基本成型，验收链路、管理面和企业能力最小收口已经形成闭环，后续重点不再是大规模补主体功能，而是继续推进生产化配置收口、长链路回归增强、threat-intel 扩源和更深的运维治理能力。
 
-本阶段已完成的核心事项包括：安全知识导入、`安全知识库` document set、四个安全 persona、安全工具、RBAC 和统一 bootstrap 链路；最小验收自动化也已建立，可直接校验 threat-intel 状态、historical package catalog、security tools profile 和 deployment profile。真实环境验证方面，安全平台集成回归已通过，当前结果为 `14 passed, 10 skipped`；`glm5_live` 专项回归也已通过，当前结果为 `3 passed`，已验证真实 `glm-5` 模型的安全分析、自主工具调用和多轮链路能力。
+会议确认，本阶段已完成的核心事项包括：安全知识导入、`安全知识库` document set、四个安全 persona / agent、六个安全工具、RBAC 和统一 bootstrap 链路；最小验收、smoke、playbook 和安全平台回归链路；threat-intel 的 manifest、curation、lifecycle、historical package 和 archive artifact 基础治理链路；以及安全工作台的工具调用审计摘要、配置漂移检查、最近失败项摘要。
 
-会议同时确认，后续重点不再是大规模补功能，而是继续做生产化收口。当前仍需推进的事项主要包括：真实生产环境的 Secret 和配置管理、Helm 模板的进一步生产化，以及更长链路联调回归的补强。建议以当前版本先冻结为阶段性交付基线，再按目标环境补齐正式配置，并根据是否以 Kubernetes 为主交付决定 Helm 模板的后续增强力度。
+会议同时确认，当前主要企业能力已经完成最小收口，覆盖 Document Permissions、RBAC / Custom Permissions、Service Account API Keys、SCIM / Group Sync、Secrets Encryption、Query History / Usage Limits / Hooks、Custom Theming / White-labeling、Custom Deployments / Region Processing / Self-hosting，并已与验收脚本、健康检查和管理页面保持统一口径。
+
+会议建议，下一步先将当前版本作为阶段性交付基线冻结，再按目标环境补齐正式 Secret 和生产化配置约束；如果后续交付目标偏向 Kubernetes，再继续增强 Helm 生产模板和更长链路回归。

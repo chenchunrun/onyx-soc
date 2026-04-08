@@ -55,6 +55,12 @@ const STT_MODELS: ModelDetails[] = [
     providerType: "openai",
   },
   {
+    id: "glm-asr-2512",
+    label: "GLM-ASR-2512",
+    subtitle: "BigModel speech-to-text model for Mandarin and multilingual transcription.",
+    providerType: "bigmodel",
+  },
+  {
     id: "azure-speech-stt",
     label: "Azure Speech",
     subtitle: "Speech to text in Microsoft Foundry Tools.",
@@ -85,6 +91,18 @@ const TTS_PROVIDER_GROUPS: ProviderGroup[] = [
         label: "TTS-1 HD",
         subtitle: "OpenAI's text-to-speech model optimized for quality.",
         providerType: "openai",
+      },
+    ],
+  },
+  {
+    providerType: "bigmodel",
+    providerLabel: "BigModel",
+    models: [
+      {
+        id: "glm-tts",
+        label: "GLM-TTS",
+        subtitle: "BigModel text-to-speech model with natural Mandarin voice output.",
+        providerType: "bigmodel",
       },
     ],
   },
@@ -124,6 +142,8 @@ function getProviderIcon(
   switch (providerType) {
     case "openai":
       return OpenAIIcon;
+    case "bigmodel":
+      return OpenAIIcon;
     case "azure":
       return AzureIcon;
     case "elevenlabs":
@@ -139,6 +159,8 @@ function getProviderLabel(providerType: string): string {
   switch (providerType) {
     case "openai":
       return "OpenAI";
+    case "bigmodel":
+      return "BigModel";
     case "azure":
       return "Azure";
     case "elevenlabs":

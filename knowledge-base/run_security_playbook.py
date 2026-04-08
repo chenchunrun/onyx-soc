@@ -25,7 +25,13 @@ import yaml
 ROOT = Path(__file__).resolve().parent
 PLAYBOOKS_DIR = ROOT.parent / "docs" / "security-platform" / "playbooks"
 SECURITY_TOOL_INTEGRATIONS_DIR = (
-    ROOT.parent / "docs" / "security-platform" / "5-integrations"
+    ROOT.parent
+    / "backend"
+    / "onyx"
+    / "server"
+    / "manage"
+    / "security_platform"
+    / "tool_configs"
 )
 SECURITY_PERSONA_NAMES = {
     "安全事件分析师",

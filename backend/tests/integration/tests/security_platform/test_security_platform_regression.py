@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 from urllib.parse import parse_qs
 from urllib.parse import urlparse
 import uuid
@@ -198,6 +199,32 @@ TOOL_INVOCATION_SCENARIOS = [
 
 LIVE_TOOL_INVOCATION_SCENARIOS = [
     {
+        "persona_name": "应急响应指挥官",
+        "tool_name": "send_security_alert",
+        "prompt": (
+            "请仅使用 send_security_alert 发送一条 phishing 安全告警，"
+            "title=Regression phishing alert，severity=P1，"
+            "description=Regression test alert，source_system=Onyx Integration Test，"
+            "并简要确认发送结果。"
+        ),
+        "expected_method": "POST",
+        "expected_path_fragment": "/",
+        "response_markers": ["Regression phishing alert", "PHISHING", "P1"],
+    },
+    {
+        "persona_name": "安全事件分析师",
+        "tool_name": "create_security_ticket",
+        "prompt": (
+            "请仅使用 create_security_ticket 创建一条关键漏洞工单，"
+            "summary=Regression vulnerability ticket，"
+            "description=Regression test ticket，priority=CRITICAL，project_key=SEC，"
+            "并简要确认创建结果。"
+        ),
+        "expected_method": "POST",
+        "expected_path_fragment": "/issue",
+        "response_markers": ["SEC-", "Regression vulnerability ticket", "CRITICAL"],
+    },
+    {
         "persona_name": "安全事件分析师",
         "tool_name": "search_security_alerts",
         "prompt": "请仅使用 search_security_alerts 查询 query=powershell、severity=high、limit=5，并用一句话总结结果。",
@@ -320,14 +347,27 @@ def _extract_cookie(response: requests.Response) -> str:
 
 
 def _login_admin_user() -> DATestUser:
-    response = requests.post(
-        f"{FRONTEND_API_URL}/auth/login",
-        data={"username": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-        timeout=20,
-    )
-    response.raise_for_status()
-    cookie = _extract_cookie(response)
+    last_error: Exception | None = None
+    cookie: str | None = None
+    for attempt in range(3):
+        try:
+            response = requests.post(
+                f"{FRONTEND_API_URL}/auth/login",
+                data={"username": ADMIN_EMAIL, "password": ADMIN_PASSWORD},
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=20,
+            )
+            response.raise_for_status()
+            cookie = _extract_cookie(response)
+            break
+        except (requests.RequestException, RuntimeError) as exc:
+            last_error = exc
+            if attempt == 2:
+                raise
+            time.sleep(2)
+
+    if cookie is None:
+        raise RuntimeError(f"Failed to authenticate admin user: {last_error}")
 
     user = DATestUser(
         id="",
@@ -597,6 +637,21 @@ def _query_params(path: str) -> dict[str, str]:
         for key, values in parse_qs(parsed.query).items()
         if values
     }
+
+
+def _get_tool_id_for_persona(
+    user: DATestUser,
+    persona_name: str,
+    tool_name: str,
+) -> tuple[int, int]:
+    persona = _get_persona_map(user)[persona_name]
+    persona_detail = _get_persona_detail(user, int(persona["id"]))
+    tool_id = next(
+        int(tool["id"])
+        for tool in persona_detail.get("tools", [])
+        if tool["name"] == tool_name
+    )
+    return int(persona["id"]), tool_id
 
 
 def _verify_playbook_definitions() -> subprocess.CompletedProcess[str]:
@@ -989,19 +1044,15 @@ def test_security_platform_glm5_investigation_to_isolation_live_regression(
 def test_security_platform_threat_intel_live_regression(
     seeded_security_platform: SeededSecurityPlatform,
 ) -> None:
-    analyst = _get_persona_map(seeded_security_platform.admin_user)["安全事件分析师"]
-    analyst_detail = _get_persona_detail(
-        seeded_security_platform.admin_user, int(analyst["id"])
-    )
-    threat_intel_tool_id = next(
-        int(tool["id"])
-        for tool in analyst_detail.get("tools", [])
-        if tool["name"] == "threat_intel_lookup"
+    analyst_id, threat_intel_tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        "安全事件分析师",
+        "threat_intel_lookup",
     )
 
     chat_session_id = _create_chat_session(
         seeded_security_platform.admin_user,
-        int(analyst["id"]),
+        analyst_id,
         description=f"regression-live-tool-threat-intel-{uuid.uuid4()}",
     )
 
@@ -1024,20 +1075,16 @@ def test_security_platform_live_tool_invocation_regression(
     seeded_security_platform: SeededSecurityPlatform,
     scenario: dict[str, Any],
 ) -> None:
-    persona = _get_persona_map(seeded_security_platform.admin_user)[scenario["persona_name"]]
-    persona_detail = _get_persona_detail(
-        seeded_security_platform.admin_user, int(persona["id"])
-    )
-    tool_id = next(
-        int(tool["id"])
-        for tool in persona_detail.get("tools", [])
-        if tool["name"] == scenario["tool_name"]
+    persona_id, tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        scenario["persona_name"],
+        scenario["tool_name"],
     )
 
     clear_mock_requests(seeded_security_platform.mock_server_url)
     chat_session_id = _create_chat_session(
         seeded_security_platform.admin_user,
-        int(persona["id"]),
+        persona_id,
         description=f"regression-live-tool-{scenario['tool_name']}-{uuid.uuid4()}",
     )
 
@@ -1064,6 +1111,258 @@ def test_security_platform_live_tool_invocation_regression(
     assert any(
         marker in response["full_message"] for marker in scenario["response_markers"]
     ), response["full_message"]
+
+
+def test_security_platform_live_multi_step_ticket_chain_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    analyst_id, alerts_tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        "安全事件分析师",
+        "search_security_alerts",
+    )
+    _, asset_tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        "安全事件分析师",
+        "lookup_asset_context",
+    )
+    _, ticket_tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        "安全事件分析师",
+        "create_security_ticket",
+    )
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        analyst_id,
+        description=f"regression-live-ticket-chain-{uuid.uuid4()}",
+    )
+
+    alerts_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=(
+            "请仅使用 search_security_alerts 查询 query=powershell、severity=high、limit=5，"
+            "并用一句话总结结果。"
+        ),
+        forced_tool_id=alerts_tool_id,
+    )
+    assert alerts_response["error"] is None, alerts_response
+    assert any(
+        marker in alerts_response["full_message"]
+        for marker in ["ALERT-1001", "PowerShell", "finance-host-01"]
+    ), alerts_response["full_message"]
+
+    asset_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=(
+            "请仅使用 lookup_asset_context 查询 hostname=finance-host-01、limit=3，"
+            "并简要总结资产上下文。"
+        ),
+        forced_tool_id=asset_tool_id,
+    )
+    assert asset_response["error"] is None, asset_response
+    assert any(
+        marker in asset_response["full_message"]
+        for marker in ["finance-host-01", "Finance", "asset-001"]
+    ), asset_response["full_message"]
+
+    ticket_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=(
+            "基于当前会话里的告警和资产上下文，请仅使用 create_security_ticket "
+            "创建一条工单，summary=Security incident on finance-host-01，"
+            "description=PowerShell alert on finance-host-01 requires investigation，"
+            "priority=HIGH，project_key=SEC，并在回复中确认工单编号。"
+        ),
+        forced_tool_id=ticket_tool_id,
+    )
+    assert ticket_response["error"] is None, ticket_response
+    assert any(
+        marker in ticket_response["full_message"]
+        for marker in ["SEC-", "finance-host-01", "工单"]
+    ), ticket_response["full_message"]
+
+    requests_received = get_mock_requests(seeded_security_platform.mock_server_url)
+    assert len(requests_received) == 3, requests_received
+
+    alerts_request = _find_mock_request(
+        requests_received,
+        method="GET",
+        path_fragment="/alerts/search",
+    )
+    alerts_query = _query_params(alerts_request["path"])
+    assert alerts_query["query"] == "powershell"
+    assert alerts_query["severity"] == "high"
+    assert alerts_query["limit"] == "5"
+
+    asset_request = _find_mock_request(
+        requests_received,
+        method="GET",
+        path_fragment="/assets/search",
+    )
+    asset_query = _query_params(asset_request["path"])
+    assert asset_query["hostname"] == "finance-host-01"
+    assert asset_query["limit"] == "3"
+
+    ticket_request = _find_mock_request(
+        requests_received,
+        method="POST",
+        path_fragment="/issue",
+    )
+    assert ticket_request["body"]["summary"] == "Security incident on finance-host-01"
+    assert ticket_request["body"]["priority"] == "HIGH"
+    assert ticket_request["body"]["project_key"] == "SEC"
+    assert "PowerShell" in ticket_request["body"]["description"]
+
+
+def test_security_platform_cross_persona_live_containment_chain_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    analyst_id, alerts_tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        "安全事件分析师",
+        "search_security_alerts",
+    )
+    _, asset_tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        "安全事件分析师",
+        "lookup_asset_context",
+    )
+    commander_id, send_alert_tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        "应急响应指挥官",
+        "send_security_alert",
+    )
+    _, isolate_tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        "应急响应指挥官",
+        "isolate_endpoint_host",
+    )
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+
+    analyst_chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        analyst_id,
+        description=f"regression-cross-persona-analyst-{uuid.uuid4()}",
+    )
+    analyst_alerts_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        analyst_chat_session_id,
+        message=(
+            "请仅使用 search_security_alerts 查询 query=powershell、severity=high、limit=5，"
+            "并用一句话总结结果。"
+        ),
+        forced_tool_id=alerts_tool_id,
+    )
+    assert analyst_alerts_response["error"] is None, analyst_alerts_response
+    assert any(
+        marker in analyst_alerts_response["full_message"]
+        for marker in ["ALERT-1001", "PowerShell", "finance-host-01"]
+    ), analyst_alerts_response["full_message"]
+
+    analyst_asset_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        analyst_chat_session_id,
+        message=(
+            "请仅使用 lookup_asset_context 查询 hostname=finance-host-01、limit=3，"
+            "并简要总结资产上下文。"
+        ),
+        forced_tool_id=asset_tool_id,
+    )
+    assert analyst_asset_response["error"] is None, analyst_asset_response
+    assert any(
+        marker in analyst_asset_response["full_message"]
+        for marker in ["finance-host-01", "Finance", "asset-001"]
+    ), analyst_asset_response["full_message"]
+
+    commander_chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        commander_id,
+        description=f"regression-cross-persona-commander-{uuid.uuid4()}",
+    )
+    commander_alert_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        commander_chat_session_id,
+        message=(
+            "已知分析师确认 finance-host-01 出现 PowerShell 高危告警，"
+            "请仅使用 send_security_alert 发送升级告警，"
+            "alert_type=UNAUTHORIZED_ACCESS，"
+            "title=Incident escalation for finance-host-01，severity=P1，"
+            "description=PowerShell high severity alert on finance-host-01，"
+            "source_system=Onyx Security Platform，并简要确认。"
+        ),
+        forced_tool_id=send_alert_tool_id,
+    )
+    assert commander_alert_response["error"] is None, commander_alert_response
+    assert any(
+        marker in commander_alert_response["full_message"]
+        for marker in ["finance-host-01", "P1", "Incident escalation"]
+    ), commander_alert_response["full_message"]
+
+    commander_isolate_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        commander_chat_session_id,
+        message=(
+            "基于上述分析结论，请仅使用 isolate_endpoint_host 隔离 "
+            "host_id=finance-host-01，reason=PowerShell high severity alert on finance-host-01，"
+            "并简要确认隔离结果。"
+        ),
+        forced_tool_id=isolate_tool_id,
+    )
+    assert commander_isolate_response["error"] is None, commander_isolate_response
+    assert any(
+        marker in commander_isolate_response["full_message"]
+        for marker in ["finance-host-01", "queued", "隔离", "isolate"]
+    ), commander_isolate_response["full_message"]
+
+    requests_received = get_mock_requests(seeded_security_platform.mock_server_url)
+    assert len(requests_received) == 4, requests_received
+
+    alerts_request = _find_mock_request(
+        requests_received,
+        method="GET",
+        path_fragment="/alerts/search",
+    )
+    alerts_query = _query_params(alerts_request["path"])
+    assert alerts_query["query"] == "powershell"
+    assert alerts_query["severity"] == "high"
+    assert alerts_query["limit"] == "5"
+
+    asset_request = _find_mock_request(
+        requests_received,
+        method="GET",
+        path_fragment="/assets/search",
+    )
+    asset_query = _query_params(asset_request["path"])
+    assert asset_query["hostname"] == "finance-host-01"
+    assert asset_query["limit"] == "3"
+
+    send_alert_request = _find_mock_request(
+        requests_received,
+        method="POST",
+        exact_path="/",
+    )
+    assert send_alert_request["body"]["alert_type"] == "UNAUTHORIZED_ACCESS"
+    assert send_alert_request["body"]["severity"] == "P1"
+    assert send_alert_request["body"]["title"] == "Incident escalation for finance-host-01"
+    assert (
+        send_alert_request["body"]["source_system"] == "Onyx Security Platform"
+    )
+
+    isolate_request = _find_mock_request(
+        requests_received,
+        method="POST",
+        path_fragment="/hosts/finance-host-01/isolate",
+    )
+    assert (
+        isolate_request["body"]["reason"]
+        == "PowerShell high severity alert on finance-host-01"
+    )
 
 
 @pytest.mark.parametrize("scenario", PLAYBOOK_EXECUTION_SCENARIOS)

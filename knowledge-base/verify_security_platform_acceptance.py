@@ -20,11 +20,16 @@ from typing import Any
 
 import psycopg2
 import requests
+from sqlalchemy.orm import Mapper
 import yaml
+from ee.onyx.server.enterprise_settings.store import load_settings as load_enterprise_settings
 
 MODULE_DIR = Path(__file__).resolve().parent
 if str(MODULE_DIR) not in sys.path:
     sys.path.insert(0, str(MODULE_DIR))
+REPO_ROOT = MODULE_DIR.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 BACKEND_ROOT = MODULE_DIR.parent / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
@@ -34,8 +39,18 @@ from onyx.server.manage.security_platform.api import SecurityPlatformDocumentSet
 from onyx.server.manage.security_platform.api import SecurityPlatformPersonaStatus
 from onyx.server.manage.security_platform.api import SecurityPlatformToolStatus
 from onyx.server.manage.security_platform.api import SecurityPlatformUserStatus
+from onyx.server.manage.security_platform.api import build_custom_theming_snapshot
+from onyx.server.manage.security_platform.api import build_secrets_encryption_summary as build_runtime_secrets_encryption_summary
 from onyx.server.manage.security_platform.api import build_health_status
+from onyx.server.manage.security_platform.api import load_custom_deployment_summary
+from onyx.server.manage.security_platform.api import load_region_processing_summary
+from onyx.server.manage.security_platform.api import load_self_hosting_summary
+from onyx.server.manage.security_platform.api import load_white_labeling_summary
 from onyx.server.manage.security_platform.api import build_recommended_next_actions
+from onyx.configs.constants import ONYX_DEFAULT_APPLICATION_NAME
+from onyx.db.models import Base
+from onyx.db.models import EncryptedJson
+from onyx.db.models import EncryptedString
 
 from assess_threat_intel_lifecycle import build_lifecycle_report
 from check_threat_intel_historical_package_consistency import (
@@ -50,7 +65,13 @@ THREAT_INTEL_SYNC_STATE_PATH = ROOT / "threat-intelligence" / "sync_state.json"
 THREAT_INTEL_MANIFEST_PATH = ROOT / "threat-intelligence" / "feed_manifest.json"
 THREAT_INTEL_CURATION_REPORT_PATH = ROOT / "threat-intelligence" / "unmanaged_feed_report.json"
 SECURITY_TOOL_INTEGRATIONS_DIR = (
-    ROOT.parent / "docs" / "security-platform" / "5-integrations"
+    ROOT.parent
+    / "backend"
+    / "onyx"
+    / "server"
+    / "manage"
+    / "security_platform"
+    / "tool_configs"
 )
 SECURITY_TOOL_PROFILES_PATH = SECURITY_TOOL_INTEGRATIONS_DIR / "profiles.yaml"
 DEPLOYMENT_PROFILES_PATH = ROOT.parent / "docs" / "security-platform" / "deployment-profiles.yaml"
@@ -58,6 +79,13 @@ PLAYBOOKS_DIR = ROOT.parent / "docs" / "security-platform" / "playbooks"
 HISTORICAL_PACKAGE_INDEX_PATH = (
     ROOT / "threat-intelligence" / "historical_packages" / "index.json"
 )
+ARCHIVE_BATCHES_PATH = ROOT / "threat-intelligence" / "archive_batches.json"
+ARCHIVE_WORKLIST_DIR = ROOT / "threat-intelligence" / "archive_worklists"
+ARCHIVE_PATCH_PREVIEW_DIR = ROOT / "threat-intelligence" / "archive_patch_previews"
+ARCHIVE_ACTION_SCRIPT_DIR = ROOT / "threat-intelligence" / "archive_action_scripts"
+ARCHIVE_EXECUTION_PLAN_DIR = ROOT / "threat-intelligence" / "archive_execution_plans"
+ARCHIVE_EXECUTION_RECORD_DIR = ROOT / "threat-intelligence" / "archive_execution_records"
+ARCHIVE_EXECUTION_RESULT_DIR = ROOT / "threat-intelligence" / "archive_execution_results"
 
 SECURITY_PERSONA_BUILTIN_REQUIREMENTS = {
     "安全事件分析师": {"Internal Search", "Web Search", "Open URL"},
@@ -338,6 +366,95 @@ def load_historical_package_summary() -> dict[str, Any]:
     }
 
 
+def load_archive_execution_summary() -> dict[str, Any]:
+    try:
+        with open(ARCHIVE_BATCHES_PATH, "r", encoding="utf-8") as handle:
+            archive_batches_doc = json.load(handle) or {}
+    except Exception:
+        archive_batches_doc = {}
+
+    batches = archive_batches_doc.get("batches", []) if isinstance(archive_batches_doc, dict) else []
+    if not isinstance(batches, list):
+        batches = []
+
+    artifact_counts = {
+        "worklist": 0,
+        "patch_preview": 0,
+        "action_script": 0,
+        "execution_plan": 0,
+        "execution_record": 0,
+        "execution_result": 0,
+    }
+    issues: list[str] = []
+    batch_summaries: list[dict[str, Any]] = []
+
+    for batch in batches:
+        if not isinstance(batch, dict):
+            continue
+        batch_id = str(batch.get("batch_id", "")).strip()
+        if not batch_id:
+            continue
+
+        artifact_paths = {
+            "worklist": ARCHIVE_WORKLIST_DIR / f"{batch_id}.json",
+            "patch_preview": ARCHIVE_PATCH_PREVIEW_DIR / f"{batch_id}.json",
+            "action_script": ARCHIVE_ACTION_SCRIPT_DIR / f"{batch_id}.sh",
+            "execution_plan": ARCHIVE_EXECUTION_PLAN_DIR / f"{batch_id}.md",
+            "execution_record": ARCHIVE_EXECUTION_RECORD_DIR / f"{batch_id}.md",
+            "execution_result": ARCHIVE_EXECUTION_RESULT_DIR / f"{batch_id}.json",
+        }
+        present_artifacts = {
+            artifact_name: artifact_path.exists()
+            for artifact_name, artifact_path in artifact_paths.items()
+        }
+        for artifact_name, exists in present_artifacts.items():
+            if exists:
+                artifact_counts[artifact_name] += 1
+            else:
+                issues.append(f"Archive batch {batch_id} missing artifact: {artifact_name}")
+
+        result_issue_count = 0
+        if present_artifacts["execution_result"]:
+            try:
+                with open(artifact_paths["execution_result"], "r", encoding="utf-8") as handle:
+                    result_doc = json.load(handle) or {}
+            except Exception:
+                result_doc = {}
+                issues.append(f"Archive batch {batch_id} has unreadable execution_result")
+            if str(result_doc.get("batch_id", "")).strip() != batch_id:
+                issues.append(
+                    f"Archive batch {batch_id} execution_result batch_id mismatch"
+                )
+            result_issue_count = int(
+                (result_doc.get("summary", {}) or {}).get("consistency_issue_count", 0) or 0
+            )
+            if result_issue_count > 0:
+                issues.append(
+                    f"Archive batch {batch_id} execution_result consistency issues: {result_issue_count}"
+                )
+
+        batch_summaries.append(
+            {
+                "batch_id": batch_id,
+                "present_artifacts": present_artifacts,
+                "execution_result_issue_count": result_issue_count,
+            }
+        )
+
+    return {
+        "batch_count": len(batch_summaries),
+        "artifact_counts": artifact_counts,
+        "fully_materialized_batch_count": sum(
+            1
+            for batch_summary in batch_summaries
+            if all(batch_summary["present_artifacts"].values())
+        ),
+        "consistency_issue_count": len(issues),
+        "consistency_issues": issues,
+        "batches": batch_summaries,
+    }
+
+
 def build_expected_openapi_tools(configs: list[dict[str, Any]]) -> set[str]:
     return {
         str(config.get("name", "")).strip()
@@ -516,7 +633,53 @@ def validate_deployment_profile_runtime(
             "reachable from Docker containers; use host.docker.internal instead of "
             f"{mock_server_url}"
         )
+    required_env = [
+        str(env_name)
+        for env_name in deployment_profile_summary.get("required_env", [])
+        if str(env_name).strip()
+    ]
+    placeholder_env = get_placeholder_required_env(required_env, deployment_profile_summary)
+    if placeholder_env:
+        issues.append(
+            "Required env vars still use placeholder/example values: "
+            + ", ".join(sorted(placeholder_env))
+        )
     return issues
+
+
+def looks_like_placeholder_value(env_name: str, env_value: str) -> bool:
+    normalized = env_value.strip().lower()
+    if not normalized:
+        return False
+
+    generic_markers = [
+        "replace-me",
+        "your-company",
+        "example.com",
+        "example.local",
+        "changeme",
+        "placeholder",
+        "mock-api-key-for-testing",
+    ]
+    if any(marker in normalized for marker in generic_markers):
+        return True
+
+    if env_name.endswith("_API_KEY") and normalized in {"mock-api-key", "test-api-key"}:
+        return True
+
+    return False
+
+
+def get_placeholder_required_env(
+    required_env: list[str],
+    deployment_profile_summary: dict[str, Any] | None = None,
+) -> list[str]:
+    placeholders: list[str] = []
+    for env_name in required_env:
+        env_value = resolve_env_value(env_name, "", deployment_profile_summary)
+        if looks_like_placeholder_value(env_name, env_value):
+            placeholders.append(env_name)
+    return placeholders
 
 
 def get_cookie(base_url: str, email: str, password: str) -> str | None:
@@ -630,13 +793,28 @@ def _sql_quote(value: str) -> str:
     return value.replace("'", "''")
 
 
+def _detect_relational_db_container() -> str:
+    """Auto-detect the relational DB container name."""
+    result = subprocess.run(
+        ["docker", "ps", "--format", "{{.Names}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for name in result.stdout.splitlines():
+        if "relational_db" in name or "postgres" in name or "database" in name:
+            return name
+    return "onyx-relational_db-1"
+
+
 def run_docker_psql_query(sql: str) -> list[list[str]]:
+    container = _detect_relational_db_container()
     result = subprocess.run(
         [
             "docker",
             "exec",
             "-i",
-            "onyx-relational_db-1",
+            container,
             "psql",
             "-U",
             "postgres",
@@ -709,12 +887,407 @@ def fetch_db_state_via_docker() -> dict[str, Any]:
     else:
         document_set_links = set()
 
+    sync_cc_pair_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM connector_credential_pair WHERE access_type = 'SYNC';"
+    )
+    sync_cc_pair_count = (
+        int(sync_cc_pair_count_result[0][0]) if sync_cc_pair_count_result else 0
+    )
+    docs_with_user_acl_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM document WHERE cardinality(external_user_emails) > 0;"
+    )
+    docs_with_user_acl_count = (
+        int(docs_with_user_acl_result[0][0]) if docs_with_user_acl_result else 0
+    )
+    docs_with_group_acl_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM document WHERE cardinality(external_user_group_ids) > 0;"
+    )
+    docs_with_group_acl_count = (
+        int(docs_with_group_acl_result[0][0]) if docs_with_group_acl_result else 0
+    )
+    docs_with_external_acl_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM document "
+        "WHERE cardinality(external_user_emails) > 0 "
+        "OR cardinality(external_user_group_ids) > 0;"
+    )
+    docs_with_external_acl_count = (
+        int(docs_with_external_acl_result[0][0])
+        if docs_with_external_acl_result
+        else 0
+    )
+    recent_doc_sync_failure_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM doc_permission_sync_attempt "
+        "WHERE error_message IS NOT NULL;"
+    )
+    recent_doc_sync_failure_count = (
+        int(recent_doc_sync_failure_result[0][0])
+        if recent_doc_sync_failure_result
+        else 0
+    )
+    recent_group_sync_failure_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM external_group_permission_sync_attempt "
+        "WHERE error_message IS NOT NULL;"
+    )
+    recent_group_sync_failure_count = (
+        int(recent_group_sync_failure_result[0][0])
+        if recent_group_sync_failure_result
+        else 0
+    )
+    query_history_type = os.environ.get("ONYX_QUERY_HISTORY_TYPE", "normal").strip().lower()
+    query_history_enabled = query_history_type != "disabled"
+    recent_query_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM chat_message "
+        "WHERE message_type = 'ASSISTANT' "
+        "AND time_sent >= NOW() - INTERVAL '30 days';"
+    )
+    recent_query_count = int(recent_query_count_result[0][0]) if recent_query_count_result else 0
+    recent_chat_session_count_result = run_docker_psql_query(
+        "SELECT COUNT(DISTINCT chat_session_id) FROM chat_message "
+        "WHERE message_type = 'ASSISTANT' "
+        "AND time_sent >= NOW() - INTERVAL '30 days';"
+    )
+    recent_chat_session_count = (
+        int(recent_chat_session_count_result[0][0])
+        if recent_chat_session_count_result
+        else 0
+    )
+    recent_active_user_count_result = run_docker_psql_query(
+        "SELECT COUNT(DISTINCT chat_session.user_id) "
+        "FROM chat_message "
+        "JOIN chat_session ON chat_session.id = chat_message.chat_session_id "
+        "WHERE chat_message.message_type = 'ASSISTANT' "
+        "AND chat_message.time_sent >= NOW() - INTERVAL '30 days' "
+        "AND chat_session.user_id IS NOT NULL;"
+    )
+    recent_active_user_count = (
+        int(recent_active_user_count_result[0][0])
+        if recent_active_user_count_result
+        else 0
+    )
+    recent_like_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) "
+        "FROM chat_feedback "
+        "JOIN chat_message ON chat_message.id = chat_feedback.chat_message_id "
+        "WHERE chat_message.message_type = 'ASSISTANT' "
+        "AND chat_message.time_sent >= NOW() - INTERVAL '30 days' "
+        "AND chat_feedback.is_positive = true;"
+    )
+    recent_like_count = int(recent_like_count_result[0][0]) if recent_like_count_result else 0
+    recent_dislike_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) "
+        "FROM chat_feedback "
+        "JOIN chat_message ON chat_message.id = chat_feedback.chat_message_id "
+        "WHERE chat_message.message_type = 'ASSISTANT' "
+        "AND chat_message.time_sent >= NOW() - INTERVAL '30 days' "
+        "AND chat_feedback.is_positive = false;"
+    )
+    recent_dislike_count = (
+        int(recent_dislike_count_result[0][0]) if recent_dislike_count_result else 0
+    )
+    recent_export_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM task_queue_jobs "
+        "WHERE task_name LIKE 'export_query_history_task_%';"
+    )
+    recent_export_count = int(recent_export_count_result[0][0]) if recent_export_count_result else 0
+    recent_export_failure_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM task_queue_jobs "
+        "WHERE task_name LIKE 'export_query_history_task_%' "
+        "AND status = 'FAILED';"
+    )
+    recent_export_failure_count = (
+        int(recent_export_failure_count_result[0][0])
+        if recent_export_failure_count_result
+        else 0
+    )
+    default_group_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM user_group WHERE is_default = true;"
+    )
+    default_group_count = int(default_group_count_result[0][0]) if default_group_count_result else 0
+    custom_group_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM user_group WHERE is_default = false;"
+    )
+    custom_group_count = int(custom_group_count_result[0][0]) if custom_group_count_result else 0
+    stale_custom_group_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM user_group "
+        "WHERE is_default = false AND is_up_to_date = false AND is_up_for_deletion = false;"
+    )
+    stale_custom_group_count = (
+        int(stale_custom_group_count_result[0][0])
+        if stale_custom_group_count_result
+        else 0
+    )
+    groups_with_custom_grants_count_result = run_docker_psql_query(
+        "SELECT COUNT(DISTINCT permission_grant.group_id) "
+        "FROM permission_grant "
+        "JOIN user_group ON user_group.id = permission_grant.group_id "
+        "WHERE user_group.is_default = false "
+        "AND permission_grant.is_deleted = false "
+        "AND permission_grant.permission <> 'basic';"
+    )
+    groups_with_custom_grants_count = (
+        int(groups_with_custom_grants_count_result[0][0])
+        if groups_with_custom_grants_count_result
+        else 0
+    )
+    custom_permission_rows = run_docker_psql_query(
+        "SELECT permission, COUNT(*) "
+        "FROM permission_grant "
+        "JOIN user_group ON user_group.id = permission_grant.group_id "
+        "WHERE user_group.is_default = false "
+        "AND permission_grant.is_deleted = false "
+        "AND permission_grant.permission <> 'basic' "
+        "GROUP BY permission;"
+    )
+    permission_counts = {
+        str(row[0]): int(row[1]) for row in custom_permission_rows if row and row[0]
+    }
+    manual_grant_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) "
+        "FROM permission_grant "
+        "JOIN user_group ON user_group.id = permission_grant.group_id "
+        "WHERE user_group.is_default = false "
+        "AND permission_grant.is_deleted = false "
+        "AND permission_grant.permission <> 'basic' "
+        "AND permission_grant.grant_source = 'USER';"
+    )
+    manual_grant_count = int(manual_grant_count_result[0][0]) if manual_grant_count_result else 0
+    scim_grant_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) "
+        "FROM permission_grant "
+        "JOIN user_group ON user_group.id = permission_grant.group_id "
+        "WHERE user_group.is_default = false "
+        "AND permission_grant.is_deleted = false "
+        "AND permission_grant.permission <> 'basic' "
+        "AND permission_grant.grant_source = 'SCIM';"
+    )
+    scim_grant_count = int(scim_grant_count_result[0][0]) if scim_grant_count_result else 0
+    admin_override_group_count_result = run_docker_psql_query(
+        "SELECT COUNT(DISTINCT permission_grant.group_id) "
+        "FROM permission_grant "
+        "JOIN user_group ON user_group.id = permission_grant.group_id "
+        "WHERE user_group.is_default = false "
+        "AND permission_grant.is_deleted = false "
+        "AND permission_grant.permission = 'admin';"
+    )
+    admin_override_group_count = (
+        int(admin_override_group_count_result[0][0])
+        if admin_override_group_count_result
+        else 0
+    )
+    usage_limits_enabled = (
+        os.environ.get("USAGE_LIMITS_ENABLED", "").strip().lower() == "true"
+    )
+    global_limit_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM token_rate_limit WHERE scope = 'global';"
+    )
+    global_limit_count = int(global_limit_count_result[0][0]) if global_limit_count_result else 0
+    enabled_global_limit_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM token_rate_limit WHERE scope = 'global' AND enabled = true;"
+    )
+    enabled_global_limit_count = (
+        int(enabled_global_limit_count_result[0][0])
+        if enabled_global_limit_count_result
+        else 0
+    )
+    user_limit_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM token_rate_limit WHERE scope = 'user';"
+    )
+    user_limit_count = int(user_limit_count_result[0][0]) if user_limit_count_result else 0
+    enabled_user_limit_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM token_rate_limit WHERE scope = 'user' AND enabled = true;"
+    )
+    enabled_user_limit_count = (
+        int(enabled_user_limit_count_result[0][0])
+        if enabled_user_limit_count_result
+        else 0
+    )
+    user_group_limit_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM token_rate_limit WHERE scope = 'user_group';"
+    )
+    user_group_limit_count = (
+        int(user_group_limit_count_result[0][0])
+        if user_group_limit_count_result
+        else 0
+    )
+    enabled_user_group_limit_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM token_rate_limit WHERE scope = 'user_group' AND enabled = true;"
+    )
+    enabled_user_group_limit_count = (
+        int(enabled_user_group_limit_count_result[0][0])
+        if enabled_user_group_limit_count_result
+        else 0
+    )
+    limited_user_group_count_result = run_docker_psql_query(
+        "SELECT COUNT(DISTINCT token_rate_limit__user_group.user_group_id) "
+        "FROM token_rate_limit__user_group "
+        "JOIN token_rate_limit ON token_rate_limit.id = token_rate_limit__user_group.rate_limit_id "
+        "WHERE token_rate_limit.enabled = true;"
+    )
+    limited_user_group_count = (
+        int(limited_user_group_count_result[0][0])
+        if limited_user_group_count_result
+        else 0
+    )
+    hooks_enabled = os.environ.get("MULTI_TENANT", "").strip().lower() not in {
+        "true",
+        "1",
+        "yes",
+    }
+    custom_theming = build_custom_theming_snapshot(load_enterprise_settings())
+    white_labeling = load_white_labeling_summary(custom_theming).model_dump()
+    custom_deployments = load_custom_deployment_summary().model_dump()
+    region_processing = load_region_processing_summary().model_dump()
+    self_hosting = load_self_hosting_summary().model_dump()
+    user_group_count_result = run_docker_psql_query("SELECT COUNT(*) FROM user_group;")
+    user_group_count = int(user_group_count_result[0][0]) if user_group_count_result else 0
+    permission_grant_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM permission_grant WHERE is_deleted = false;"
+    )
+    permission_grant_count = (
+        int(permission_grant_count_result[0][0]) if permission_grant_count_result else 0
+    )
+    users_with_effective_permissions_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM \"user\" WHERE jsonb_array_length(effective_permissions) > 0;"
+    )
+    users_with_effective_permissions_count = (
+        int(users_with_effective_permissions_result[0][0])
+        if users_with_effective_permissions_result
+        else 0
+    )
+    curator_membership_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM user__user_group WHERE is_curator = true;"
+    )
+    curator_membership_count = (
+        int(curator_membership_count_result[0][0])
+        if curator_membership_count_result
+        else 0
+    )
+    api_key_count_result = run_docker_psql_query("SELECT COUNT(*) FROM api_key;")
+    api_key_count = int(api_key_count_result[0][0]) if api_key_count_result else 0
+    service_account_user_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM \"user\" WHERE account_type = 'SERVICE_ACCOUNT';"
+    )
+    service_account_user_count = (
+        int(service_account_user_count_result[0][0])
+        if service_account_user_count_result
+        else 0
+    )
+    ownerless_api_key_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM api_key WHERE owner_id IS NULL;"
+    )
+    ownerless_api_key_count = (
+        int(ownerless_api_key_count_result[0][0])
+        if ownerless_api_key_count_result
+        else 0
+    )
+    active_scim_token_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM scim_token WHERE is_active = true;"
+    )
+    active_scim_token_count = (
+        int(active_scim_token_count_result[0][0])
+        if active_scim_token_count_result
+        else 0
+    )
+    scim_user_mapping_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM scim_user_mapping;"
+    )
+    scim_user_mapping_count = (
+        int(scim_user_mapping_count_result[0][0])
+        if scim_user_mapping_count_result
+        else 0
+    )
+    scim_group_mapping_count_result = run_docker_psql_query(
+        "SELECT COUNT(*) FROM scim_group_mapping;"
+    )
+    scim_group_mapping_count = (
+        int(scim_group_mapping_count_result[0][0])
+        if scim_group_mapping_count_result
+        else 0
+    )
+
     return {
         "persona_rows": persona_rows,
         "document_set_id": document_set_id,
         "user_rows": user_rows,
         "persona_user_links": persona_user_links,
         "document_set_links": document_set_links,
+        "rbac": {
+            "user_group_count": user_group_count,
+            "permission_grant_count": permission_grant_count,
+            "users_with_effective_permissions_count": users_with_effective_permissions_count,
+            "curator_membership_count": curator_membership_count,
+        },
+        "service_accounts": {
+            "api_key_count": api_key_count,
+            "service_account_user_count": service_account_user_count,
+            "ownerless_api_key_count": ownerless_api_key_count,
+        },
+        "scim": {
+            "active_token_count": active_scim_token_count,
+            "user_mapping_count": scim_user_mapping_count,
+            "group_mapping_count": scim_group_mapping_count,
+            "recent_group_sync_failure_count": recent_group_sync_failure_count,
+        },
+        "permission_inheritance": {
+            "sync_cc_pair_count": sync_cc_pair_count,
+            "docs_with_external_acl_count": docs_with_external_acl_count,
+            "docs_with_user_acl_count": docs_with_user_acl_count,
+            "docs_with_group_acl_count": docs_with_group_acl_count,
+            "recent_doc_sync_failure_count": recent_doc_sync_failure_count,
+            "recent_group_sync_failure_count": recent_group_sync_failure_count,
+        },
+        "query_history_usage": {
+            "query_history_type": query_history_type,
+            "query_history_enabled": query_history_enabled,
+            "recent_query_count": recent_query_count,
+            "recent_chat_session_count": recent_chat_session_count,
+            "recent_active_user_count": recent_active_user_count,
+            "recent_like_count": recent_like_count,
+            "recent_dislike_count": recent_dislike_count,
+            "recent_export_count": recent_export_count,
+            "recent_export_failure_count": recent_export_failure_count,
+            "recent_exports": [],
+        },
+        "custom_permissions": {
+            "default_group_count": default_group_count,
+            "custom_group_count": custom_group_count,
+            "stale_custom_group_count": stale_custom_group_count,
+            "groups_with_custom_grants_count": groups_with_custom_grants_count,
+            "custom_permission_count": len(permission_counts),
+            "manual_grant_count": manual_grant_count,
+            "scim_grant_count": scim_grant_count,
+            "admin_override_group_count": admin_override_group_count,
+            "permission_counts": permission_counts,
+        },
+        "usage_limits": {
+            "enabled": usage_limits_enabled,
+            "global_limit_count": global_limit_count,
+            "enabled_global_limit_count": enabled_global_limit_count,
+            "user_limit_count": user_limit_count,
+            "enabled_user_limit_count": enabled_user_limit_count,
+            "user_group_limit_count": user_group_limit_count,
+            "enabled_user_group_limit_count": enabled_user_group_limit_count,
+            "limited_user_group_count": limited_user_group_count,
+        },
+        "hooks": {
+            "hooks_enabled": hooks_enabled,
+            "supported_hook_point_count": 2,
+            "configured_hook_count": 0,
+            "active_hook_count": 0,
+            "reachable_hook_count": 0,
+            "recent_execution_count": 0,
+            "recent_failure_count": 0,
+            "hook_point_names": [
+                "document_ingestion",
+                "query_processing",
+            ],
+            "recent_executions": [],
+        },
+        "custom_theming": custom_theming,
+        "white_labeling": white_labeling,
+        "custom_deployments": custom_deployments,
+        "region_processing": region_processing,
+        "self_hosting": self_hosting,
     }
 
 
@@ -761,8 +1334,284 @@ def fetch_db_state(db_password: str | None = None) -> dict[str, Any]:
                     document_set_links = {(row[0], row[1]) for row in cur.fetchall()}
                 else:
                     document_set_links = set()
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM connector_credential_pair WHERE access_type = 'SYNC'"
+                )
+                sync_cc_pair_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM document WHERE cardinality(external_user_emails) > 0"
+                )
+                docs_with_user_acl_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM document WHERE cardinality(external_user_group_ids) > 0"
+                )
+                docs_with_group_acl_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM document "
+                    "WHERE cardinality(external_user_emails) > 0 "
+                    "OR cardinality(external_user_group_ids) > 0"
+                )
+                docs_with_external_acl_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM doc_permission_sync_attempt "
+                    "WHERE error_message IS NOT NULL"
+                )
+                recent_doc_sync_failure_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM external_group_permission_sync_attempt "
+                    "WHERE error_message IS NOT NULL"
+                )
+                recent_group_sync_failure_count = int(cur.fetchone()[0])
+
+                cur.execute("SELECT COUNT(*) FROM user_group")
+                user_group_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM permission_grant WHERE is_deleted = false"
+                )
+                permission_grant_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM \"user\" "
+                    "WHERE jsonb_array_length(effective_permissions) > 0"
+                )
+                users_with_effective_permissions_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM user__user_group WHERE is_curator = true"
+                )
+                curator_membership_count = int(cur.fetchone()[0])
+
+                cur.execute("SELECT COUNT(*) FROM api_key")
+                api_key_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM \"user\" WHERE account_type = 'SERVICE_ACCOUNT'"
+                )
+                service_account_user_count = int(cur.fetchone()[0])
+
+                cur.execute("SELECT COUNT(*) FROM api_key WHERE owner_id IS NULL")
+                ownerless_api_key_count = int(cur.fetchone()[0])
+
+                cur.execute("SELECT COUNT(*) FROM scim_token WHERE is_active = true")
+                active_scim_token_count = int(cur.fetchone()[0])
+
+                cur.execute("SELECT COUNT(*) FROM scim_user_mapping")
+                scim_user_mapping_count = int(cur.fetchone()[0])
+
+                cur.execute("SELECT COUNT(*) FROM scim_group_mapping")
+                scim_group_mapping_count = int(cur.fetchone()[0])
+
+                query_history_type = os.environ.get(
+                    "ONYX_QUERY_HISTORY_TYPE", "normal"
+                ).strip().lower()
+                query_history_enabled = query_history_type != "disabled"
+                cur.execute(
+                    "SELECT COUNT(*) FROM chat_message "
+                    "WHERE message_type = 'ASSISTANT' "
+                    "AND time_sent >= NOW() - INTERVAL '30 days'"
+                )
+                recent_query_count = int(cur.fetchone()[0])
+                cur.execute(
+                    "SELECT COUNT(DISTINCT chat_session_id) FROM chat_message "
+                    "WHERE message_type = 'ASSISTANT' "
+                    "AND time_sent >= NOW() - INTERVAL '30 days'"
+                )
+                recent_chat_session_count = int(cur.fetchone()[0])
+                cur.execute(
+                    "SELECT COUNT(DISTINCT chat_session.user_id) "
+                    "FROM chat_message "
+                    "JOIN chat_session ON chat_session.id = chat_message.chat_session_id "
+                    "WHERE chat_message.message_type = 'ASSISTANT' "
+                    "AND chat_message.time_sent >= NOW() - INTERVAL '30 days' "
+                    "AND chat_session.user_id IS NOT NULL"
+                )
+                recent_active_user_count = int(cur.fetchone()[0])
+                cur.execute(
+                    "SELECT COUNT(*) "
+                    "FROM chat_feedback "
+                    "JOIN chat_message ON chat_message.id = chat_feedback.chat_message_id "
+                    "WHERE chat_message.message_type = 'ASSISTANT' "
+                    "AND chat_message.time_sent >= NOW() - INTERVAL '30 days' "
+                    "AND chat_feedback.is_positive = true"
+                )
+                recent_like_count = int(cur.fetchone()[0])
+                cur.execute(
+                    "SELECT COUNT(*) "
+                    "FROM chat_feedback "
+                    "JOIN chat_message ON chat_message.id = chat_feedback.chat_message_id "
+                    "WHERE chat_message.message_type = 'ASSISTANT' "
+                    "AND chat_message.time_sent >= NOW() - INTERVAL '30 days' "
+                    "AND chat_feedback.is_positive = false"
+                )
+                recent_dislike_count = int(cur.fetchone()[0])
+                cur.execute(
+                    "SELECT COUNT(*) FROM task_queue_jobs "
+                    "WHERE task_name LIKE 'export_query_history_task_%'"
+                )
+                recent_export_count = int(cur.fetchone()[0])
+                cur.execute(
+                    "SELECT COUNT(*) FROM task_queue_jobs "
+                    "WHERE task_name LIKE 'export_query_history_task_%' "
+                    "AND status = 'FAILED'"
+                )
+                recent_export_failure_count = int(cur.fetchone()[0])
+
+                cur.execute("SELECT COUNT(*) FROM user_group WHERE is_default = true")
+                default_group_count = int(cur.fetchone()[0])
+
+                cur.execute("SELECT COUNT(*) FROM user_group WHERE is_default = false")
+                custom_group_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM user_group "
+                    "WHERE is_default = false AND is_up_to_date = false AND is_up_for_deletion = false"
+                )
+                stale_custom_group_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(DISTINCT permission_grant.group_id) "
+                    "FROM permission_grant "
+                    "JOIN user_group ON user_group.id = permission_grant.group_id "
+                    "WHERE user_group.is_default = false "
+                    "AND permission_grant.is_deleted = false "
+                    "AND permission_grant.permission <> 'basic'"
+                )
+                groups_with_custom_grants_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT permission, COUNT(*) "
+                    "FROM permission_grant "
+                    "JOIN user_group ON user_group.id = permission_grant.group_id "
+                    "WHERE user_group.is_default = false "
+                    "AND permission_grant.is_deleted = false "
+                    "AND permission_grant.permission <> 'basic' "
+                    "GROUP BY permission"
+                )
+                permission_counts = {
+                    str(row[0]): int(row[1]) for row in cur.fetchall() if row[0]
+                }
+
+                cur.execute(
+                    "SELECT COUNT(*) "
+                    "FROM permission_grant "
+                    "JOIN user_group ON user_group.id = permission_grant.group_id "
+                    "WHERE user_group.is_default = false "
+                    "AND permission_grant.is_deleted = false "
+                    "AND permission_grant.permission <> 'basic' "
+                    "AND permission_grant.grant_source = 'USER'"
+                )
+                manual_grant_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) "
+                    "FROM permission_grant "
+                    "JOIN user_group ON user_group.id = permission_grant.group_id "
+                    "WHERE user_group.is_default = false "
+                    "AND permission_grant.is_deleted = false "
+                    "AND permission_grant.permission <> 'basic' "
+                    "AND permission_grant.grant_source = 'SCIM'"
+                )
+                scim_grant_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(DISTINCT permission_grant.group_id) "
+                    "FROM permission_grant "
+                    "JOIN user_group ON user_group.id = permission_grant.group_id "
+                    "WHERE user_group.is_default = false "
+                    "AND permission_grant.is_deleted = false "
+                    "AND permission_grant.permission = 'admin'"
+                )
+                admin_override_group_count = int(cur.fetchone()[0])
+
+                usage_limits_enabled = (
+                    os.environ.get("USAGE_LIMITS_ENABLED", "").strip().lower()
+                    == "true"
+                )
+                cur.execute(
+                    "SELECT COUNT(*) FROM token_rate_limit WHERE scope = 'global'"
+                )
+                global_limit_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM token_rate_limit "
+                    "WHERE scope = 'global' AND enabled = true"
+                )
+                enabled_global_limit_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM token_rate_limit WHERE scope = 'user'"
+                )
+                user_limit_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM token_rate_limit "
+                    "WHERE scope = 'user' AND enabled = true"
+                )
+                enabled_user_limit_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM token_rate_limit WHERE scope = 'user_group'"
+                )
+                user_group_limit_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM token_rate_limit "
+                    "WHERE scope = 'user_group' AND enabled = true"
+                )
+                enabled_user_group_limit_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(DISTINCT token_rate_limit__user_group.user_group_id) "
+                    "FROM token_rate_limit__user_group "
+                    "JOIN token_rate_limit ON token_rate_limit.id = token_rate_limit__user_group.rate_limit_id "
+                    "WHERE token_rate_limit.enabled = true"
+                )
+                limited_user_group_count = int(cur.fetchone()[0])
+
+                hooks_enabled = os.environ.get("MULTI_TENANT", "").strip().lower() not in {
+                    "true",
+                    "1",
+                    "yes",
+                }
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM hook WHERE deleted = false"
+                )
+                configured_hook_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM hook WHERE deleted = false AND is_active = true"
+                )
+                active_hook_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM hook "
+                    "WHERE deleted = false AND is_active = true AND is_reachable = true"
+                )
+                reachable_hook_count = int(cur.fetchone()[0])
+
+                cur.execute("SELECT COUNT(*) FROM hook_execution_log")
+                recent_hook_execution_count = int(cur.fetchone()[0])
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM hook_execution_log WHERE is_success = false"
+                )
+                recent_hook_failure_count = int(cur.fetchone()[0])
         finally:
             conn.close()
+
+        custom_theming = build_custom_theming_snapshot(load_enterprise_settings())
+        white_labeling = load_white_labeling_summary(custom_theming).model_dump()
+        custom_deployments = load_custom_deployment_summary().model_dump()
+        region_processing = load_region_processing_summary().model_dump()
+        self_hosting = load_self_hosting_summary().model_dump()
 
         return {
             "persona_rows": persona_rows,
@@ -770,9 +1619,425 @@ def fetch_db_state(db_password: str | None = None) -> dict[str, Any]:
             "user_rows": user_rows,
             "persona_user_links": persona_user_links,
             "document_set_links": document_set_links,
+            "rbac": {
+                "user_group_count": user_group_count,
+                "permission_grant_count": permission_grant_count,
+                "users_with_effective_permissions_count": users_with_effective_permissions_count,
+                "curator_membership_count": curator_membership_count,
+            },
+            "service_accounts": {
+                "api_key_count": api_key_count,
+                "service_account_user_count": service_account_user_count,
+                "ownerless_api_key_count": ownerless_api_key_count,
+            },
+            "scim": {
+                "active_token_count": active_scim_token_count,
+                "user_mapping_count": scim_user_mapping_count,
+                "group_mapping_count": scim_group_mapping_count,
+                "recent_group_sync_failure_count": recent_group_sync_failure_count,
+            },
+            "permission_inheritance": {
+                "sync_cc_pair_count": sync_cc_pair_count,
+                "docs_with_external_acl_count": docs_with_external_acl_count,
+                "docs_with_user_acl_count": docs_with_user_acl_count,
+                "docs_with_group_acl_count": docs_with_group_acl_count,
+                "recent_doc_sync_failure_count": recent_doc_sync_failure_count,
+                "recent_group_sync_failure_count": recent_group_sync_failure_count,
+            },
+            "query_history_usage": {
+                "query_history_type": query_history_type,
+                "query_history_enabled": query_history_enabled,
+                "recent_query_count": recent_query_count,
+                "recent_chat_session_count": recent_chat_session_count,
+                "recent_active_user_count": recent_active_user_count,
+                "recent_like_count": recent_like_count,
+                "recent_dislike_count": recent_dislike_count,
+                "recent_export_count": recent_export_count,
+                "recent_export_failure_count": recent_export_failure_count,
+                "recent_exports": [],
+            },
+            "custom_permissions": {
+                "default_group_count": default_group_count,
+                "custom_group_count": custom_group_count,
+                "stale_custom_group_count": stale_custom_group_count,
+                "groups_with_custom_grants_count": groups_with_custom_grants_count,
+                "custom_permission_count": len(permission_counts),
+                "manual_grant_count": manual_grant_count,
+                "scim_grant_count": scim_grant_count,
+                "admin_override_group_count": admin_override_group_count,
+                "permission_counts": permission_counts,
+            },
+            "usage_limits": {
+                "enabled": usage_limits_enabled,
+                "global_limit_count": global_limit_count,
+                "enabled_global_limit_count": enabled_global_limit_count,
+                "user_limit_count": user_limit_count,
+                "enabled_user_limit_count": enabled_user_limit_count,
+                "user_group_limit_count": user_group_limit_count,
+                "enabled_user_group_limit_count": enabled_user_group_limit_count,
+                "limited_user_group_count": limited_user_group_count,
+            },
+            "hooks": {
+                "hooks_enabled": hooks_enabled,
+                "supported_hook_point_count": 2,
+                "configured_hook_count": configured_hook_count,
+                "active_hook_count": active_hook_count,
+                "reachable_hook_count": reachable_hook_count,
+                "recent_execution_count": recent_hook_execution_count,
+                "recent_failure_count": recent_hook_failure_count,
+                "hook_point_names": [
+                    "document_ingestion",
+                    "query_processing",
+                ],
+                "recent_executions": [],
+            },
+            "custom_theming": custom_theming,
+            "white_labeling": white_labeling,
+            "custom_deployments": custom_deployments,
+            "region_processing": region_processing,
+            "self_hosting": self_hosting,
         }
     except Exception:
         return fetch_db_state_via_docker()
+
+
+def build_permission_inheritance_summary(
+    db_state: dict[str, Any],
+) -> dict[str, int]:
+    summary = db_state.get("permission_inheritance", {})
+    return {
+        "sync_cc_pair_count": int(summary.get("sync_cc_pair_count", 0) or 0),
+        "docs_with_external_acl_count": int(
+            summary.get("docs_with_external_acl_count", 0) or 0
+        ),
+        "docs_with_user_acl_count": int(
+            summary.get("docs_with_user_acl_count", 0) or 0
+        ),
+        "docs_with_group_acl_count": int(
+            summary.get("docs_with_group_acl_count", 0) or 0
+        ),
+        "recent_doc_sync_failure_count": int(
+            summary.get("recent_doc_sync_failure_count", 0) or 0
+        ),
+        "recent_group_sync_failure_count": int(
+            summary.get("recent_group_sync_failure_count", 0) or 0
+        ),
+    }
+
+
+def build_query_history_usage_summary(db_state: dict[str, Any]) -> dict[str, Any]:
+    summary = db_state.get("query_history_usage", {})
+    recent_exports = summary.get("recent_exports", [])
+    if not isinstance(recent_exports, list):
+        recent_exports = []
+    return {
+        "query_history_type": str(summary.get("query_history_type", "disabled")).lower(),
+        "query_history_enabled": bool(summary.get("query_history_enabled", False)),
+        "recent_query_count": int(summary.get("recent_query_count", 0) or 0),
+        "recent_chat_session_count": int(
+            summary.get("recent_chat_session_count", 0) or 0
+        ),
+        "recent_active_user_count": int(
+            summary.get("recent_active_user_count", 0) or 0
+        ),
+        "recent_like_count": int(summary.get("recent_like_count", 0) or 0),
+        "recent_dislike_count": int(summary.get("recent_dislike_count", 0) or 0),
+        "recent_export_count": int(summary.get("recent_export_count", 0) or 0),
+        "recent_export_failure_count": int(
+            summary.get("recent_export_failure_count", 0) or 0
+        ),
+        "recent_exports": recent_exports,
+    }
+
+
+def build_custom_permission_summary(db_state: dict[str, Any]) -> dict[str, Any]:
+    summary = db_state.get("custom_permissions", {})
+    permission_counts = summary.get("permission_counts", {})
+    if not isinstance(permission_counts, dict):
+        permission_counts = {}
+    return {
+        "default_group_count": int(summary.get("default_group_count", 0) or 0),
+        "custom_group_count": int(summary.get("custom_group_count", 0) or 0),
+        "stale_custom_group_count": int(
+            summary.get("stale_custom_group_count", 0) or 0
+        ),
+        "groups_with_custom_grants_count": int(
+            summary.get("groups_with_custom_grants_count", 0) or 0
+        ),
+        "custom_permission_count": int(summary.get("custom_permission_count", 0) or 0),
+        "manual_grant_count": int(summary.get("manual_grant_count", 0) or 0),
+        "scim_grant_count": int(summary.get("scim_grant_count", 0) or 0),
+        "admin_override_group_count": int(
+            summary.get("admin_override_group_count", 0) or 0
+        ),
+        "permission_counts": permission_counts,
+    }
+
+
+def build_usage_limit_summary(db_state: dict[str, Any]) -> dict[str, Any]:
+    summary = db_state.get("usage_limits", {})
+    return {
+        "enabled": bool(summary.get("enabled", False)),
+        "global_limit_count": int(summary.get("global_limit_count", 0) or 0),
+        "enabled_global_limit_count": int(
+            summary.get("enabled_global_limit_count", 0) or 0
+        ),
+        "user_limit_count": int(summary.get("user_limit_count", 0) or 0),
+        "enabled_user_limit_count": int(
+            summary.get("enabled_user_limit_count", 0) or 0
+        ),
+        "user_group_limit_count": int(
+            summary.get("user_group_limit_count", 0) or 0
+        ),
+        "enabled_user_group_limit_count": int(
+            summary.get("enabled_user_group_limit_count", 0) or 0
+        ),
+        "limited_user_group_count": int(
+            summary.get("limited_user_group_count", 0) or 0
+        ),
+    }
+
+
+def build_hook_summary(db_state: dict[str, Any]) -> dict[str, Any]:
+    summary = db_state.get("hooks", {})
+    recent_executions = summary.get("recent_executions", [])
+    if not isinstance(recent_executions, list):
+        recent_executions = []
+    hook_point_names = summary.get("hook_point_names", [])
+    if not isinstance(hook_point_names, list):
+        hook_point_names = []
+    return {
+        "hooks_enabled": bool(summary.get("hooks_enabled", False)),
+        "supported_hook_point_count": int(
+            summary.get("supported_hook_point_count", 0) or 0
+        ),
+        "configured_hook_count": int(summary.get("configured_hook_count", 0) or 0),
+        "active_hook_count": int(summary.get("active_hook_count", 0) or 0),
+        "reachable_hook_count": int(summary.get("reachable_hook_count", 0) or 0),
+        "recent_execution_count": int(summary.get("recent_execution_count", 0) or 0),
+        "recent_failure_count": int(summary.get("recent_failure_count", 0) or 0),
+        "hook_point_names": hook_point_names,
+        "recent_executions": recent_executions,
+    }
+
+
+def build_custom_theming_summary(db_state: dict[str, Any]) -> dict[str, Any]:
+    summary = db_state.get("custom_theming", {})
+    return {
+        "branding_configured": bool(summary.get("branding_configured", False)),
+        "application_name": str(
+            summary.get("application_name", ONYX_DEFAULT_APPLICATION_NAME)
+            or ONYX_DEFAULT_APPLICATION_NAME
+        ),
+        "application_name_is_default": bool(
+            summary.get("application_name_is_default", True)
+        ),
+        "use_custom_logo": bool(summary.get("use_custom_logo", False)),
+        "use_custom_logotype": bool(summary.get("use_custom_logotype", False)),
+        "logo_display_style": str(
+            summary.get("logo_display_style", "logo_and_name") or "logo_and_name"
+        ),
+        "custom_nav_item_count": int(summary.get("custom_nav_item_count", 0) or 0),
+        "custom_header_content_enabled": bool(
+            summary.get("custom_header_content_enabled", False)
+        ),
+        "custom_lower_disclaimer_enabled": bool(
+            summary.get("custom_lower_disclaimer_enabled", False)
+        ),
+        "first_visit_notice_enabled": bool(
+            summary.get("first_visit_notice_enabled", False)
+        ),
+        "custom_popup_enabled": bool(summary.get("custom_popup_enabled", False)),
+        "consent_screen_enabled": bool(summary.get("consent_screen_enabled", False)),
+        "custom_greeting_enabled": bool(
+            summary.get("custom_greeting_enabled", False)
+        ),
+        "consent_prompt_configured": bool(
+            summary.get("consent_prompt_configured", False)
+        ),
+        "popup_content_configured": bool(
+            summary.get("popup_content_configured", False)
+        ),
+    }
+
+
+def build_white_labeling_summary(db_state: dict[str, Any]) -> dict[str, Any]:
+    summary = db_state.get("white_labeling", {})
+    residual_examples = summary.get("residual_branding_examples", [])
+    if not isinstance(residual_examples, list):
+        residual_examples = []
+    return {
+        "branding_configured": bool(summary.get("branding_configured", False)),
+        "custom_logo_enabled": bool(summary.get("custom_logo_enabled", False)),
+        "custom_favicon_enabled": bool(summary.get("custom_favicon_enabled", False)),
+        "application_name_configured": bool(
+            summary.get("application_name_configured", False)
+        ),
+        "white_label_ready": bool(summary.get("white_label_ready", False)),
+        "residual_branding_count": int(
+            summary.get("residual_branding_count", 0) or 0
+        ),
+        "residual_external_link_count": int(
+            summary.get("residual_external_link_count", 0) or 0
+        ),
+        "residual_branding_examples": residual_examples,
+    }
+
+
+def build_custom_deployment_summary(db_state: dict[str, Any]) -> dict[str, Any]:
+    summary = db_state.get("custom_deployments", {})
+    supported_modes = summary.get("supported_modes", [])
+    if not isinstance(supported_modes, list):
+        supported_modes = []
+    overlay_examples = summary.get("overlay_examples", [])
+    if not isinstance(overlay_examples, list):
+        overlay_examples = []
+    return {
+        "docker_compose_variant_count": int(
+            summary.get("docker_compose_variant_count", 0) or 0
+        ),
+        "helm_values_variant_count": int(
+            summary.get("helm_values_variant_count", 0) or 0
+        ),
+        "has_install_script": bool(summary.get("has_install_script", False)),
+        "has_multitenant_compose": bool(
+            summary.get("has_multitenant_compose", False)
+        ),
+        "has_lite_compose": bool(summary.get("has_lite_compose", False)),
+        "has_prod_compose": bool(summary.get("has_prod_compose", False)),
+        "has_security_platform_compose_overlay": bool(
+            summary.get("has_security_platform_compose_overlay", False)
+        ),
+        "has_security_platform_helm_overlay": bool(
+            summary.get("has_security_platform_helm_overlay", False)
+        ),
+        "supported_modes": supported_modes,
+        "overlay_examples": overlay_examples,
+    }
+
+
+def build_region_processing_summary(db_state: dict[str, Any]) -> dict[str, Any]:
+    summary = db_state.get("region_processing", {})
+    region_hints = summary.get("region_hints", [])
+    if not isinstance(region_hints, list):
+        region_hints = []
+    return {
+        "aws_region_supported": bool(summary.get("aws_region_supported", False)),
+        "object_store_endpoint_configurable": bool(
+            summary.get("object_store_endpoint_configurable", False)
+        ),
+        "web_domain_configurable": bool(
+            summary.get("web_domain_configurable", False)
+        ),
+        "tenant_aware_deployment_supported": bool(
+            summary.get("tenant_aware_deployment_supported", False)
+        ),
+        "cloud_deployment_supported": bool(
+            summary.get("cloud_deployment_supported", False)
+        ),
+        "region_hint_count": int(summary.get("region_hint_count", 0) or 0),
+        "region_hints": region_hints,
+    }
+
+
+def build_self_hosting_summary(db_state: dict[str, Any]) -> dict[str, Any]:
+    summary = db_state.get("self_hosting", {})
+    return {
+        "self_hosted_mode": bool(summary.get("self_hosted_mode", False)),
+        "multi_tenant_mode": bool(summary.get("multi_tenant_mode", False)),
+        "enterprise_features_enabled": bool(
+            summary.get("enterprise_features_enabled", False)
+        ),
+        "license_enforcement_enabled": bool(
+            summary.get("license_enforcement_enabled", False)
+        ),
+        "has_license": bool(summary.get("has_license", False)),
+        "license_status": summary.get("license_status"),
+        "license_source": summary.get("license_source"),
+        "seat_count": summary.get("seat_count"),
+        "used_seat_count": summary.get("used_seat_count"),
+        "has_license_api": bool(summary.get("has_license_api", False)),
+        "has_admin_billing_page": bool(
+            summary.get("has_admin_billing_page", False)
+        ),
+        "has_billing_service": bool(summary.get("has_billing_service", False)),
+        "has_cloud_proxy": bool(summary.get("has_cloud_proxy", False)),
+        "cloud_data_plane_url_configured": bool(
+            summary.get("cloud_data_plane_url_configured", False)
+        ),
+        "has_install_script": bool(summary.get("has_install_script", False)),
+        "has_docker_compose_path": bool(
+            summary.get("has_docker_compose_path", False)
+        ),
+        "has_helm_install_path": bool(
+            summary.get("has_helm_install_path", False)
+        ),
+    }
+
+
+def build_rbac_summary(db_state: dict[str, Any]) -> dict[str, int]:
+    summary = db_state.get("rbac", {})
+    return {
+        "user_group_count": int(summary.get("user_group_count", 0) or 0),
+        "permission_grant_count": int(summary.get("permission_grant_count", 0) or 0),
+        "users_with_effective_permissions_count": int(
+            summary.get("users_with_effective_permissions_count", 0) or 0
+        ),
+        "curator_membership_count": int(
+            summary.get("curator_membership_count", 0) or 0
+        ),
+    }
+
+
+def build_service_account_summary(db_state: dict[str, Any]) -> dict[str, int]:
+    summary = db_state.get("service_accounts", {})
+    return {
+        "api_key_count": int(summary.get("api_key_count", 0) or 0),
+        "service_account_user_count": int(
+            summary.get("service_account_user_count", 0) or 0
+        ),
+        "ownerless_api_key_count": int(
+            summary.get("ownerless_api_key_count", 0) or 0
+        ),
+    }
+
+
+def build_scim_summary(db_state: dict[str, Any]) -> dict[str, int]:
+    summary = db_state.get("scim", {})
+    return {
+        "active_token_count": int(summary.get("active_token_count", 0) or 0),
+        "user_mapping_count": int(summary.get("user_mapping_count", 0) or 0),
+        "group_mapping_count": int(summary.get("group_mapping_count", 0) or 0),
+        "recent_group_sync_failure_count": int(
+            summary.get("recent_group_sync_failure_count", 0) or 0
+        ),
+    }
+
+
+def build_secrets_encryption_summary(
+    deployment_profile_summary: dict[str, Any],
+) -> dict[str, Any]:
+    encrypted_columns: list[str] = []
+    for mapper in Base.registry.mappers:
+        if not isinstance(mapper, Mapper):
+            continue
+        table_name = getattr(mapper.class_, "__tablename__", None)
+        if not table_name:
+            continue
+        for prop in mapper.column_attrs:
+            for column in prop.columns:
+                if isinstance(column.type, (EncryptedString, EncryptedJson)):
+                    encrypted_columns.append(f"{table_name}.{prop.key}")
+
+    profile_env = deployment_profile_summary.get("profile_env", {})
+    encryption_key = str(profile_env.get("ENCRYPTION_KEY_SECRET", "") or "").strip()
+    return build_runtime_secrets_encryption_summary(
+        enabled=bool(encryption_key),
+        encrypted_columns=encrypted_columns,
+        rotation_script_available=(
+            ROOT.parent / "backend" / "onyx" / "db" / "rotate_encryption_key.py"
+        ).exists(),
+    ).model_dump()
 
 
 def build_persona_tool_aliases(persona: dict[str, Any]) -> set[str]:
@@ -794,10 +2059,27 @@ def build_runtime_health_summary(
     threat_intel_sync_summary: dict[str, Any],
     threat_intel_curation_summary: dict[str, Any],
     historical_package_summary: dict[str, Any],
+    archive_execution_summary: dict[str, Any],
     security_tool_profile_summary: dict[str, Any],
     deployment_profile_summary: dict[str, Any],
     playbook_definitions_summary: dict[str, Any],
 ) -> tuple[dict[str, Any], list[str]]:
+    permission_inheritance = build_permission_inheritance_summary(db_state)
+    query_history_usage = build_query_history_usage_summary(db_state)
+    custom_permissions = build_custom_permission_summary(db_state)
+    usage_limits = build_usage_limit_summary(db_state)
+    hooks = build_hook_summary(db_state)
+    custom_theming = build_custom_theming_summary(db_state)
+    white_labeling = build_white_labeling_summary(db_state)
+    custom_deployments = build_custom_deployment_summary(db_state)
+    region_processing = build_region_processing_summary(db_state)
+    self_hosting = build_self_hosting_summary(db_state)
+    rbac_summary = build_rbac_summary(db_state)
+    service_account_summary = build_service_account_summary(db_state)
+    scim_summary = build_scim_summary(db_state)
+    secrets_encryption_summary = build_secrets_encryption_summary(
+        deployment_profile_summary
+    )
     tool_map = {
         str(tool.get("name", "")).strip(): tool
         for tool in openapi_tools
@@ -833,6 +2115,14 @@ def build_runtime_health_summary(
             if str(env_name).strip()
             and not resolve_env_value(str(env_name), "", deployment_profile_summary)
         ],
+        placeholder_required_env=get_placeholder_required_env(
+            [
+                str(env_name)
+                for env_name in deployment_profile_summary.get("required_env", [])
+                if str(env_name).strip()
+            ],
+            deployment_profile_summary,
+        ),
         deployment_profile_issues=validate_deployment_profile_runtime(
             deployment_profile_summary
         ),
@@ -934,7 +2224,35 @@ def build_runtime_health_summary(
                 "historical_package_items": historical_package_summary.get(
                     "total_item_count", 0
                 ),
+                "archive_execution_batches": archive_execution_summary.get(
+                    "batch_count", 0
+                ),
+                "archive_execution_fully_materialized_batches": archive_execution_summary.get(
+                    "fully_materialized_batch_count", 0
+                ),
             },
+            "permission_inheritance": permission_inheritance,
+            "service_accounts": service_account_summary,
+            "scim": {
+                "active_token_count": scim_summary["active_token_count"],
+                "has_active_token": scim_summary["active_token_count"] > 0,
+                "token_last_used_at": None,
+                "user_mapping_count": scim_summary["user_mapping_count"],
+                "group_mapping_count": scim_summary["group_mapping_count"],
+                "recent_group_sync_failure_count": scim_summary[
+                    "recent_group_sync_failure_count"
+                ],
+            },
+            "query_history_usage": query_history_usage,
+            "custom_permissions": custom_permissions,
+            "usage_limits": usage_limits,
+            "hooks": hooks,
+            "custom_theming": custom_theming,
+            "white_labeling": white_labeling,
+            "custom_deployments": custom_deployments,
+            "region_processing": region_processing,
+            "self_hosting": self_hosting,
+            "secrets_encryption": secrets_encryption_summary,
             "playbooks": {
                 "count": playbook_definitions_summary.get("count", 0),
                 "with_examples": len(
@@ -957,6 +2275,7 @@ def evaluate_acceptance(
     threat_intel_sync_summary: dict[str, Any],
     threat_intel_curation_summary: dict[str, Any],
     historical_package_summary: dict[str, Any],
+    archive_execution_summary: dict[str, Any],
     security_tool_profile_summary: dict[str, Any],
     deployment_profile_summary: dict[str, Any],
     playbook_definitions_summary: dict[str, Any],
@@ -1025,6 +2344,12 @@ def evaluate_acceptance(
             f"{historical_package_summary.get('consistency_issue_count', 0)}"
         )
         failures.extend(historical_package_summary.get("consistency_issues", []))
+    if archive_execution_summary.get("consistency_issue_count", 0) > 0:
+        failures.append(
+            "Archive execution artifact consistency issues: "
+            f"{archive_execution_summary.get('consistency_issue_count', 0)}"
+        )
+        failures.extend(archive_execution_summary.get("consistency_issues", []))
     if playbook_definitions_summary.get("count", 0) <= 0:
         failures.append("Missing security playbook definitions")
     if playbook_definitions_summary.get("invalid_files"):
@@ -1118,10 +2443,27 @@ def evaluate_acceptance(
         threat_intel_sync_summary=threat_intel_sync_summary,
         threat_intel_curation_summary=threat_intel_curation_summary,
         historical_package_summary=historical_package_summary,
+        archive_execution_summary=archive_execution_summary,
         security_tool_profile_summary=security_tool_profile_summary,
         deployment_profile_summary=deployment_profile_summary,
         playbook_definitions_summary=playbook_definitions_summary,
     )
+    rbac_summary = build_rbac_summary(db_state)
+    service_account_summary = build_service_account_summary(db_state)
+    scim_summary = build_scim_summary(db_state)
+    secrets_encryption_summary = build_secrets_encryption_summary(
+        deployment_profile_summary
+    )
+    permission_inheritance = build_permission_inheritance_summary(db_state)
+    query_history_usage = build_query_history_usage_summary(db_state)
+    custom_permissions = build_custom_permission_summary(db_state)
+    usage_limits = build_usage_limit_summary(db_state)
+    hooks = build_hook_summary(db_state)
+    custom_theming = build_custom_theming_summary(db_state)
+    white_labeling = build_white_labeling_summary(db_state)
+    custom_deployments = build_custom_deployment_summary(db_state)
+    region_processing = build_region_processing_summary(db_state)
+    self_hosting = build_self_hosting_summary(db_state)
     for check in health.get("checks", []):
         if not isinstance(check, dict) or check.get("status") != "failing":
             continue
@@ -1167,6 +2509,13 @@ def evaluate_acceptance(
             "historical_package_consistency_issue_count": historical_package_summary.get(
                 "consistency_issue_count", 0
             ),
+            "archive_execution_batch_count": archive_execution_summary.get("batch_count", 0),
+            "archive_execution_fully_materialized_batch_count": archive_execution_summary.get(
+                "fully_materialized_batch_count", 0
+            ),
+            "archive_execution_consistency_issue_count": archive_execution_summary.get(
+                "consistency_issue_count", 0
+            ),
             "playbook_count": playbook_definitions_summary["count"],
             "playbook_names": playbook_definitions_summary["names"],
             "playbooks_with_examples": playbook_definitions_summary["playbooks_with_examples"],
@@ -1175,6 +2524,244 @@ def evaluate_acceptance(
             "persona_tool_summary": persona_tool_summary,
             "persona_user_links": len(persona_user_links),
             "document_set_links": len(document_set_links),
+            "rbac_user_group_count": rbac_summary["user_group_count"],
+            "rbac_permission_grant_count": rbac_summary["permission_grant_count"],
+            "rbac_users_with_effective_permissions_count": rbac_summary[
+                "users_with_effective_permissions_count"
+            ],
+            "rbac_curator_membership_count": rbac_summary[
+                "curator_membership_count"
+            ],
+            "service_account_api_key_count": service_account_summary["api_key_count"],
+            "service_account_user_count": service_account_summary[
+                "service_account_user_count"
+            ],
+            "service_account_ownerless_count": service_account_summary[
+                "ownerless_api_key_count"
+            ],
+            "query_history_type": query_history_usage["query_history_type"],
+            "query_history_enabled": query_history_usage["query_history_enabled"],
+            "query_history_recent_query_count": query_history_usage["recent_query_count"],
+            "query_history_recent_chat_session_count": query_history_usage[
+                "recent_chat_session_count"
+            ],
+            "query_history_recent_active_user_count": query_history_usage[
+                "recent_active_user_count"
+            ],
+            "query_history_recent_like_count": query_history_usage["recent_like_count"],
+            "query_history_recent_dislike_count": query_history_usage[
+                "recent_dislike_count"
+            ],
+            "query_history_export_count": query_history_usage["recent_export_count"],
+            "query_history_export_failure_count": query_history_usage[
+                "recent_export_failure_count"
+            ],
+            "custom_permission_default_group_count": custom_permissions[
+                "default_group_count"
+            ],
+            "custom_permission_group_count": custom_permissions["custom_group_count"],
+            "custom_permission_stale_group_count": custom_permissions[
+                "stale_custom_group_count"
+            ],
+            "custom_permission_groups_with_grants_count": custom_permissions[
+                "groups_with_custom_grants_count"
+            ],
+            "custom_permission_count": custom_permissions["custom_permission_count"],
+            "custom_permission_manual_grant_count": custom_permissions[
+                "manual_grant_count"
+            ],
+            "custom_permission_scim_grant_count": custom_permissions[
+                "scim_grant_count"
+            ],
+            "custom_permission_admin_override_group_count": custom_permissions[
+                "admin_override_group_count"
+            ],
+            "custom_permission_counts": custom_permissions["permission_counts"],
+            "usage_limits_enabled": usage_limits["enabled"],
+            "usage_limit_global_count": usage_limits["global_limit_count"],
+            "usage_limit_enabled_global_count": usage_limits[
+                "enabled_global_limit_count"
+            ],
+            "usage_limit_user_count": usage_limits["user_limit_count"],
+            "usage_limit_enabled_user_count": usage_limits[
+                "enabled_user_limit_count"
+            ],
+            "usage_limit_user_group_count": usage_limits["user_group_limit_count"],
+            "usage_limit_enabled_user_group_count": usage_limits[
+                "enabled_user_group_limit_count"
+            ],
+            "usage_limit_limited_user_group_count": usage_limits[
+                "limited_user_group_count"
+            ],
+            "hooks_enabled": hooks["hooks_enabled"],
+            "hook_supported_point_count": hooks["supported_hook_point_count"],
+            "hook_configured_count": hooks["configured_hook_count"],
+            "hook_active_count": hooks["active_hook_count"],
+            "hook_reachable_count": hooks["reachable_hook_count"],
+            "hook_recent_execution_count": hooks["recent_execution_count"],
+            "hook_recent_failure_count": hooks["recent_failure_count"],
+            "hook_point_names": hooks["hook_point_names"],
+            "custom_theming_branding_configured": custom_theming[
+                "branding_configured"
+            ],
+            "custom_theming_application_name": custom_theming["application_name"],
+            "custom_theming_application_name_is_default": custom_theming[
+                "application_name_is_default"
+            ],
+            "custom_theming_use_custom_logo": custom_theming["use_custom_logo"],
+            "custom_theming_use_custom_logotype": custom_theming[
+                "use_custom_logotype"
+            ],
+            "custom_theming_logo_display_style": custom_theming[
+                "logo_display_style"
+            ],
+            "custom_theming_nav_item_count": custom_theming[
+                "custom_nav_item_count"
+            ],
+            "custom_theming_custom_header_enabled": custom_theming[
+                "custom_header_content_enabled"
+            ],
+            "custom_theming_custom_disclaimer_enabled": custom_theming[
+                "custom_lower_disclaimer_enabled"
+            ],
+            "custom_theming_first_visit_notice_enabled": custom_theming[
+                "first_visit_notice_enabled"
+            ],
+            "custom_theming_custom_popup_enabled": custom_theming[
+                "custom_popup_enabled"
+            ],
+            "custom_theming_consent_screen_enabled": custom_theming[
+                "consent_screen_enabled"
+            ],
+            "custom_theming_custom_greeting_enabled": custom_theming[
+                "custom_greeting_enabled"
+            ],
+            "white_labeling_branding_configured": white_labeling[
+                "branding_configured"
+            ],
+            "white_labeling_custom_logo_enabled": white_labeling[
+                "custom_logo_enabled"
+            ],
+            "white_labeling_custom_favicon_enabled": white_labeling[
+                "custom_favicon_enabled"
+            ],
+            "white_labeling_application_name_configured": white_labeling[
+                "application_name_configured"
+            ],
+            "white_labeling_ready": white_labeling["white_label_ready"],
+            "white_labeling_residual_branding_count": white_labeling[
+                "residual_branding_count"
+            ],
+            "white_labeling_residual_external_link_count": white_labeling[
+                "residual_external_link_count"
+            ],
+            "white_labeling_residual_branding_examples": white_labeling[
+                "residual_branding_examples"
+            ],
+            "custom_deployment_compose_variant_count": custom_deployments[
+                "docker_compose_variant_count"
+            ],
+            "custom_deployment_helm_values_variant_count": custom_deployments[
+                "helm_values_variant_count"
+            ],
+            "custom_deployment_has_install_script": custom_deployments[
+                "has_install_script"
+            ],
+            "custom_deployment_has_multitenant_compose": custom_deployments[
+                "has_multitenant_compose"
+            ],
+            "custom_deployment_has_lite_compose": custom_deployments[
+                "has_lite_compose"
+            ],
+            "custom_deployment_has_prod_compose": custom_deployments[
+                "has_prod_compose"
+            ],
+            "custom_deployment_has_security_platform_compose_overlay": custom_deployments[
+                "has_security_platform_compose_overlay"
+            ],
+            "custom_deployment_has_security_platform_helm_overlay": custom_deployments[
+                "has_security_platform_helm_overlay"
+            ],
+            "custom_deployment_supported_modes": custom_deployments[
+                "supported_modes"
+            ],
+            "custom_deployment_overlay_examples": custom_deployments[
+                "overlay_examples"
+            ],
+            "region_processing_aws_region_supported": region_processing[
+                "aws_region_supported"
+            ],
+            "region_processing_object_store_endpoint_configurable": region_processing[
+                "object_store_endpoint_configurable"
+            ],
+            "region_processing_web_domain_configurable": region_processing[
+                "web_domain_configurable"
+            ],
+            "region_processing_tenant_aware_supported": region_processing[
+                "tenant_aware_deployment_supported"
+            ],
+            "region_processing_cloud_supported": region_processing[
+                "cloud_deployment_supported"
+            ],
+            "region_processing_hint_count": region_processing["region_hint_count"],
+            "region_processing_hints": region_processing["region_hints"],
+            "self_hosting_self_hosted_mode": self_hosting["self_hosted_mode"],
+            "self_hosting_multi_tenant_mode": self_hosting["multi_tenant_mode"],
+            "self_hosting_enterprise_features_enabled": self_hosting[
+                "enterprise_features_enabled"
+            ],
+            "self_hosting_license_enforcement_enabled": self_hosting[
+                "license_enforcement_enabled"
+            ],
+            "self_hosting_has_license": self_hosting["has_license"],
+            "self_hosting_license_status": self_hosting["license_status"],
+            "self_hosting_license_source": self_hosting["license_source"],
+            "self_hosting_seat_count": self_hosting["seat_count"],
+            "self_hosting_used_seat_count": self_hosting["used_seat_count"],
+            "self_hosting_has_license_api": self_hosting["has_license_api"],
+            "self_hosting_has_admin_billing_page": self_hosting[
+                "has_admin_billing_page"
+            ],
+            "self_hosting_has_billing_service": self_hosting["has_billing_service"],
+            "self_hosting_has_cloud_proxy": self_hosting["has_cloud_proxy"],
+            "self_hosting_cloud_data_plane_url_configured": self_hosting[
+                "cloud_data_plane_url_configured"
+            ],
+            "self_hosting_has_install_script": self_hosting["has_install_script"],
+            "self_hosting_has_docker_compose_path": self_hosting[
+                "has_docker_compose_path"
+            ],
+            "self_hosting_has_helm_install_path": self_hosting[
+                "has_helm_install_path"
+            ],
+            "scim_active_token_count": scim_summary["active_token_count"],
+            "scim_user_mapping_count": scim_summary["user_mapping_count"],
+            "scim_group_mapping_count": scim_summary["group_mapping_count"],
+            "scim_group_sync_failure_count": scim_summary[
+                "recent_group_sync_failure_count"
+            ],
+            "secrets_encryption_enabled": bool(
+                secrets_encryption_summary.get("enabled", False)
+            ),
+            "secrets_encryption_column_count": int(
+                secrets_encryption_summary.get("encrypted_column_count", 0) or 0
+            ),
+            "permission_sync_cc_pairs": permission_inheritance["sync_cc_pair_count"],
+            "permission_docs_with_external_acl": permission_inheritance[
+                "docs_with_external_acl_count"
+            ],
+            "permission_docs_with_user_acl": permission_inheritance[
+                "docs_with_user_acl_count"
+            ],
+            "permission_docs_with_group_acl": permission_inheritance[
+                "docs_with_group_acl_count"
+            ],
+            "permission_doc_sync_failures": permission_inheritance[
+                "recent_doc_sync_failure_count"
+            ],
+            "permission_group_sync_failures": permission_inheritance[
+                "recent_group_sync_failure_count"
+            ],
         },
     }
 
@@ -1228,6 +2815,12 @@ def print_human_result(result: dict[str, Any]) -> None:
         f"consistent={result['summary']['historical_package_consistent_count']}, "
         f"issues={result['summary']['historical_package_consistency_issue_count']}"
     )
+    print(
+        "Threat-intel archive execution artifacts: "
+        f"batches={result['summary']['archive_execution_batch_count']}, "
+        f"fully_materialized={result['summary']['archive_execution_fully_materialized_batch_count']}, "
+        f"issues={result['summary']['archive_execution_consistency_issue_count']}"
+    )
     if result["summary"]["historical_package_ids"]:
         print(
             "Historical package ids: "
@@ -1261,6 +2854,141 @@ def print_human_result(result: dict[str, Any]) -> None:
         print(f"  - {email}: {status}")
     print(f"Persona__user links: {result['summary']['persona_user_links']}")
     print(f"Document_set__user links: {result['summary']['document_set_links']}")
+    print(
+        "RBAC: "
+        f"groups={result['summary']['rbac_user_group_count']}, "
+        f"grants={result['summary']['rbac_permission_grant_count']}, "
+        f"users_with_permissions={result['summary']['rbac_users_with_effective_permissions_count']}, "
+        f"curators={result['summary']['rbac_curator_membership_count']}"
+    )
+    print(
+        "Service accounts: "
+        f"api_keys={result['summary']['service_account_api_key_count']}, "
+        f"service_users={result['summary']['service_account_user_count']}, "
+        f"ownerless={result['summary']['service_account_ownerless_count']}"
+    )
+    print(
+        "Query history / usage: "
+        f"type={result['summary']['query_history_type']}, "
+        f"enabled={result['summary']['query_history_enabled']}, "
+        f"queries_30d={result['summary']['query_history_recent_query_count']}, "
+        f"sessions_30d={result['summary']['query_history_recent_chat_session_count']}, "
+        f"active_users_30d={result['summary']['query_history_recent_active_user_count']}, "
+        f"likes={result['summary']['query_history_recent_like_count']}, "
+        f"dislikes={result['summary']['query_history_recent_dislike_count']}, "
+        f"exports={result['summary']['query_history_export_count']}, "
+        f"export_failures={result['summary']['query_history_export_failure_count']}"
+    )
+    print(
+        "Custom permissions: "
+        f"default_groups={result['summary']['custom_permission_default_group_count']}, "
+        f"custom_groups={result['summary']['custom_permission_group_count']}, "
+        f"stale_groups={result['summary']['custom_permission_stale_group_count']}, "
+        f"groups_with_grants={result['summary']['custom_permission_groups_with_grants_count']}, "
+        f"permissions={result['summary']['custom_permission_count']}, "
+        f"manual_grants={result['summary']['custom_permission_manual_grant_count']}, "
+        f"scim_grants={result['summary']['custom_permission_scim_grant_count']}, "
+        f"admin_override_groups={result['summary']['custom_permission_admin_override_group_count']}"
+    )
+    print(
+        "Usage limits: "
+        f"enabled={result['summary']['usage_limits_enabled']}, "
+        f"global={result['summary']['usage_limit_global_count']}/"
+        f"{result['summary']['usage_limit_enabled_global_count']}, "
+        f"user={result['summary']['usage_limit_user_count']}/"
+        f"{result['summary']['usage_limit_enabled_user_count']}, "
+        f"group={result['summary']['usage_limit_user_group_count']}/"
+        f"{result['summary']['usage_limit_enabled_user_group_count']}, "
+        f"limited_groups={result['summary']['usage_limit_limited_user_group_count']}"
+    )
+    print(
+        "Hooks: "
+        f"enabled={result['summary']['hooks_enabled']}, "
+        f"points={result['summary']['hook_supported_point_count']}, "
+        f"configured={result['summary']['hook_configured_count']}, "
+        f"active={result['summary']['hook_active_count']}, "
+        f"reachable={result['summary']['hook_reachable_count']}, "
+        f"executions={result['summary']['hook_recent_execution_count']}, "
+        f"failures={result['summary']['hook_recent_failure_count']}"
+    )
+    print(
+        "Custom theming: "
+        f"branding_configured={result['summary']['custom_theming_branding_configured']}, "
+        f"application_name={result['summary']['custom_theming_application_name']}, "
+        f"default_name={result['summary']['custom_theming_application_name_is_default']}, "
+        f"logo={result['summary']['custom_theming_use_custom_logo']}, "
+        f"logotype={result['summary']['custom_theming_use_custom_logotype']}, "
+        f"style={result['summary']['custom_theming_logo_display_style']}, "
+        f"nav_items={result['summary']['custom_theming_nav_item_count']}, "
+        f"header={result['summary']['custom_theming_custom_header_enabled']}, "
+        f"notice={result['summary']['custom_theming_first_visit_notice_enabled']}, "
+        f"consent={result['summary']['custom_theming_consent_screen_enabled']}, "
+        f"greeting={result['summary']['custom_theming_custom_greeting_enabled']}"
+    )
+    print(
+        "White-labeling: "
+        f"configured={result['summary']['white_labeling_branding_configured']}, "
+        f"ready={result['summary']['white_labeling_ready']}, "
+        f"custom_logo={result['summary']['white_labeling_custom_logo_enabled']}, "
+        f"custom_favicon={result['summary']['white_labeling_custom_favicon_enabled']}, "
+        f"named={result['summary']['white_labeling_application_name_configured']}, "
+        f"residual_traces={result['summary']['white_labeling_residual_branding_count']}, "
+        f"external_links={result['summary']['white_labeling_residual_external_link_count']}"
+    )
+    print(
+        "Custom deployments: "
+        f"compose={result['summary']['custom_deployment_compose_variant_count']}, "
+        f"helm_values={result['summary']['custom_deployment_helm_values_variant_count']}, "
+        f"install_script={result['summary']['custom_deployment_has_install_script']}, "
+        f"multitenant={result['summary']['custom_deployment_has_multitenant_compose']}, "
+        f"lite={result['summary']['custom_deployment_has_lite_compose']}, "
+        f"prod={result['summary']['custom_deployment_has_prod_compose']}"
+    )
+    print(
+        "Region-specific processing: "
+        f"aws_region={result['summary']['region_processing_aws_region_supported']}, "
+        f"s3_endpoint={result['summary']['region_processing_object_store_endpoint_configurable']}, "
+        f"web_domain={result['summary']['region_processing_web_domain_configurable']}, "
+        f"tenant_aware={result['summary']['region_processing_tenant_aware_supported']}, "
+        f"cloud={result['summary']['region_processing_cloud_supported']}, "
+        f"hints={result['summary']['region_processing_hint_count']}"
+    )
+    print(
+        "Self-hosting: "
+        f"self_hosted={result['summary']['self_hosting_self_hosted_mode']}, "
+        f"multi_tenant={result['summary']['self_hosting_multi_tenant_mode']}, "
+        f"ee={result['summary']['self_hosting_enterprise_features_enabled']}, "
+        f"license_enforcement={result['summary']['self_hosting_license_enforcement_enabled']}, "
+        f"has_license={result['summary']['self_hosting_has_license']}, "
+        f"status={result['summary']['self_hosting_license_status'] or 'none'}, "
+        f"source={result['summary']['self_hosting_license_source'] or 'none'}, "
+        f"seats={result['summary']['self_hosting_seat_count'] or 0}, "
+        f"used={result['summary']['self_hosting_used_seat_count'] or 0}, "
+        f"license_api={result['summary']['self_hosting_has_license_api']}, "
+        f"billing_page={result['summary']['self_hosting_has_admin_billing_page']}, "
+        f"proxy={result['summary']['self_hosting_has_cloud_proxy']}, "
+        f"install={result['summary']['self_hosting_has_install_script']}, "
+        f"helm={result['summary']['self_hosting_has_helm_install_path']}"
+    )
+    print(
+        "SCIM: "
+        f"active_tokens={result['summary']['scim_active_token_count']}, "
+        f"user_mappings={result['summary']['scim_user_mapping_count']}, "
+        f"group_mappings={result['summary']['scim_group_mapping_count']}, "
+        f"group_sync_failures={result['summary']['scim_group_sync_failure_count']}"
+    )
+    print(
+        "Secrets encryption: "
+        f"enabled={result['summary']['secrets_encryption_enabled']}, "
+        f"columns={result['summary']['secrets_encryption_column_count']}"
+    )
+    print(
+        "Permission inheritance: "
+        f"sync_cc_pairs={result['summary']['permission_sync_cc_pairs']}, "
+        f"docs_with_external_acl={result['summary']['permission_docs_with_external_acl']}, "
+        f"doc_sync_failures={result['summary']['permission_doc_sync_failures']}, "
+        f"group_sync_failures={result['summary']['permission_group_sync_failures']}"
+    )
     if result.get("recommended_next_actions"):
         print("Recommended next actions:")
         for action in result["recommended_next_actions"]:
@@ -1318,6 +3046,7 @@ def main() -> int:
         threat_intel_sync_summary=load_threat_intel_sync_summary(deployment_profile_summary),
         threat_intel_curation_summary=load_threat_intel_curation_summary(),
         historical_package_summary=load_historical_package_summary(),
+        archive_execution_summary=load_archive_execution_summary(),
         security_tool_profile_summary=load_security_tool_profile_summary(
             openapi_tools, deployment_profile_summary
         ),

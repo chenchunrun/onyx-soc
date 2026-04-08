@@ -2,277 +2,210 @@
 
 ## 1. 文档说明
 
-本文档基于 [ONYX_SECURITY_PLATFORM_STATUS_REPORT.md](/Users/newmba/Downloads/onyx-main/docs/ONYX_SECURITY_PLATFORM_STATUS_REPORT.md) 整理，目标是把“当前缺口”转换成可以执行、跟踪和验收的项目待办。
+本文档用于维护安全底座项目的当前有效待办。
+
+使用原则：
+
+- 只保留尚未完成、尚未收口或需要继续推进的事项
+- 已完成事项不再作为主待办重复列出
+- 本文档优先级高于历史阶段性评估文档
 
 状态说明：
 
-- `P0`：当前阶段必须完成，否则无法形成可交付版本
-- `P1`：建议在下一阶段完成，直接影响上线质量或验收完整性
-- `P2`：增强项，不阻塞 PoC，但影响后续扩展和运维质量
+- `Done`：已完成并已有代码、文档或测试支撑
+- `Next`：建议下一阶段优先推进
+- `Later`：增强项，不阻塞当前 PoC / 内部试运行基线
 
 
-## 2. 总体目标
+## 2. 当前基线判断
 
-当前项目已经具备 PoC / 内部试运行条件，下一阶段目标不是继续零散补脚本，而是完成以下三件事：
+当前仓库已经完成以下基线能力：
 
-- 形成完整的对外交付文档包
-- 形成可初始化、可复现的安全底座安装流程
-- 形成可验收、可演示、可持续运维的版本
+- `docs/security-platform/` 交付文档主结构已成型
+- 四个安全 Agent 定义已落库
+- `bootstrap` 初始化链路已闭环
+- `安全知识库` document set、persona、tools、RBAC 可自动初始化
+- threat-intel 同步、manifest、curation、生命周期评估、historical package 管理已形成链路
+- 最小验收、smoke、安全平台回归已具备基础覆盖
+- 安全工作台页面与后端状态 API 已落地
+- 安全工作台已补齐轻量运维摘要：
+  - 工具调用审计摘要
+  - 配置漂移检查
+  - 最近失败项摘要
+- 生产化配置检查已补齐：
+  - placeholder env 检测
+  - 验收脚本与工作台统一提示
+- 企业能力的最小收口已完成：
+  - Document Permissions / RBAC / Service Accounts / SCIM
+  - Secrets Encryption / Query History / Usage Limits / Hooks
+  - Custom Permissions / Custom Theming / White-labeling
+  - Custom Deployments / Region Processing / Self-hosting
+- Docker Compose / Helm 安全底座覆盖资产已提供
 
+当前可视为：
 
-## 3. P0 待办
-
-### 3.1 补齐正式交付文档
-
-目标：
-
-- 将 `Onyx智能安全底座.docx` 中承诺的交付结构正式落库
-
-待办：
-
-- 新增 `docs/security-platform/1-requirements.md`
-- 新增 `docs/security-platform/2-architecture.md`
-- 新增 `docs/security-platform/6-implementation-guide.md`
-- 新增 `docs/security-platform/7-deployment.md`
-- 新增 `docs/security-platform/8-expert-review-notes.md`
-
-验收标准：
-
-- 每个文档有明确的范围、输入输出、依赖和实施说明
-- 文档内容与当前仓库实现一致，而不是照搬方案设想
-- 新人仅靠文档可以理解系统组成与落地路径
-
-
-### 3.2 固化四个安全 Agent 定义
-
-目标：
-
-- 将当前散落在 persona、知识库和脚本中的角色能力，整理为标准化 Agent 定义
-
-待办：
-
-- 新增 `docs/security-platform/4-agents/incident-analyst.md`
-- 新增 `docs/security-platform/4-agents/emergency-commander.md`
-- 新增 `docs/security-platform/4-agents/vulnerability-expert.md`
-- 新增 `docs/security-platform/4-agents/compliance-auditor.md`
-- 为每个 Agent 明确：
-  - 角色目标
-  - 系统提示词
-  - 允许使用的工具
-  - 依赖的知识域
-  - 输出格式要求
-  - 风险边界
-
-验收标准：
-
-- 四个 Agent 的职责边界无明显重叠
-- 可以映射到现有 persona 和工具权限
-- 文档可直接作为后续 seed / 初始化实现输入
+- `PoC / 内部试运行基线版本`
+- 且主要企业能力已具备“可见、可验收、可诊断”的管理面收口
 
 
-### 3.3 实现统一 bootstrap 流程
+## 3. Next
+
+### 3.1 收口生产化配置管理
 
 目标：
 
-- 把知识库导入、工具创建、persona 初始化、权限绑定整合为一次性初始化流程
+- 把当前示例级配置收口为更接近真实交付的配置方案
 
 待办：
 
-- 新增统一入口脚本，例如 `knowledge-base/bootstrap_security_platform.py`
-- 串联现有脚本：
-  - `knowledge-base/upload_to_onyx.py`
-  - `knowledge-base/security-automation/setup_security_tools.py`
-  - `knowledge-base/sso-rbac/provision_security_team.py`
-- 支持按阶段执行：
-  - 仅导入知识库
-  - 仅初始化 persona / RBAC
-  - 仅创建安全工具
-  - 完整初始化
+- 明确真实环境 Secret 管理方式
+- 补齐与企业 secret manager 对接说明
+- 继续细化 live/demo 环境差异说明
+- 收口工具、threat-intel、deployment profile 的生产配置边界
 
 验收标准：
 
-- 在新环境中执行一次 bootstrap 后，可直接获得可用的安全 persona、知识集和工具链
-- 初始化过程有清晰日志和失败退出信息
-- 初始化脚本支持幂等执行
+- required env、密钥来源、环境切换规则完整可追踪
+- 不再依赖口头约定配置 mock/live 端点
+- 新环境可以按文档完成稳定部署
 
 
-### 3.4 明确 persona 的标准初始化方式
+### 3.2 增强业务回归测试矩阵
 
 目标：
 
-- 去掉“依赖人工预配置”的隐含前提，确保 persona 可以被标准化创建
+- 在现有最小闭环基础上补长链路和更多 live 场景回归
 
 待办：
 
-- 决定采用 seed、管理脚本还是平台初始化任务作为标准方案
-- 为四个安全 persona 明确创建入口和默认配置
-- 让测试和 CLI 不再依赖“环境中碰巧已经存在 persona”
+- 扩展更多真实模型下的工具联动回归
+- 继续补跨 persona 的多步骤场景覆盖
+- 补更多长链路 playbook / chat / tool 联调路径
+- 继续扩大 smoke、acceptance、regression 三类测试边界覆盖
 
 验收标准：
 
-- 新环境部署后无需手工进入 UI 创建 persona
-- 集成测试不再因 persona 缺失而 `skip`
-- persona 与 document set、工具权限、可见性设置形成固定初始化逻辑
+- 工具调用、角色问答、流程场景均有明确自动化入口
+- 新增工具或流程时有对应回归补位要求
+- 回归矩阵可以直接服务部署验收
 
 
-## 4. P1 待办
-
-### 4.1 形成安全底座专属部署方案
+### 3.3 完善 threat-intel 生命周期治理
 
 目标：
 
-- 让“部署 Onyx”与“部署安全底座版本”之间的差异清晰可复现
+- 从“已具备治理能力”提升到“长期可维护”
 
 待办：
 
-- 提供安全底座专属部署说明
-- 明确需要启用的服务、环境变量、账号初始化步骤
-- 视情况补充：
-  - 安全底座专属 `docker compose` 覆盖配置
-  - 安全底座专属 Helm values 示例
-  - 一键初始化命令示例
+- 按 `source / year / quality` 推进 archive candidate 评审
+- 收敛运行态 feed 与正式知识包的发布边界
+- 评估是否需要更细的治理视图或归档节奏
+- 明确 archive 执行、审批、验证与回滚的操作规范
 
 验收标准：
 
-- 新环境部署步骤可以按文档顺序完整跑通
-- 部署文档包含最小可运行配置和推荐生产配置
-- 部署完成后能直接进入安全场景演示
+- 可以清晰说明何时纳管、何时归档、何时仅保留运行态
+- historical package catalog 与归档流程持续一致
+- 生命周期报告可以稳定支撑后续运营
 
 
-### 4.2 为安全工具链补强生产化配置
+## 4. Later
+
+### 4.1 扩展 threat-intel 上游源
 
 目标：
 
-- 将当前偏演示性质的工具接入方式提升到可稳定演示、可受控运维的水平
+- 提升当前以 CISA/NVD 为主的情报覆盖面
 
 待办：
 
-- 为现有 OpenAPI 工具模板补充鉴权策略说明
-- 明确 mock 工具与真实工具的切换方式
-- 为关键动作增加审计和失败处理说明
-- 梳理工具调用权限和 persona 对应关系
+- 调研新增公开或商业情报源
+- 为新增源定义鉴权、刷新频率、失败策略
+- 统一新增源输出格式和同步策略
 
 验收标准：
 
-- 每个安全工具都有接入说明、认证方式和失败处理约束
-- 演示环境与真实环境切换规则明确
-- 不同 persona 的工具权限有清晰边界
+- source 清单可配置
+- 每个新增源有清晰同步规则
 
 
-### 4.3 扩展威胁情报源与同步策略
+### 4.2 增强运维观测与审计
 
 目标：
 
-- 把当前以 CISA/NVD 为主的聚合能力升级为更完整的情报同步方案
+- 在当前已落地摘要基础上，决定是否继续扩更细的运营视角
 
 待办：
 
-- 评估并补充更多情报源，例如商业 API 或行业公开情报源
-- 为情报同步设计执行频率、失败重试、限流与更新时间策略
-- 明确生成文件的目录规范和元数据字段
+- 评估是否需要 persona 使用统计或任务执行记录
+- 评估是否需要 threat-intel 同步失败专门看板
+- 评估是否需要更细的按阶段失败分布
+- 保持工作台摘要能力轻量，不扩成单独报表系统
 
 验收标准：
 
-- 情报源清单明确
-- 每个情报源的同步策略可解释、可配置
-- 输出文件格式一致，适合后续 ingestion
+- 管理员已能定位关键失败阶段和配置漂移
+- 若继续增强，应服务运维排障，而不是演变成复杂 BI 页面
 
 
-### 4.4 补充面向安全场景的测试闭环
+### 4.3 收敛文档入口
 
 目标：
 
-- 从“当前链路能跑”提升到“关键场景部署后可验证”
+- 降低历史文档与当前文档并存带来的误导
 
 待办：
 
-- 保留现有 `backend/tests/integration/tests/security_tools/test_security_tools_chain.py`
-- 新增 bootstrap 后的集成验证用例
-- 补充 persona 初始化成功、工具可调用、知识可检索的验证路径
+- 标记历史阶段性报告的适用范围
+- 明确本文件与 `docs/security-platform/12-development-backlog.md` 的关系
+- 收口安全底座文档统一入口
 
 验收标准：
 
-- 新环境完成初始化后，可以跑一组最小验收测试
-- 测试结果能直接作为交付验证依据
+- 团队成员能快速识别当前有效文档
+- 历史评估不再被误认为现状
 
 
-## 5. P2 待办
-
-### 5.1 整理统一的项目管理视图
-
-目标：
-
-- 避免待办继续散落在不同 markdown 和脚本说明中
-
-待办：
-
-- 维护本文件作为统一待办入口
-- 为每个任务补充：
-  - 负责人
-  - 当前状态
-  - 依赖项
-  - 目标版本
-
-验收标准：
-
-- 项目成员可以只看一个文档了解当前进度
-- 待办不再散落在多个指南中
-
-
-### 5.2 形成领导汇报版摘要
-
-目标：
-
-- 为汇报场景提供一份非技术化摘要，降低理解成本
-
-待办：
-
-- 输出一页式项目摘要
-- 提炼当前完成度、主要成果、主要风险、下一阶段里程碑
-
-验收标准：
-
-- 非研发角色可以快速理解项目现状
-- 内容与正式状态报告保持一致
-
-
-## 6. 建议实施顺序
+## 5. 建议推进顺序
 
 建议按以下顺序推进：
 
-1. 先补 `docs/security-platform/` 交付文档
-2. 再固化四个安全 Agent 定义
-3. 然后实现统一 bootstrap 和 persona 标准初始化
-4. 最后补部署方案、测试闭环和情报扩展
+1. 先收口生产化配置管理
+2. 再扩业务回归测试矩阵
+3. 然后继续 threat-intel 生命周期治理
+4. 最后补上游源扩展与运维审计增强
 
 原因：
 
-- 当前最大缺口不是底层能力，而是交付结构和初始化闭环
-- 先把文档、角色和初始化逻辑固化，后续部署和测试才有稳定输入
+- 当前主要缺口已不是“能力不存在”
+- 下一阶段重点是交付稳定性、配置可控性、回归深度和长期维护性
 
 
-## 7. 当前建议里程碑
+## 6. 里程碑建议
 
-### 里程碑 A：交付物成型
-
-完成标志：
-
-- `docs/security-platform/` 基本文档齐全
-- 四个 Agent 定义完成
-
-
-### 里程碑 B：初始化成型
+### 里程碑 A：V1 配置收口
 
 完成标志：
 
-- bootstrap 脚本可运行
-- persona、知识库、工具、RBAC 可自动完成初始化
+- live/demo/profile 规则清晰
+- 真实 Secret 管理方式明确
+- 部署文档与配置约束一致
 
 
-### 里程碑 C：验收成型
+### 里程碑 B：V1 验收增强
 
 完成标志：
 
-- 新环境可按文档部署
-- 初始化后可直接演示四个安全 persona
-- 最小验收测试可稳定通过
+- 长链路 regression 覆盖增强
+- live 工具与 playbook 回归边界清晰
+- 验收脚本可直接支撑部署后验证
+
+
+### 里程碑 C：V2 运维治理增强
+
+完成标志：
+
+- archive 生命周期治理流程稳定
+- 运维观测与审计摘要落地
+- 威胁情报扩展策略清晰

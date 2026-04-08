@@ -13,6 +13,8 @@ export function getImageGenForm(props: ImageGenFormBaseProps): React.ReactNode {
 
   switch (providerName) {
     case "openai":
+    case "bigmodel":
+    case "minimax":
       return <OpenAIImageGenForm {...props} />;
     case "azure":
       return <AzureImageGenForm {...props} />;

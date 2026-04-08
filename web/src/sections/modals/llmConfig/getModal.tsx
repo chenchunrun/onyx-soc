@@ -10,6 +10,8 @@ import BedrockModal from "@/sections/modals/llmConfig/BedrockModal";
 import LMStudioForm from "@/sections/modals/llmConfig/LMStudioForm";
 import LiteLLMProxyModal from "@/sections/modals/llmConfig/LiteLLMProxyModal";
 import BifrostModal from "@/sections/modals/llmConfig/BifrostModal";
+import OpenAICompatibleTemplateModal from "@/sections/modals/llmConfig/OpenAICompatibleTemplateModal";
+import { getOpenAICompatibleTemplate } from "@/lib/llmConfig/openaiCompatibleTemplates";
 
 function detectIfRealOpenAIProvider(provider: LLMProviderView) {
   return (
@@ -32,6 +34,16 @@ export function getModalForExistingProvider(
     onOpenChange,
     defaultModelName,
   };
+
+  const openAICompatibleTemplate = getOpenAICompatibleTemplate(provider);
+  if (openAICompatibleTemplate) {
+    return (
+      <OpenAICompatibleTemplateModal
+        templateId={openAICompatibleTemplate.id}
+        {...props}
+      />
+    );
+  }
 
   switch (provider.provider) {
     case LLMProviderName.OPENAI:

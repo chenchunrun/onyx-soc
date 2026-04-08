@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -148,3 +150,70 @@ def test_resolve_mock_server_observer_url_prefers_explicit_env(monkeypatch) -> N
     result = module.resolve_mock_server_observer_url("http://host.docker.internal:9999")
 
     assert result == "http://localhost:19999"
+
+
+def test_main_returns_one_when_login_fails(monkeypatch, capsys) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: SimpleNamespace(
+            url="http://example.com",
+            email="security-admin@example.com",
+            password="secret",
+            json=False,
+        ),
+    )
+    monkeypatch.setattr(module, "get_cookie", lambda *_args, **_kwargs: None)
+
+    result = module.main()
+
+    assert result == 1
+    assert "[ERROR] Login failed. Check credentials." in capsys.readouterr().out
+
+
+def test_main_json_returns_zero_for_successful_smoke(monkeypatch, capsys) -> None:
+    module = _load_module()
+    expected_result = {"ok": True, "summary": {"tool": "threat_intel_lookup"}}
+    monkeypatch.setattr(
+        module.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: SimpleNamespace(
+            url="http://example.com",
+            email="security-admin@example.com",
+            password="secret",
+            json=True,
+        ),
+    )
+    monkeypatch.setattr(module, "get_cookie", lambda *_args, **_kwargs: "cookie")
+    monkeypatch.setattr(module, "run_smoke_test", lambda *_args, **_kwargs: expected_result)
+
+    result = module.main()
+
+    assert result == 0
+    assert json.loads(capsys.readouterr().out) == expected_result
+
+
+def test_main_human_returns_one_for_failed_smoke(monkeypatch) -> None:
+    module = _load_module()
+    expected_result = {"ok": False, "summary": {}, "failures": ["tool failed"]}
+    printed: list[dict] = []
+
+    monkeypatch.setattr(
+        module.argparse.ArgumentParser,
+        "parse_args",
+        lambda self: SimpleNamespace(
+            url="http://example.com",
+            email="security-admin@example.com",
+            password="secret",
+            json=False,
+        ),
+    )
+    monkeypatch.setattr(module, "get_cookie", lambda *_args, **_kwargs: "cookie")
+    monkeypatch.setattr(module, "run_smoke_test", lambda *_args, **_kwargs: expected_result)
+    monkeypatch.setattr(module, "print_human_result", lambda result: printed.append(result))
+
+    result = module.main()
+
+    assert result == 1
+    assert printed == [expected_result]

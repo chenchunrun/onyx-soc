@@ -37,7 +37,13 @@ import yaml
 
 
 INTEGRATIONS_DIR = (
-    Path(__file__).resolve().parents[2] / "docs" / "security-platform" / "5-integrations"
+    Path(__file__).resolve().parents[2]
+    / "backend"
+    / "onyx"
+    / "server"
+    / "manage"
+    / "security_platform"
+    / "tool_configs"
 )
 INTEGRATION_PROFILES_PATH = INTEGRATIONS_DIR / "profiles.yaml"
 SECURITY_PERSONA_NAMES = {
@@ -210,6 +216,20 @@ def update_tool(
     return None
 
 
+def _detect_relational_db_container() -> str:
+    """Auto-detect the relational DB container name."""
+    result = subprocess.run(
+        ["docker", "ps", "--format", "{{.Names}}"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for name in result.stdout.splitlines():
+        if "relational_db" in name or "postgres" in name or "database" in name:
+            return name
+    return "onyx-relational_db-1"
+
+
 def get_db_connection(password: str | None = None):
     """Get database connection to Onyx PostgreSQL."""
     if password is None:
@@ -234,12 +254,13 @@ def get_db_connection(password: str | None = None):
 
 def run_docker_psql(sql: str, capture_output: bool = True) -> str:
     stdout = subprocess.PIPE if capture_output else subprocess.DEVNULL
+    container = _detect_relational_db_container()
     result = subprocess.run(
         [
             "docker",
             "exec",
             "-i",
-            "onyx-relational_db-1",
+            container,
             "psql",
             "-U",
             "postgres",

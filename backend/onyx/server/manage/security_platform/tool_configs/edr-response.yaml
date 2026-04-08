@@ -1,0 +1,12 @@
+name: isolate_endpoint_host
+template: edr_response_api
+description: >-
+  Isolate a suspected compromised endpoint through the EDR platform. Use this
+  only when containment is justified and you have a host_id plus a clear
+  containment reason. Required: host_id, reason. Optional: requested_by,
+  ticket_id.
+api_url_env: SECURITY_EDR_API_URL
+api_key_env: SECURITY_EDR_API_KEY
+persona_bindings:
+  - 安全事件分析师
+  - 应急响应指挥官

@@ -39,6 +39,7 @@ interface LLMProviderView {
   name: string;
   provider: string;
   api_key: string | null;
+  api_base?: string | null;
 }
 
 interface ApiKeyOption {
@@ -58,24 +59,28 @@ interface VoiceProviderSetupModalProps {
 
 const PROVIDER_LABELS: Record<string, string> = {
   openai: "OpenAI",
+  bigmodel: "BigModel",
   azure: "Azure Speech Services",
   elevenlabs: "ElevenLabs",
 };
 
 const PROVIDER_API_KEY_URLS: Record<string, string> = {
   openai: "https://platform.openai.com/api-keys",
+  bigmodel: "https://open.bigmodel.cn/usercenter/apikeys",
   azure: "https://portal.azure.com/",
   elevenlabs: "https://elevenlabs.io/app/settings/api-keys",
 };
 
 const PROVIDER_LOGO_URLS: Record<string, string> = {
   openai: "/Openai.svg",
+  bigmodel: "/Openai.svg",
   azure: "/Azure.png",
   elevenlabs: "/ElevenLabs.svg",
 };
 
 const PROVIDER_DOCS_URLS: Record<string, string> = {
   openai: "https://platform.openai.com/docs/guides/text-to-speech",
+  bigmodel: "https://docs.bigmodel.cn/cn/guide/models/sound-and-video/glm-asr-2512",
   azure: "https://learn.microsoft.com/en-us/azure/ai-services/speech-service/",
   elevenlabs: "https://elevenlabs.io/docs",
 };
@@ -85,6 +90,10 @@ const PROVIDER_VOICE_DOCS_URLS: Record<string, { url: string; label: string }> =
     openai: {
       url: "https://platform.openai.com/docs/guides/text-to-speech#voice-options",
       label: "OpenAI",
+    },
+    bigmodel: {
+      url: "https://docs.bigmodel.cn/cn/guide/models/sound-and-video/glm-tts",
+      label: "BigModel",
     },
     azure: {
       url: "https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts",
@@ -97,17 +106,21 @@ const PROVIDER_VOICE_DOCS_URLS: Record<string, { url: string; label: string }> =
   };
 
 const OPENAI_STT_MODELS = [{ id: "whisper-1", name: "Whisper v1" }];
+const BIGMODEL_STT_MODELS = [{ id: "glm-asr-2512", name: "GLM-ASR-2512" }];
 
 const OPENAI_TTS_MODELS = [
   { id: "tts-1", name: "TTS-1" },
   { id: "tts-1-hd", name: "TTS-1 HD" },
 ];
+const BIGMODEL_TTS_MODELS = [{ id: "glm-tts", name: "GLM-TTS" }];
 
 // Map model IDs from cards to actual API model IDs
 const MODEL_ID_MAP: Record<string, string> = {
   "tts-1": "tts-1",
   "tts-1-hd": "tts-1-hd",
   whisper: "whisper-1",
+  "glm-asr-2512": "glm-asr-2512",
+  "glm-tts": "glm-tts",
 };
 
 type Phase = "idle" | "validating" | "saving";
@@ -160,18 +173,31 @@ export default function VoiceProviderSetupModal({
     new Map()
   );
 
-  // Fetch existing OpenAI LLM providers (for API key reuse)
+  // Fetch existing compatible LLM providers (for API key reuse)
   useEffect(() => {
-    if (providerType !== "openai") return;
+    if (providerType !== "openai" && providerType !== "bigmodel") return;
 
     fetchLLMProviders()
       .then((res) => res.json())
       .then((data: { providers: LLMProviderView[] } | LLMProviderView[]) => {
         const providers = Array.isArray(data) ? data : data.providers ?? [];
-        const openaiProviders = providers.filter(
-          (p) => p.provider === "openai" && p.api_key
-        );
-        const options: ApiKeyOption[] = openaiProviders.map((p) => ({
+        const compatibleProviders = providers.filter((p) => {
+          if (!p.api_key) {
+            return false;
+          }
+          if (providerType === "openai") {
+            return (
+              p.provider === "openai" &&
+              (!p.api_base || p.api_base.includes("api.openai.com"))
+            );
+          }
+          return (
+            p.provider === "openai" &&
+            !!p.api_base &&
+            p.api_base.includes("open.bigmodel.cn")
+          );
+        });
+        const options: ApiKeyOption[] = compatibleProviders.map((p) => ({
           value: p.api_key!,
           label: p.api_key!,
           description: `Used for LLM provider **${p.name}**`,
@@ -180,7 +206,7 @@ export default function VoiceProviderSetupModal({
 
         // Map masked API keys to provider IDs for lookup on selection
         const providerMap = new Map<string, number>();
-        openaiProviders.forEach((p) => {
+        compatibleProviders.forEach((p) => {
           if (p.api_key) {
             providerMap.set(p.api_key, p.id);
           }
@@ -242,6 +268,8 @@ export default function VoiceProviderSetupModal({
     <div className="flex items-center gap-2">
       <div className="flex items-center justify-center size-7 shrink-0 overflow-clip">
         {providerType === "openai" ? (
+          <OpenAIIcon size={24} />
+        ) : providerType === "bigmodel" ? (
           <OpenAIIcon size={24} />
         ) : providerType === "azure" ? (
           <AzureIcon size={24} />
@@ -374,7 +402,7 @@ export default function VoiceProviderSetupModal({
                 )}
               </FormField.Description>
               <FormField.Control asChild>
-                {providerType === "openai" &&
+                {(providerType === "openai" || providerType === "bigmodel") &&
                 existingApiKeyOptions.length > 0 ? (
                   <InputComboBox
                     placeholder={isEditing ? "••••••••" : "Enter API key"}
@@ -399,7 +427,11 @@ export default function VoiceProviderSetupModal({
                       setMessage(null);
                     }}
                     options={existingApiKeyOptions}
-                    separatorLabel="Reuse OpenAI API Keys"
+                    separatorLabel={
+                      providerType === "bigmodel"
+                        ? "Reuse BigModel-compatible API Keys"
+                        : "Reuse OpenAI API Keys"
+                    }
                     strict={false}
                     showAddPrefix
                   />
@@ -454,12 +486,16 @@ export default function VoiceProviderSetupModal({
               </Vertical>
             )}
 
-            {providerType === "openai" && mode === "stt" && (
+            {(providerType === "openai" || providerType === "bigmodel") &&
+              mode === "stt" && (
               <Horizontal title="STT Model" center nonInteractive>
                 <InputSelect value={sttModel} onValueChange={setSttModel}>
                   <InputSelect.Trigger />
                   <InputSelect.Content>
-                    {OPENAI_STT_MODELS.map((model) => (
+                    {(providerType === "bigmodel"
+                      ? BIGMODEL_STT_MODELS
+                      : OPENAI_STT_MODELS
+                    ).map((model) => (
                       <InputSelect.Item key={model.id} value={model.id}>
                         {model.name}
                       </InputSelect.Item>
@@ -469,7 +505,8 @@ export default function VoiceProviderSetupModal({
               </Horizontal>
             )}
 
-            {providerType === "openai" && mode === "tts" && (
+            {(providerType === "openai" || providerType === "bigmodel") &&
+              mode === "tts" && (
               <Vertical
                 title="Default Model"
                 subDescription="This model will be used by Onyx by default for text-to-speech."
@@ -478,7 +515,10 @@ export default function VoiceProviderSetupModal({
                 <InputSelect value={ttsModel} onValueChange={setTtsModel}>
                   <InputSelect.Trigger />
                   <InputSelect.Content>
-                    {OPENAI_TTS_MODELS.map((model) => (
+                    {(providerType === "bigmodel"
+                      ? BIGMODEL_TTS_MODELS
+                      : OPENAI_TTS_MODELS
+                    ).map((model) => (
                       <InputSelect.Item key={model.id} value={model.id}>
                         {model.name}
                       </InputSelect.Item>

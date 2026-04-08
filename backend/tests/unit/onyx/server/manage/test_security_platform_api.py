@@ -1,13 +1,34 @@
+from datetime import datetime
+from datetime import timezone
 from types import SimpleNamespace
 
 from onyx.server.manage.security_platform.api import SecurityPlatformDocumentSetStatus
 from onyx.server.manage.security_platform.api import SecurityPlatformPersonaStatus
 from onyx.server.manage.security_platform.api import SecurityPlatformUserStatus
+from onyx.server.manage.security_platform.api import build_failure_summary
+from onyx.server.manage.security_platform.api import build_custom_permission_summary
+from onyx.server.manage.security_platform.api import build_custom_theming_snapshot
+from onyx.server.manage.security_platform.api import build_hook_summary
+from onyx.server.manage.security_platform.api import load_custom_deployment_summary
+from onyx.server.manage.security_platform.api import load_region_processing_summary
+from onyx.server.manage.security_platform.api import load_self_hosting_summary
+from onyx.server.manage.security_platform.api import load_white_labeling_summary
+from onyx.server.manage.security_platform.api import build_permission_inheritance_summary
+from onyx.server.manage.security_platform.api import build_query_history_usage_summary
+from onyx.server.manage.security_platform.api import build_rbac_summary
+from onyx.server.manage.security_platform.api import build_scim_summary
+from onyx.server.manage.security_platform.api import build_secrets_encryption_summary
+from onyx.server.manage.security_platform.api import build_service_account_summary
+from onyx.server.manage.security_platform.api import build_tool_audit_summary
+from onyx.server.manage.security_platform.api import build_tool_drift_summary
+from onyx.server.manage.security_platform.api import build_usage_limit_summary
 from onyx.server.manage.security_platform.api import build_remediation_commands
 from onyx.server.manage.security_platform.api import build_recommended_next_actions
 from onyx.server.manage.security_platform.api import build_tool_status
 from onyx.server.manage.security_platform.api import build_health_status
 from onyx.server.manage.security_platform.api import get_deployment_profile_issues
+from onyx.server.manage.security_platform.api import get_placeholder_required_env
+from onyx.server.manage.security_platform.api import LICENSE_ENFORCEMENT_ENABLED
 
 
 def test_get_deployment_profile_issues_rejects_localhost_for_demo(monkeypatch) -> None:
@@ -28,6 +49,22 @@ def test_get_deployment_profile_issues_allows_host_docker_internal(monkeypatch) 
     issues = get_deployment_profile_issues("demo")
 
     assert issues == []
+
+
+def test_get_placeholder_required_env_detects_example_values(monkeypatch) -> None:
+    monkeypatch.setenv("SECURITY_TICKET_API_URL", "https://your-company.atlassian.net/rest/api/3")
+    monkeypatch.setenv("SECURITY_TICKET_API_KEY", "replace-me")
+    monkeypatch.setenv("SECURITY_EDR_API_URL", "https://edr.prod.local/api/v1")
+
+    placeholders = get_placeholder_required_env(
+        [
+            "SECURITY_TICKET_API_URL",
+            "SECURITY_TICKET_API_KEY",
+            "SECURITY_EDR_API_URL",
+        ]
+    )
+
+    assert placeholders == ["SECURITY_TICKET_API_URL", "SECURITY_TICKET_API_KEY"]
 
 
 def test_build_tool_status_extracts_server_headers_and_personas() -> None:
@@ -56,6 +93,465 @@ def test_build_tool_status_extracts_server_headers_and_personas() -> None:
     assert status.persona_names == ["安全事件分析师", "应急响应指挥官"]
 
 
+def test_build_tool_audit_summary_formats_recent_calls_and_counts() -> None:
+    summary = build_tool_audit_summary(
+        total_calls=7,
+        tool_counts={
+            "create_security_ticket": 2,
+            "search_security_alerts": 5,
+        },
+        persona_counts={
+            "安全事件分析师": 6,
+            "应急响应指挥官": 1,
+        },
+        recent_rows=[
+            SimpleNamespace(
+                tool_name="search_security_alerts",
+                persona_name="安全事件分析师",
+                user_email="analyst@security.local",
+                time_sent=datetime(2026, 4, 7, 8, 0, tzinfo=timezone.utc),
+                turn_number=2,
+                parent_tool_call_id=None,
+            ),
+            SimpleNamespace(
+                tool_name="create_security_ticket",
+                persona_name="应急响应指挥官",
+                user_email="commander@security.local",
+                time_sent=None,
+                turn_number=3,
+                parent_tool_call_id=41,
+            ),
+        ],
+    )
+
+    assert summary.total_calls == 7
+    assert summary.recent_call_count == 2
+    assert summary.tool_counts == {
+        "create_security_ticket": 2,
+        "search_security_alerts": 5,
+    }
+    assert summary.persona_counts == {
+        "安全事件分析师": 6,
+        "应急响应指挥官": 1,
+    }
+    assert summary.recent_calls[0].time_sent == "2026-04-07T08:00:00+00:00"
+    assert summary.recent_calls[0].is_nested is False
+    assert summary.recent_calls[1].is_nested is True
+
+
+def test_build_tool_drift_summary_reports_server_header_and_persona_drift() -> None:
+    summary = build_tool_drift_summary(
+        declared_configs={
+            "search_security_alerts": {
+                "persona_names": ["安全事件分析师"],
+                "expected_server_url": "http://host.docker.internal:9999",
+                "expected_header_keys": ["Authorization"],
+            }
+        },
+        tools=[
+            SimpleNamespace(
+                id=19,
+                name="search_security_alerts",
+                enabled=True,
+                server_url="http://localhost:9999",
+                header_keys=[],
+                persona_names=["应急响应指挥官"],
+            )
+        ],
+    )
+
+    assert summary.mismatch_count == 1
+    assert summary.missing_declared_configs == []
+    assert summary.mismatched_tools[0].tool_name == "search_security_alerts"
+    assert any("server_url drift" in issue for issue in summary.mismatched_tools[0].issues)
+    assert any("header drift" in issue for issue in summary.mismatched_tools[0].issues)
+    assert any(
+        "persona binding drift" in issue for issue in summary.mismatched_tools[0].issues
+    )
+
+
+def test_build_tool_drift_summary_tracks_missing_declared_configs() -> None:
+    summary = build_tool_drift_summary(
+        declared_configs={},
+        tools=[
+            SimpleNamespace(
+                id=15,
+                name="create_security_ticket",
+                enabled=True,
+                server_url="http://host.docker.internal:9999",
+                header_keys=["Authorization"],
+                persona_names=["安全事件分析师"],
+            )
+        ],
+    )
+
+    assert summary.mismatch_count == 0
+    assert summary.missing_declared_configs == ["create_security_ticket"]
+
+
+def test_build_failure_summary_formats_recent_failures() -> None:
+    summary = build_failure_summary(
+        total_failures=4,
+        recent_rows=[
+            SimpleNamespace(
+                persona_name="安全事件分析师",
+                user_email="analyst@security.local",
+                time_sent=datetime(2026, 4, 7, 9, 30, tzinfo=timezone.utc),
+                error="Tool call timed out",
+            ),
+            SimpleNamespace(
+                persona_name=None,
+                user_email=None,
+                time_sent=None,
+                error="Upstream gateway error",
+            ),
+        ],
+    )
+
+    assert summary.total_failures == 4
+    assert summary.recent_failure_count == 2
+    assert summary.recent_failures[0].time_sent == "2026-04-07T09:30:00+00:00"
+    assert summary.recent_failures[0].error == "Tool call timed out"
+    assert summary.recent_failures[1].persona_name is None
+
+
+def test_build_permission_inheritance_summary_formats_recent_attempts() -> None:
+    summary = build_permission_inheritance_summary(
+        sync_cc_pair_count=3,
+        docs_with_external_acl_count=12,
+        docs_with_user_acl_count=8,
+        docs_with_group_acl_count=5,
+        recent_doc_sync_failure_count=2,
+        recent_group_sync_failure_count=1,
+        recent_doc_sync_rows=[
+            SimpleNamespace(
+                id=11,
+                connector_credential_pair_id=41,
+                status="SUCCESS",
+                error_message=None,
+                time_created=datetime(2026, 4, 7, 10, 0, tzinfo=timezone.utc),
+                time_finished=datetime(2026, 4, 7, 10, 1, tzinfo=timezone.utc),
+            )
+        ],
+        recent_group_sync_rows=[
+            SimpleNamespace(
+                id=12,
+                connector_credential_pair_id=42,
+                status="FAILED",
+                error_message="group sync failed",
+                time_created=datetime(2026, 4, 7, 10, 2, tzinfo=timezone.utc),
+                time_finished=None,
+            )
+        ],
+    )
+
+    assert summary.sync_cc_pair_count == 3
+    assert summary.docs_with_external_acl_count == 12
+    assert summary.docs_with_user_acl_count == 8
+    assert summary.docs_with_group_acl_count == 5
+    assert summary.recent_doc_sync_failure_count == 2
+    assert summary.recent_group_sync_failure_count == 1
+    assert summary.recent_doc_sync_attempts[0].sync_type == "document"
+    assert summary.recent_doc_sync_attempts[0].time_created == "2026-04-07T10:00:00+00:00"
+    assert summary.recent_group_sync_attempts[0].sync_type == "group"
+    assert summary.recent_group_sync_attempts[0].error_message == "group sync failed"
+
+
+def test_build_rbac_summary_sorts_role_and_permission_counts() -> None:
+    summary = build_rbac_summary(
+        persona_user_links=4,
+        document_set_user_links=4,
+        all_user_role_counts={"basic": 4, "admin": 1},
+        security_user_role_counts={"basic": 3, "admin": 1},
+        user_group_count=3,
+        groups_with_permission_grants_count=2,
+        permission_grant_count=5,
+        users_with_effective_permissions_count=3,
+        curator_membership_count=1,
+        top_permissions={"manage:connectors": 2, "admin": 1},
+    )
+
+    assert summary.persona_user_links == 4
+    assert summary.document_set_user_links == 4
+    assert list(summary.all_user_role_counts.keys()) == ["admin", "basic"]
+    assert summary.security_user_role_counts == {"admin": 1, "basic": 3}
+    assert summary.user_group_count == 3
+    assert summary.groups_with_permission_grants_count == 2
+    assert summary.permission_grant_count == 5
+    assert summary.users_with_effective_permissions_count == 3
+    assert summary.curator_membership_count == 1
+    assert summary.top_permissions == {"admin": 1, "manage:connectors": 2}
+
+
+def test_build_service_account_summary_formats_recent_accounts() -> None:
+    summary = build_service_account_summary(
+        api_key_count=3,
+        service_account_user_count=3,
+        ownerless_api_key_count=1,
+        role_counts={"basic": 2, "admin": 1},
+        recent_rows=[
+            SimpleNamespace(
+                api_key_id=9,
+                api_key_name="automation-bot",
+                api_key_display="dnsa_abcd********wxyz",
+                service_role="UserRole.BASIC",
+                owner_email="admin@example.com",
+                created_at=datetime(2026, 4, 7, 11, 0, tzinfo=timezone.utc),
+            )
+        ],
+    )
+
+    assert summary.api_key_count == 3
+    assert summary.service_account_user_count == 3
+    assert summary.ownerless_api_key_count == 1
+    assert summary.role_counts == {"admin": 1, "basic": 2}
+    assert summary.recent_accounts[0].role == "basic"
+    assert summary.recent_accounts[0].created_at == "2026-04-07T11:00:00+00:00"
+
+
+def test_build_scim_summary_formats_token_state() -> None:
+    summary = build_scim_summary(
+        active_token_count=1,
+        token_last_used_at=datetime(2026, 4, 7, 12, 0, tzinfo=timezone.utc),
+        user_mapping_count=4,
+        group_mapping_count=2,
+        recent_group_sync_failure_count=1,
+    )
+
+    assert summary.has_active_token is True
+    assert summary.token_last_used_at == "2026-04-07T12:00:00+00:00"
+    assert summary.user_mapping_count == 4
+    assert summary.group_mapping_count == 2
+    assert summary.recent_group_sync_failure_count == 1
+
+
+def test_build_query_history_usage_summary_formats_export_state() -> None:
+    summary = build_query_history_usage_summary(
+        query_history_type="normal",
+        recent_query_count=42,
+        recent_chat_session_count=18,
+        recent_active_user_count=7,
+        recent_like_count=5,
+        recent_dislike_count=2,
+        recent_export_count=3,
+        recent_export_failure_count=1,
+        recent_export_rows=[
+            SimpleNamespace(
+                task_id="task-1",
+                status="SUCCESS",
+                start_time=datetime(2026, 4, 7, 13, 0, tzinfo=timezone.utc),
+            )
+        ],
+    )
+
+    assert summary.query_history_type == "normal"
+    assert summary.query_history_enabled is True
+    assert summary.recent_query_count == 42
+    assert summary.recent_chat_session_count == 18
+    assert summary.recent_active_user_count == 7
+    assert summary.recent_like_count == 5
+    assert summary.recent_dislike_count == 2
+    assert summary.recent_export_count == 3
+    assert summary.recent_export_failure_count == 1
+    assert summary.recent_exports[0].start_time == "2026-04-07T13:00:00+00:00"
+
+
+def test_build_custom_permission_summary_sorts_permission_counts() -> None:
+    summary = build_custom_permission_summary(
+        default_group_count=2,
+        custom_group_count=3,
+        stale_custom_group_count=1,
+        groups_with_custom_grants_count=2,
+        custom_permission_count=3,
+        manual_grant_count=4,
+        scim_grant_count=1,
+        admin_override_group_count=1,
+        permission_counts={"manage:user_groups": 2, "admin": 1, "read:query_history": 3},
+    )
+
+    assert summary.default_group_count == 2
+    assert summary.custom_group_count == 3
+    assert summary.stale_custom_group_count == 1
+    assert summary.groups_with_custom_grants_count == 2
+    assert summary.custom_permission_count == 3
+    assert summary.manual_grant_count == 4
+    assert summary.scim_grant_count == 1
+    assert summary.admin_override_group_count == 1
+    assert list(summary.permission_counts.keys()) == [
+        "admin",
+        "manage:user_groups",
+        "read:query_history",
+    ]
+
+
+def test_build_usage_limit_summary_formats_scope_counts() -> None:
+    summary = build_usage_limit_summary(
+        enabled=True,
+        global_limit_count=1,
+        enabled_global_limit_count=1,
+        user_limit_count=2,
+        enabled_user_limit_count=1,
+        user_group_limit_count=3,
+        enabled_user_group_limit_count=2,
+        limited_user_group_count=2,
+    )
+
+    assert summary.enabled is True
+    assert summary.global_limit_count == 1
+    assert summary.enabled_global_limit_count == 1
+    assert summary.user_limit_count == 2
+    assert summary.enabled_user_limit_count == 1
+    assert summary.user_group_limit_count == 3
+    assert summary.enabled_user_group_limit_count == 2
+    assert summary.limited_user_group_count == 2
+
+
+def test_build_hook_summary_formats_recent_executions() -> None:
+    summary = build_hook_summary(
+        hooks_enabled=True,
+        supported_hook_point_count=2,
+        configured_hook_count=1,
+        active_hook_count=1,
+        reachable_hook_count=1,
+        recent_execution_count=3,
+        recent_failure_count=1,
+        hook_point_names=["query_processing", "document_ingestion"],
+        recent_execution_rows=[
+            SimpleNamespace(
+                hook_name="Query Hook",
+                hook_point="query_processing",
+                is_success=False,
+                status_code=502,
+                error_message="bad gateway",
+                created_at=datetime(2026, 4, 7, 14, 0, tzinfo=timezone.utc),
+            )
+        ],
+    )
+
+    assert summary.hooks_enabled is True
+    assert summary.supported_hook_point_count == 2
+    assert summary.configured_hook_count == 1
+    assert summary.active_hook_count == 1
+    assert summary.reachable_hook_count == 1
+    assert summary.recent_execution_count == 3
+    assert summary.recent_failure_count == 1
+    assert summary.hook_point_names == ["document_ingestion", "query_processing"]
+    assert summary.recent_executions[0].created_at == "2026-04-07T14:00:00+00:00"
+
+
+def test_build_custom_theming_snapshot_formats_branding_flags() -> None:
+    settings = SimpleNamespace(
+        application_name="Acme Security",
+        use_custom_logo=True,
+        use_custom_logotype=False,
+        logo_display_style="logo_only",
+        custom_nav_items=[{"title": "Portal"}],
+        custom_header_content="Incident desk",
+        custom_lower_disclaimer_content=None,
+        show_first_visit_notice=True,
+        custom_popup_header="Welcome",
+        custom_popup_content="Read this first.",
+        enable_consent_screen=True,
+        consent_screen_prompt="I agree",
+        custom_greeting_message="Hello team",
+    )
+
+    summary = build_custom_theming_snapshot(settings)
+
+    assert summary["branding_configured"] is True
+    assert summary["application_name"] == "Acme Security"
+    assert summary["application_name_is_default"] is False
+    assert summary["use_custom_logo"] is True
+    assert summary["logo_display_style"] == "logo_only"
+    assert summary["custom_nav_item_count"] == 1
+    assert summary["custom_header_content_enabled"] is True
+    assert summary["custom_popup_enabled"] is True
+    assert summary["consent_screen_enabled"] is True
+    assert summary["consent_prompt_configured"] is True
+
+
+def test_load_white_labeling_summary_tracks_residual_branding_examples() -> None:
+    summary = load_white_labeling_summary(
+        {
+            "branding_configured": True,
+            "application_name_is_default": False,
+            "use_custom_logo": True,
+        }
+    )
+
+    assert summary.branding_configured is True
+    assert summary.custom_logo_enabled is True
+    assert summary.custom_favicon_enabled is True
+    assert summary.application_name_configured is True
+    assert summary.residual_branding_count >= 1
+    assert summary.white_label_ready is False
+
+
+def test_load_custom_deployment_summary_detects_supported_modes() -> None:
+    summary = load_custom_deployment_summary()
+
+    assert summary.docker_compose_variant_count >= 1
+    assert summary.helm_values_variant_count >= 1
+    assert summary.has_install_script is True
+    assert summary.has_security_platform_compose_overlay is True
+    assert summary.has_security_platform_helm_overlay is True
+    assert "docker-compose" in summary.supported_modes
+    assert "helm" in summary.supported_modes
+
+
+def test_load_region_processing_summary_detects_region_hints() -> None:
+    summary = load_region_processing_summary()
+
+    assert summary.aws_region_supported is True
+    assert summary.object_store_endpoint_configurable is True
+    assert summary.web_domain_configurable is True
+    assert summary.region_hint_count >= 1
+
+
+def test_load_self_hosting_summary_detects_license_and_entrypoints(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "onyx.server.manage.security_platform.api.get_license_metadata",
+        lambda _db_session: SimpleNamespace(
+            status="active",
+            source="manual_upload",
+            seats=25,
+            used_seats=7,
+        ),
+    )
+
+    summary = load_self_hosting_summary(db_session=object())
+
+    assert summary.self_hosted_mode is True
+    assert summary.license_enforcement_enabled is LICENSE_ENFORCEMENT_ENABLED
+    assert summary.has_license is True
+    assert summary.license_status == "active"
+    assert summary.license_source == "manual_upload"
+    assert summary.seat_count == 25
+    assert summary.used_seat_count == 7
+    assert summary.has_license_api is True
+    assert summary.has_admin_billing_page is True
+    assert summary.has_cloud_proxy is True
+
+
+def test_build_secrets_encryption_summary_counts_models_and_columns() -> None:
+    summary = build_secrets_encryption_summary(
+        enabled=True,
+        encrypted_columns=[
+            "credential.credential_json",
+            "oauth_config.client_secret",
+            "oauth_config.client_id",
+        ],
+        rotation_script_available=True,
+    )
+
+    assert summary.enabled is True
+    assert summary.encrypted_model_count == 2
+    assert summary.encrypted_column_count == 3
+    assert summary.rotation_script_available is True
+
+
 def test_build_health_status_reports_failing_checks() -> None:
     health = build_health_status(
         profile_name="demo",
@@ -65,6 +561,7 @@ def test_build_health_status_reports_failing_checks() -> None:
         security_tools_profile="mock",
         required_env=["SECURITY_TOOLS_MOCK_SERVER_URL", "SECURITY_TOOLS_MOCK_API_KEY"],
         missing_required_env=["SECURITY_TOOLS_MOCK_API_KEY"],
+        placeholder_required_env=[],
         deployment_profile_issues=[],
         document_set_status=SecurityPlatformDocumentSetStatus(
             id=None,
@@ -96,7 +593,7 @@ def test_build_health_status_reports_failing_checks() -> None:
         security_users=[
             SecurityPlatformUserStatus(
                 email="analyst@security.local",
-                role="UserRole.BASIC",
+                role="UserRole.LIMITED",
                 is_active=True,
             )
         ],
@@ -116,6 +613,135 @@ def test_build_health_status_reports_failing_checks() -> None:
                 "manual_review": 1,
                 "keep_runtime_only": 1,
             },
+            "permission_inheritance": {
+                "sync_cc_pair_count": 2,
+                "docs_with_external_acl_count": 0,
+                "recent_doc_sync_failure_count": 1,
+                "recent_group_sync_failure_count": 0,
+            },
+            "service_accounts": {
+                "api_key_count": 2,
+                "service_account_user_count": 1,
+                "ownerless_api_key_count": 1,
+            },
+            "scim": {
+                "active_token_count": 2,
+                "user_mapping_count": 0,
+                "group_mapping_count": 3,
+                "recent_group_sync_failure_count": 1,
+            },
+            "query_history_usage": {
+                "query_history_type": "disabled",
+                "query_history_enabled": False,
+                "recent_query_count": 0,
+                "recent_active_user_count": 0,
+                "recent_export_failure_count": 1,
+            },
+            "custom_permissions": {
+                "custom_group_count": 2,
+                "custom_permission_count": 3,
+                "manual_grant_count": 2,
+                "stale_custom_group_count": 1,
+                "admin_override_group_count": 1,
+            },
+            "usage_limits": {
+                "enabled": False,
+                "global_limit_count": 1,
+                "enabled_global_limit_count": 0,
+                "user_limit_count": 0,
+                "enabled_user_limit_count": 0,
+                "user_group_limit_count": 0,
+                "enabled_user_group_limit_count": 0,
+                "limited_user_group_count": 0,
+            },
+            "hooks": {
+                "hooks_enabled": True,
+                "supported_hook_point_count": 2,
+                "configured_hook_count": 1,
+                "active_hook_count": 1,
+                "reachable_hook_count": 0,
+                "recent_failure_count": 1,
+            },
+            "custom_theming": {
+                "branding_configured": True,
+                "application_name": "Onyx",
+                "application_name_is_default": True,
+                "use_custom_logo": False,
+                "use_custom_logotype": False,
+                "logo_display_style": "logo_only",
+                "custom_nav_item_count": 0,
+                "custom_header_content_enabled": False,
+                "custom_lower_disclaimer_enabled": False,
+                "first_visit_notice_enabled": True,
+                "custom_popup_enabled": False,
+                "consent_screen_enabled": True,
+                "custom_greeting_enabled": False,
+                "consent_prompt_configured": False,
+                "popup_content_configured": False,
+            },
+            "white_labeling": {
+                "branding_configured": True,
+                "custom_logo_enabled": True,
+                "custom_favicon_enabled": True,
+                "application_name_configured": True,
+                "white_label_ready": False,
+                "residual_branding_count": 2,
+                "residual_external_link_count": 1,
+                "residual_branding_examples": [
+                    "Logo.tsx: Powered by Onyx",
+                    "AdminSidebar.tsx: https://onyx.app",
+                ],
+            },
+            "custom_deployments": {
+                "docker_compose_variant_count": 4,
+                "helm_values_variant_count": 3,
+                "has_install_script": True,
+                "has_multitenant_compose": True,
+                "has_lite_compose": True,
+                "has_prod_compose": True,
+                "has_security_platform_compose_overlay": True,
+                "has_security_platform_helm_overlay": True,
+                "supported_modes": ["docker-compose", "helm", "production"],
+                "overlay_examples": [
+                    "deployment/docker_compose/docker-compose.security-platform.override.yml"
+                ],
+            },
+            "region_processing": {
+                "aws_region_supported": True,
+                "object_store_endpoint_configurable": True,
+                "web_domain_configurable": True,
+                "tenant_aware_deployment_supported": True,
+                "cloud_deployment_supported": True,
+                "region_hint_count": 4,
+                "region_hints": [
+                    "env.template: AWS_REGION_NAME",
+                    "env.template: S3_ENDPOINT_URL",
+                ],
+            },
+            "self_hosting": {
+                "self_hosted_mode": True,
+                "multi_tenant_mode": False,
+                "enterprise_features_enabled": True,
+                "license_enforcement_enabled": True,
+                "has_license": False,
+                "license_status": None,
+                "license_source": None,
+                "seat_count": None,
+                "used_seat_count": None,
+                "has_license_api": True,
+                "has_admin_billing_page": True,
+                "has_billing_service": True,
+                "has_cloud_proxy": True,
+                "cloud_data_plane_url_configured": True,
+                "has_install_script": True,
+                "has_docker_compose_path": True,
+                "has_helm_install_path": True,
+            },
+            "secrets_encryption": {
+                "enabled": False,
+                "encrypted_column_count": 0,
+                "rotation_script_available": False,
+            },
             "playbooks": {"count": 1, "with_examples": 0, "items": []},
         },
     )
@@ -126,6 +752,62 @@ def test_build_health_status_reports_failing_checks() -> None:
     assert "SECURITY_TOOLS_MOCK_API_KEY" in deployment_check["issues"][0]
     threat_check = next(check for check in health["checks"] if check["name"] == "threat_intel")
     assert any("promotion candidates remain: 3" in issue for issue in threat_check["issues"])
+    assert any(
+        check["name"] == "permission_inheritance" and check["status"] == "failing"
+        for check in health["checks"]
+    )
+    rbac_check = next(check for check in health["checks"] if check["name"] == "rbac")
+    assert any("web-login roles" in issue for issue in rbac_check["issues"])
+    service_account_check = next(
+        check for check in health["checks"] if check["name"] == "service_accounts"
+    )
+    assert any("Ownerless service account API keys detected" in issue for issue in service_account_check["issues"])
+    scim_check = next(check for check in health["checks"] if check["name"] == "scim")
+    assert any("Multiple active SCIM tokens detected" in issue for issue in scim_check["issues"])
+    query_history_check = next(
+        check for check in health["checks"] if check["name"] == "query_history_usage"
+    )
+    assert any("Query history is disabled" in issue for issue in query_history_check["issues"])
+    custom_permissions_check = next(
+        check for check in health["checks"] if check["name"] == "custom_permissions"
+    )
+    assert any(
+        "Custom permission groups pending sync detected" in issue
+        for issue in custom_permissions_check["issues"]
+    )
+    usage_limits_check = next(
+        check for check in health["checks"] if check["name"] == "usage_limits"
+    )
+    assert any("Usage limits are disabled" in issue for issue in usage_limits_check["issues"])
+    hooks_check = next(check for check in health["checks"] if check["name"] == "hooks")
+    assert any("Active but unreachable hooks detected" in issue for issue in hooks_check["issues"])
+    theming_check = next(
+        check for check in health["checks"] if check["name"] == "custom_theming"
+    )
+    assert theming_check["status"] == "warning"
+    assert any("Consent screen is enabled" in issue for issue in theming_check["issues"])
+    white_label_check = next(
+        check for check in health["checks"] if check["name"] == "white_labeling"
+    )
+    assert white_label_check["status"] == "warning"
+    assert any("residual Onyx UI traces remain" in issue for issue in white_label_check["issues"])
+    deployment_check = next(
+        check for check in health["checks"] if check["name"] == "custom_deployments"
+    )
+    assert deployment_check["status"] == "healthy"
+    region_check = next(
+        check for check in health["checks"] if check["name"] == "region_processing"
+    )
+    assert region_check["status"] == "healthy"
+    self_hosting_check = next(
+        check for check in health["checks"] if check["name"] == "self_hosting"
+    )
+    assert self_hosting_check["status"] == "warning"
+    assert any("no local self-hosted license metadata" in issue for issue in self_hosting_check["issues"])
+    secrets_check = next(
+        check for check in health["checks"] if check["name"] == "secrets_encryption"
+    )
+    assert any("ENCRYPTION_KEY_SECRET is not configured" in issue for issue in secrets_check["issues"])
 
 
 def test_build_health_status_reports_warning_for_due_threat_intel_only() -> None:
@@ -137,6 +819,7 @@ def test_build_health_status_reports_warning_for_due_threat_intel_only() -> None
         security_tools_profile="mock",
         required_env=[],
         missing_required_env=[],
+        placeholder_required_env=[],
         deployment_profile_issues=[],
         document_set_status=SecurityPlatformDocumentSetStatus(
             id=1,
@@ -211,6 +894,136 @@ def test_build_health_status_reports_warning_for_due_threat_intel_only() -> None
                 "manual_review": 0,
                 "keep_runtime_only": 1,
             },
+            "permission_inheritance": {
+                "sync_cc_pair_count": 0,
+                "docs_with_external_acl_count": 0,
+                "recent_doc_sync_failure_count": 0,
+                "recent_group_sync_failure_count": 0,
+            },
+            "service_accounts": {
+                "api_key_count": 0,
+                "service_account_user_count": 0,
+                "ownerless_api_key_count": 0,
+            },
+            "scim": {
+                "active_token_count": 0,
+                "user_mapping_count": 0,
+                "group_mapping_count": 0,
+                "recent_group_sync_failure_count": 0,
+            },
+            "query_history_usage": {
+                "query_history_type": "normal",
+                "query_history_enabled": True,
+                "recent_query_count": 12,
+                "recent_active_user_count": 3,
+                "recent_export_failure_count": 0,
+            },
+            "custom_permissions": {
+                "custom_group_count": 1,
+                "custom_permission_count": 1,
+                "manual_grant_count": 1,
+                "stale_custom_group_count": 0,
+                "admin_override_group_count": 0,
+            },
+            "usage_limits": {
+                "enabled": True,
+                "global_limit_count": 1,
+                "enabled_global_limit_count": 1,
+                "user_limit_count": 0,
+                "enabled_user_limit_count": 0,
+                "user_group_limit_count": 0,
+                "enabled_user_group_limit_count": 0,
+                "limited_user_group_count": 0,
+            },
+            "hooks": {
+                "hooks_enabled": True,
+                "supported_hook_point_count": 2,
+                "configured_hook_count": 0,
+                "active_hook_count": 0,
+                "reachable_hook_count": 0,
+                "recent_failure_count": 0,
+            },
+            "custom_theming": {
+                "branding_configured": True,
+                "application_name": "Acme Security",
+                "application_name_is_default": False,
+                "use_custom_logo": True,
+                "use_custom_logotype": False,
+                "logo_display_style": "logo_and_name",
+                "custom_nav_item_count": 2,
+                "custom_header_content_enabled": True,
+                "custom_lower_disclaimer_enabled": False,
+                "first_visit_notice_enabled": True,
+                "custom_popup_enabled": True,
+                "consent_screen_enabled": True,
+                "custom_greeting_enabled": True,
+                "consent_prompt_configured": True,
+                "popup_content_configured": True,
+            },
+            "white_labeling": {
+                "branding_configured": True,
+                "custom_logo_enabled": True,
+                "custom_favicon_enabled": True,
+                "application_name_configured": True,
+                "white_label_ready": False,
+                "residual_branding_count": 2,
+                "residual_external_link_count": 1,
+                "residual_branding_examples": [
+                    "Logo.tsx: Powered by Onyx",
+                    "AdminSidebar.tsx: https://onyx.app",
+                ],
+            },
+            "custom_deployments": {
+                "docker_compose_variant_count": 4,
+                "helm_values_variant_count": 3,
+                "has_install_script": True,
+                "has_multitenant_compose": True,
+                "has_lite_compose": True,
+                "has_prod_compose": True,
+                "has_security_platform_compose_overlay": True,
+                "has_security_platform_helm_overlay": True,
+                "supported_modes": ["docker-compose", "helm", "multitenant", "lite", "production"],
+                "overlay_examples": [
+                    "deployment/docker_compose/docker-compose.security-platform.override.yml",
+                    "deployment/helm/charts/onyx/values.security-platform.yaml",
+                ],
+            },
+            "region_processing": {
+                "aws_region_supported": True,
+                "object_store_endpoint_configurable": True,
+                "web_domain_configurable": True,
+                "tenant_aware_deployment_supported": True,
+                "cloud_deployment_supported": True,
+                "region_hint_count": 5,
+                "region_hints": [
+                    "env.template: AWS_REGION_NAME",
+                    "values.yaml: WEB_DOMAIN",
+                ],
+            },
+            "self_hosting": {
+                "self_hosted_mode": False,
+                "multi_tenant_mode": True,
+                "enterprise_features_enabled": True,
+                "license_enforcement_enabled": True,
+                "has_license": False,
+                "license_status": None,
+                "license_source": None,
+                "seat_count": None,
+                "used_seat_count": None,
+                "has_license_api": True,
+                "has_admin_billing_page": True,
+                "has_billing_service": True,
+                "has_cloud_proxy": True,
+                "cloud_data_plane_url_configured": True,
+                "has_install_script": True,
+                "has_docker_compose_path": True,
+                "has_helm_install_path": True,
+            },
+            "secrets_encryption": {
+                "enabled": True,
+                "encrypted_column_count": 3,
+                "rotation_script_available": True,
+            },
             "playbooks": {"count": 2, "with_examples": 2, "items": []},
             "historical_packages": {
                 "package_count": 2,
@@ -237,7 +1050,7 @@ def test_build_health_status_reports_warning_for_due_threat_intel_only() -> None
 
     assert health["overall_status"] == "warning"
     assert health["failing_checks"] == 0
-    assert health["warning_checks"] == 1
+    assert health["warning_checks"] == 2
 
 
 def test_build_health_status_reports_historical_package_catalog_drift() -> None:
@@ -249,6 +1062,7 @@ def test_build_health_status_reports_historical_package_catalog_drift() -> None:
         security_tools_profile="mock",
         required_env=[],
         missing_required_env=[],
+        placeholder_required_env=[],
         deployment_profile_issues=[],
         document_set_status=SecurityPlatformDocumentSetStatus(
             id=1,
@@ -275,6 +1089,134 @@ def test_build_health_status_reports_historical_package_catalog_drift() -> None:
                 "promotion_candidates": 0,
                 "manual_review": 0,
                 "keep_runtime_only": 1,
+            },
+            "permission_inheritance": {
+                "sync_cc_pair_count": 0,
+                "docs_with_external_acl_count": 0,
+                "recent_doc_sync_failure_count": 0,
+                "recent_group_sync_failure_count": 0,
+            },
+            "service_accounts": {
+                "api_key_count": 0,
+                "service_account_user_count": 0,
+                "ownerless_api_key_count": 0,
+            },
+            "scim": {
+                "active_token_count": 0,
+                "user_mapping_count": 0,
+                "group_mapping_count": 0,
+                "recent_group_sync_failure_count": 0,
+            },
+            "query_history_usage": {
+                "query_history_type": "normal",
+                "query_history_enabled": True,
+                "recent_query_count": 12,
+                "recent_active_user_count": 3,
+                "recent_export_failure_count": 0,
+            },
+            "custom_permissions": {
+                "custom_group_count": 1,
+                "custom_permission_count": 1,
+                "manual_grant_count": 1,
+                "stale_custom_group_count": 0,
+                "admin_override_group_count": 0,
+            },
+            "usage_limits": {
+                "enabled": True,
+                "global_limit_count": 1,
+                "enabled_global_limit_count": 1,
+                "user_limit_count": 1,
+                "enabled_user_limit_count": 1,
+                "user_group_limit_count": 1,
+                "enabled_user_group_limit_count": 1,
+                "limited_user_group_count": 1,
+            },
+            "hooks": {
+                "hooks_enabled": True,
+                "supported_hook_point_count": 2,
+                "configured_hook_count": 1,
+                "active_hook_count": 1,
+                "reachable_hook_count": 1,
+                "recent_failure_count": 0,
+            },
+            "custom_theming": {
+                "branding_configured": False,
+                "application_name": "Onyx",
+                "application_name_is_default": True,
+                "use_custom_logo": False,
+                "use_custom_logotype": False,
+                "logo_display_style": "logo_and_name",
+                "custom_nav_item_count": 0,
+                "custom_header_content_enabled": False,
+                "custom_lower_disclaimer_enabled": False,
+                "first_visit_notice_enabled": False,
+                "custom_popup_enabled": False,
+                "consent_screen_enabled": False,
+                "custom_greeting_enabled": False,
+                "consent_prompt_configured": False,
+                "popup_content_configured": False,
+            },
+            "white_labeling": {
+                "branding_configured": False,
+                "custom_logo_enabled": False,
+                "custom_favicon_enabled": False,
+                "application_name_configured": False,
+                "white_label_ready": False,
+                "residual_branding_count": 2,
+                "residual_external_link_count": 1,
+                "residual_branding_examples": [
+                    "Logo.tsx: Powered by Onyx",
+                    "AdminSidebar.tsx: https://onyx.app",
+                ],
+            },
+            "custom_deployments": {
+                "docker_compose_variant_count": 4,
+                "helm_values_variant_count": 3,
+                "has_install_script": True,
+                "has_multitenant_compose": True,
+                "has_lite_compose": True,
+                "has_prod_compose": True,
+                "has_security_platform_compose_overlay": True,
+                "has_security_platform_helm_overlay": True,
+                "supported_modes": ["docker-compose", "helm"],
+                "overlay_examples": [
+                    "deployment/docker_compose/docker-compose.security-platform.override.yml"
+                ],
+            },
+            "region_processing": {
+                "aws_region_supported": True,
+                "object_store_endpoint_configurable": True,
+                "web_domain_configurable": True,
+                "tenant_aware_deployment_supported": True,
+                "cloud_deployment_supported": True,
+                "region_hint_count": 3,
+                "region_hints": [
+                    "env.template: AWS_REGION_NAME",
+                ],
+            },
+            "self_hosting": {
+                "self_hosted_mode": False,
+                "multi_tenant_mode": True,
+                "enterprise_features_enabled": True,
+                "license_enforcement_enabled": True,
+                "has_license": False,
+                "license_status": None,
+                "license_source": None,
+                "seat_count": None,
+                "used_seat_count": None,
+                "has_license_api": True,
+                "has_admin_billing_page": True,
+                "has_billing_service": True,
+                "has_cloud_proxy": True,
+                "cloud_data_plane_url_configured": True,
+                "has_install_script": True,
+                "has_docker_compose_path": True,
+                "has_helm_install_path": True,
+            },
+            "secrets_encryption": {
+                "enabled": True,
+                "encrypted_column_count": 3,
+                "rotation_script_available": True,
             },
             "historical_packages": {
                 "package_count": 2,

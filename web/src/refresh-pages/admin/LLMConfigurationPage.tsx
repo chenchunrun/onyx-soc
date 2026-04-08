@@ -46,7 +46,9 @@ import CustomModal from "@/sections/modals/llmConfig/CustomModal";
 import LMStudioForm from "@/sections/modals/llmConfig/LMStudioForm";
 import LiteLLMProxyModal from "@/sections/modals/llmConfig/LiteLLMProxyModal";
 import BifrostModal from "@/sections/modals/llmConfig/BifrostModal";
+import OpenAICompatibleTemplateModal from "@/sections/modals/llmConfig/OpenAICompatibleTemplateModal";
 import { Section } from "@/layouts/general-layouts";
+import { getOpenAICompatibleTemplateDescriptors } from "@/lib/llmConfig/openaiCompatibleTemplates";
 
 const route = ADMIN_ROUTES.LLM_MODELS;
 
@@ -58,6 +60,9 @@ const route = ADMIN_ROUTES.LLM_MODELS;
 // wellKnownLLMProviders in an arbitrary order, so we sort explicitly here.
 const PROVIDER_DISPLAY_ORDER: string[] = [
   "openai",
+  "bigmodel",
+  "minimax",
+  "kimi",
   "anthropic",
   "vertex_ai",
   "bedrock",
@@ -79,6 +84,30 @@ const PROVIDER_MODAL_MAP: Record<
 > = {
   openai: (d, open, onOpenChange) => (
     <OpenAIModal
+      shouldMarkAsDefault={d}
+      open={open}
+      onOpenChange={onOpenChange}
+    />
+  ),
+  bigmodel: (d, open, onOpenChange) => (
+    <OpenAICompatibleTemplateModal
+      templateId="bigmodel"
+      shouldMarkAsDefault={d}
+      open={open}
+      onOpenChange={onOpenChange}
+    />
+  ),
+  minimax: (d, open, onOpenChange) => (
+    <OpenAICompatibleTemplateModal
+      templateId="minimax"
+      shouldMarkAsDefault={d}
+      open={open}
+      onOpenChange={onOpenChange}
+    />
+  ),
+  kimi: (d, open, onOpenChange) => (
+    <OpenAICompatibleTemplateModal
+      templateId="kimi"
       shouldMarkAsDefault={d}
       open={open}
       onOpenChange={onOpenChange}
@@ -373,6 +402,7 @@ export default function LLMConfigurationPage() {
   const { llmProviders: existingLlmProviders, defaultText } =
     useAdminLLMProviders();
   const { wellKnownLLMProviders } = useWellKnownLLMProviders();
+  const extraTemplateProviders = getOpenAICompatibleTemplateDescriptors();
 
   if (!existingLlmProviders) {
     return <ThreeDotsLoader />;
@@ -518,7 +548,15 @@ export default function LLMConfigurationPage() {
           />
 
           <div className="grid grid-cols-2 gap-2">
-            {[...(wellKnownLLMProviders ?? [])]
+            {[
+              ...(wellKnownLLMProviders ?? []),
+              ...extraTemplateProviders.filter(
+                (templateProvider) =>
+                  !(wellKnownLLMProviders ?? []).some(
+                    (provider) => provider.name === templateProvider.name
+                  )
+              ),
+            ]
               .sort((a, b) => {
                 const aIndex = PROVIDER_DISPLAY_ORDER.indexOf(a.name);
                 const bIndex = PROVIDER_DISPLAY_ORDER.indexOf(b.name);

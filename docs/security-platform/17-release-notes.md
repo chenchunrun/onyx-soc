@@ -2,48 +2,105 @@
 
 ## 版本结论
 
-当前版本已达到 `PoC / 内部试运行基线`，整体完成度约为 `80%-85%`。
+当前版本已达到：
+
+- `PoC / 内部试运行基线`
+
+当前可按以下方式理解：
+
+- 主体能力已成型
+- 验收链路已形成
+- 管理面已具备轻量诊断能力
+- 主要企业能力已完成最小收口
 
 
-## 主要新增能力
+## 本阶段主要完成内容
+
+### 1. 安全底座主链路
 
 - 安全知识导入与 `安全知识库` document set 初始化
-- 四个安全 persona 自动创建与更新
-- 安全工具创建、绑定与 RBAC 初始化
-- 统一 `bootstrap` 链路
-- 最小验收自动化
-- threat-intel corpus / historical package catalog 摘要输出
-- security tools profile / deployment profile 运行摘要输出
-- `glm5_live` 真实模型专项回归
+- 四个安全 persona / agent 初始化与定义文档落库
+- 六个安全 OpenAPI 工具创建、绑定与声明式配置管理
+- 统一 `bootstrap` 初始化链路
+- playbook 目录与统一 runner
+- 最小验收、smoke、playbook、安全平台回归链路
 
 
-## 部署与运行资产
+### 2. threat-intel 治理链路
 
-- Docker Compose 安全平台环境模板与 override
-- Helm `values.security-platform.yaml`
-- Helm `values.security-platform.live.yaml`
-- Helm `values.security-platform.demo.yaml`
+- threat-intel feed 同步与 profile 校验
+- manifest / curation / lifecycle 评估
+- historical package catalog
+- archive batch / worklist / patch preview / execution artifact 一致性检查
+
+
+### 3. 安全工作台与运维摘要
+
+- 安全工作台 API 与前端页面
+- 工具调用审计摘要
+- 配置漂移检查
+- 最近失败项摘要
+- 统一健康检查、修复建议和 remediation commands
+
+
+### 4. 企业能力最小收口
+
+当前以下能力已经完成“管理面可见 + 验收可记录 + 健康检查可诊断”的最小收口：
+
+- Inherit Document Permissions
+- RBAC / Custom Permissions
+- Service Account API Keys
+- SCIM / Group Sync
+- Encryption of Secrets
+- Query History and Usage Dashboard
+- Configurable Usage Limits
+- Hook Extensions
+- Custom Theming / White-labeling
+- Custom Deployments
+- Region-Specific Data Processing
+- Self-hosting
+
+
+### 5. 文档与交付口径
+
+- 已统一 `TODO / 状态报告 / backlog`
+- 已补统一索引页
+- 已补可交付版本边界说明
+- 已完成核心正式文档的一致性回写
 
 
 ## 已验证结果
 
-- 最小验收脚本已在真实环境通过，当前结果为 `Result: OK`
-- 安全平台集成回归已通过，当前结果为 `14 passed, 10 skipped`
-- `glm5_live` 专项回归已通过，当前结果为 `3 passed`
-- 已验证真实 `glm-5` 模型可完成安全分析、自主工具调用和多轮链路
+- 安全平台状态 API 与验收相关单测已通过
+- playbook / acceptance / smoke CLI 入口单测已通过
+- threat-intel archive execution result 单测已通过
+- 安全平台相关 Python 单测当前结果为：
+  - `45 passed`
 
+说明：
 
-## 关键修复
-
-- 修复 persona 更新时误清 custom tools 的问题
-- 修复 persona 更新时误清 `persona__user` 访问关系的问题
-- 修复 `Web Search` 内置工具在现网中发现不稳定的问题
-- 修复 direct tool 模式下多 path OpenAPI 工具错误选取 operation 的问题
-- 增强 playbook 定义静态校验，提前拦截工具声明和步骤引用错误
+- 当前 release notes 以最新文档和当前代码状态为准
+- 早期阶段中出现的特定模型专项回归结果，不再作为当前版本主口径
 
 
 ## 当前已知剩余项
 
-- 真实生产环境 Secret 和配置管理仍需收口
-- Helm 模板仍需进一步生产化
-- 更长链路联调自动化仍可继续补强
+- 真实生产环境 Secret 管理方式仍需继续收口
+- 更长链路的 live 场景回归仍可继续增强
+- threat-intel 上游源仍可继续扩展
+- 更深的运营统计、长期趋势和生产化审计能力仍未建立
+
+
+## 建议使用方式
+
+当前版本适合用于：
+
+- 内部演示
+- 内部试运行
+- 交付前技术验证
+- 管理面与验收链路展示
+
+当前版本不应被表述为：
+
+- 已 fully productized 的独立商业化产品包
+- 已完成全部企业能力深度产品化的最终版本

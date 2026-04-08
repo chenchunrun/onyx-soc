@@ -34,12 +34,11 @@ class OnyxVersion:
 global_version = OnyxVersion()
 
 # Read LICENSE_ENFORCEMENT_ENABLED directly since it's in EE configs
-# This allows EE code to load when license enforcement is enabled,
-# even without ENABLE_PAID_ENTERPRISE_EDITION_FEATURES being set.
-# Eventually, ENABLE_PAID_ENTERPRISE_EDITION_FEATURES will be removed
-# and license enforcement will be the only mechanism for EE features.
+# Default is False (disabled) - EE features are always available on self-hosted
+# deployments without requiring a license.
+# To re-enable enforcement, set LICENSE_ENFORCEMENT_ENABLED=true.
 _LICENSE_ENFORCEMENT_ENABLED = (
-    os.environ.get("LICENSE_ENFORCEMENT_ENABLED", "true").lower() == "true"
+    os.environ.get("LICENSE_ENFORCEMENT_ENABLED", "false").lower() == "true"
 )
 
 

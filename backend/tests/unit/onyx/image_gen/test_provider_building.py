@@ -1,5 +1,6 @@
 import json
 from unittest.mock import patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -8,11 +9,15 @@ from onyx.image_gen.factory import get_image_generation_provider
 from onyx.image_gen.interfaces import ImageGenerationProviderCredentials
 from onyx.image_gen.interfaces import ReferenceImage
 from onyx.image_gen.providers.azure_img_gen import AzureImageGenerationProvider
+from onyx.image_gen.providers.bigmodel_img_gen import BigModelImageGenerationProvider
+from onyx.image_gen.providers.minimax_img_gen import MiniMaxImageGenerationProvider
 from onyx.image_gen.providers.openai_img_gen import OpenAIImageGenerationProvider
 from onyx.image_gen.providers.vertex_img_gen import VertexImageGenerationProvider
 
 OPENAI_PROVIDER = "openai"
 AZURE_PROVIDER = "azure"
+BIGMODEL_PROVIDER = "bigmodel"
+MINIMAX_PROVIDER = "minimax"
 VERTEX_PROVIDER = "vertex_ai"
 
 
@@ -60,6 +65,72 @@ def test_build_openai_provider_fails_no_api_key() -> None:
 
     with pytest.raises(ImageProviderCredentialsError):
         get_image_generation_provider(provider, credentials)
+
+
+def test_build_bigmodel_provider_from_api_key() -> None:
+    credentials = _get_default_image_gen_creds()
+    credentials.api_key = "test"
+
+    image_gen_provider = get_image_generation_provider(BIGMODEL_PROVIDER, credentials)
+
+    assert isinstance(image_gen_provider, BigModelImageGenerationProvider)
+
+
+def test_build_minimax_provider_from_api_key() -> None:
+    credentials = _get_default_image_gen_creds()
+    credentials.api_key = "test"
+
+    image_gen_provider = get_image_generation_provider(MINIMAX_PROVIDER, credentials)
+
+    assert isinstance(image_gen_provider, MiniMaxImageGenerationProvider)
+
+
+def test_bigmodel_provider_converts_downloaded_url_to_b64() -> None:
+    provider = BigModelImageGenerationProvider(api_key="test-key")
+    generation_response = Mock()
+    generation_response.json.return_value = {
+        "created": 123,
+        "data": [{"url": "https://cdn.example.com/image.png"}],
+    }
+    generation_response.raise_for_status.return_value = None
+
+    image_download_response = Mock()
+    image_download_response.content = b"image-bytes"
+    image_download_response.raise_for_status.return_value = None
+
+    with (
+        patch("requests.post", return_value=generation_response),
+        patch("requests.get", return_value=image_download_response),
+    ):
+        response = provider.generate_image(
+            prompt="draw a skyline",
+            model="glm-image",
+            size="1024x1024",
+            n=1,
+        )
+
+    assert response.data is not None
+    assert response.data[0].b64_json is not None
+
+
+def test_minimax_provider_reads_base64_payload() -> None:
+    provider = MiniMaxImageGenerationProvider(api_key="test-key")
+    generation_response = Mock()
+    generation_response.json.return_value = {
+        "data": {"image_base64": ["ZmFrZS1pbWFnZQ=="]},
+    }
+    generation_response.raise_for_status.return_value = None
+
+    with patch("requests.post", return_value=generation_response):
+        response = provider.generate_image(
+            prompt="draw a skyline",
+            model="image-01",
+            size="1024x1024",
+            n=1,
+        )
+
+    assert response.data is not None
+    assert response.data[0].b64_json == "ZmFrZS1pbWFnZQ=="
 
 
 def test_build_azure_provider_from_api_key_and_base_and_version() -> None:

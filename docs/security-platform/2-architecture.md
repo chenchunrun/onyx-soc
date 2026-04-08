@@ -34,6 +34,7 @@
 入口：
 
 - `knowledge-base/setup_security_personas.py`
+- `docs/security-platform/4-agents/`
 
 当前标准角色：
 
@@ -43,6 +44,11 @@
 - 合规审计员
 
 角色通过 persona 实体落地，而不是单独的运行时子系统。
+
+补充说明：
+
+- `4-agents/` 文档用于固化角色目标、提示词语义、知识边界、工具边界和风险边界
+- 运行时仍由 Onyx persona 机制承载
 
 
 ### 2.4 威胁情报层
@@ -130,6 +136,35 @@
 - `rbac`
 
 
+### 2.9 Playbook 执行层
+
+入口：
+
+- `docs/security-platform/playbooks/`
+- `knowledge-base/run_security_playbook.py`
+
+主要职责：
+
+- 以声明式 YAML 定义多步骤安全流程
+- 将 persona、tool、template 三类执行模式组织为可重复运行的安全 playbook
+- 为流程化联调、验收和回归提供统一运行入口
+
+
+### 2.10 验收与观测层
+
+入口：
+
+- `knowledge-base/verify_security_platform_acceptance.py`
+- `backend/onyx/server/manage/security_platform/api.py`
+- `web/src/app/admin/security-platform/page.tsx`
+
+主要职责：
+
+- 提供最小验收脚本，统一检查 document set、persona、tool、RBAC、threat-intel、playbook 状态
+- 提供安全工作台后端状态 API
+- 提供管理后台安全工作台页面，展示运行状态、修复建议和 remediation commands
+
+
 ## 3. 关键数据依赖
 
 ### 3.1 Document Set
@@ -165,10 +200,12 @@
 
 1. 导入安全知识文档到 Onyx
 2. 同步本地威胁情报 feed 到 Onyx
-3. 创建或更新四个安全 persona
-4. 创建 OpenAPI 安全工具
-5. 将工具绑定到 persona
-6. 创建安全团队用户并绑定权限
+3. 创建或确保 `安全知识库` document set 存在
+4. 创建或更新四个安全 persona
+5. 创建 OpenAPI 安全工具
+6. 将工具绑定到 persona
+7. 创建安全团队用户并绑定权限
+8. 执行 acceptance / smoke 或工作台状态检查
 
 
 ## 5. 当前实现特点
@@ -176,8 +213,10 @@
 - 高度复用 Onyx 现有 API
 - 以脚本编排为主，而非 migration/seed 框架
 - 适合 PoC 和内部试运行
-- 已开始向标准化交付结构收敛
+- 已形成标准化交付结构
 - 威胁情报同步已进入 bootstrap 主链路
+- playbook 已进入可执行流程层
+- 已具备最小验收和运行状态可视化能力
 
 
 ## 6. 当前主要限制
@@ -185,4 +224,4 @@
 - 对环境准备有一定前置依赖
 - 威胁情报上游刷新依赖外部网络与源站可用性
 - 真正的一键部署资产尚未补齐
-- 完整生产验收文档仍在补齐阶段
+- 生产化配置、Secret 管理与更细粒度运维观测仍需继续收口

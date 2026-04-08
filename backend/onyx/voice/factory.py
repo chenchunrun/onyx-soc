@@ -66,5 +66,16 @@ def get_voice_provider(provider: VoiceProvider) -> VoiceProviderInterface:
             default_voice=default_voice,
         )
 
+    elif provider_type == "bigmodel":
+        from onyx.voice.providers.bigmodel import BigModelVoiceProvider
+
+        return BigModelVoiceProvider(
+            api_key=api_key,
+            api_base=api_base,
+            stt_model=stt_model,
+            tts_model=tts_model,
+            default_voice=default_voice,
+        )
+
     else:
         raise ValueError(f"Unsupported voice provider type: {provider_type}")

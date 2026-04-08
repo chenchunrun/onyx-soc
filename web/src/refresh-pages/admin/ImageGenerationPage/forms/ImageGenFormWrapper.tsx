@@ -51,7 +51,25 @@ export function ImageGenFormWrapper<T extends FormValues>({
   // API keys from LLM providers are already masked by backend (first 4 + **** + last 4)
   const apiKeyOptions = useMemo(() => {
     return existingProviders
-      .filter((p) => p.provider === imageProvider.provider_name)
+      .filter((p) => {
+        if (imageProvider.provider_name === "openai") {
+          return p.provider === "openai";
+        }
+        if (imageProvider.provider_name === "bigmodel") {
+          return (
+            p.provider === "openai" &&
+            p.api_base?.includes("open.bigmodel.cn")
+          );
+        }
+        if (imageProvider.provider_name === "minimax") {
+          return (
+            p.provider === "openai" &&
+            (p.api_base?.includes("minimax.io") ||
+              p.api_base?.includes("minimaxi.com"))
+          );
+        }
+        return p.provider === imageProvider.provider_name;
+      })
       .map((provider) => ({
         value: `existing:${provider.id}:${provider.name}`,
         label: provider.api_key || "****",

@@ -131,8 +131,9 @@ HUBSPOT_TRACKING_URL = os.environ.get("HUBSPOT_TRACKING_URL")
 GATED_TENANTS_KEY = "gated_tenants"
 
 # License enforcement - when True, blocks API access for gated/expired licenses
+# Default is False (disabled) to allow self-hosted deployments without license
 LICENSE_ENFORCEMENT_ENABLED = (
-    os.environ.get("LICENSE_ENFORCEMENT_ENABLED", "true").lower() == "true"
+    os.environ.get("LICENSE_ENFORCEMENT_ENABLED", "false").lower() == "true"
 )
 
 # Cloud data plane URL - self-hosted instances call this to reach cloud proxy endpoints

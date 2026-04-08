@@ -127,8 +127,9 @@ function transformValues(
   return {
     modelName: imageProvider.model_name,
     imageProviderId: imageProvider.image_provider_id,
-    provider: "openai",
+    provider: imageProvider.provider_name,
     apiKey: values.api_key,
+    apiBase: imageProvider.api_base,
   };
 }
 

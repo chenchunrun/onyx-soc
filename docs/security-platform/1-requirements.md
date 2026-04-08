@@ -24,18 +24,32 @@
 - 安全知识库 markdown 内容沉淀
 - 知识库导入脚本
 - 四个标准安全 persona 初始化
+- 四个安全 Agent 定义文档
 - OpenAPI 安全工具创建与绑定
+- 声明式工具集成配置管理
 - 威胁情报 feed 同步与校验
+- threat-intel manifest、curation、生命周期治理、historical package 管理
 - 安全团队 RBAC 初始化
 - 统一 bootstrap 编排脚本
-- 部分集成测试与新增单元测试
+- 安全工作台 API 与前端页面
+- 最小验收、smoke、基础回归测试
+- 安全工作台轻量运维摘要：
+  - 工具调用审计摘要
+  - 配置漂移检查
+  - 最近失败项摘要
+- 主要企业能力的管理面可见性与验收收口：
+  - Document Permissions / RBAC / Custom Permissions
+  - Service Accounts / SCIM / Query History / Usage Limits
+  - Hooks / Secrets Encryption
+  - Custom Theming / White-labeling
+  - Custom Deployments / Region Processing / Self-hosting
 
 当前版本暂不包含：
 
-- 安全底座专属前端产品壳
 - 独立 Helm chart 或独立 compose 项目
 - 完整商业化情报源接入
-- 专门的专家评审记录体系
+- 面向企业 secret manager 的完整生产化接入说明
+- 完整运维审计与观测体系
 
 
 ## 4. 目标用户
@@ -60,6 +74,7 @@
 
 - 具备四个标准安全 persona
 - persona 拥有明确角色说明、提示词和基础工具集
+- 四个角色具备独立 Agent 定义文档
 - persona 可通过脚本创建或更新
 - persona 不依赖固定 ID 才能完成初始化链路
 
@@ -90,6 +105,9 @@
 - 支持 `dry-run / apply / verify`
 - 支持按阶段执行
 - 支持失败中断和结果汇总
+- 提供最小验收与 smoke 校验入口
+- 提供运行状态查看入口
+- 提供轻量级管理面摘要，支持定位配置、权限、同步和部署模式问题
 
 
 ## 6. 非功能要求
@@ -102,20 +120,31 @@
 
 ## 7. 当前交付物
 
+- `docs/security-platform/1-requirements.md`
+- `docs/security-platform/2-architecture.md`
+- `docs/security-platform/4-agents/`
+- `docs/security-platform/5-integrations/`
+- `docs/security-platform/playbooks/`
+- `docs/security-platform/6-implementation-guide.md`
+- `docs/security-platform/7-deployment.md`
+- `docs/security-platform/8-expert-review-notes.md`
+- `docs/security-platform/9-minimal-acceptance-checklist.md`
 - `knowledge-base/bootstrap_security_platform.py`
 - `knowledge-base/setup_security_threat_intel.py`
 - `knowledge-base/setup_security_personas.py`
+- `knowledge-base/run_security_playbook.py`
 - `knowledge-base/upload_to_onyx.py`
 - `knowledge-base/security-automation/setup_security_tools.py`
 - `knowledge-base/sso-rbac/provision_security_team.py`
-- `knowledge-base/Bootstrap-初始化指南.md`
+- `knowledge-base/verify_security_platform_acceptance.py`
 - `docs/ONYX_SECURITY_PLATFORM_STATUS_REPORT.md`
 - `docs/TODO.md`
 
 
 ## 8. 当前缺口
 
-- agent 定义文档尚未全部补齐
 - 部署资产仍以主仓部署方式为主
+- 生产化配置与 Secret 管理说明仍需继续收口
 - 威胁情报上游刷新仍依赖外部网络与源站可用性
-- 商业情报源和生产化审计策略仍未完善
+- 商业情报源仍未扩展
+- 更深的运营统计、长期趋势看板与生产化审计策略仍未完善
