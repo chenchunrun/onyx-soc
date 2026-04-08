@@ -261,7 +261,8 @@ python knowledge-base/bootstrap_security_platform.py \
 - `rbac` 阶段依赖数据库可连接
 - `knowledge-base` 阶段的预演输出较长，因为会列出所有 markdown 文件
 - `personas` 阶段依赖 Onyx API 可访问
-- `document-set` 阶段当前会创建一个空 document set，不会自动绑定 connector/cc pair
+- `document-set` 阶段当前会确保存在名称为 `安全知识库` 的 document set，并自动创建/刷新真实 file connector `安全知识文件源` 后完成绑定，不再依赖 `DefaultCCPair`
+- `document-set` 阶段再次执行 `--apply` 时会刷新 `knowledge-base/` 下的 markdown 内容并重新同步到 `安全知识文件源`
 - `acceptance` 阶段不支持 `--dry-run`
 - `smoke` 阶段依赖真实聊天链路和工具链路可用，执行时间明显长于 `acceptance`
 
