@@ -97,6 +97,7 @@ helm upgrade --install onyx . -n onyx --create-namespace \
 - threat-intel archive execution plans：`knowledge-base/threat-intelligence/archive_execution_plans/`
 - threat-intel archive execution records：`knowledge-base/threat-intelligence/archive_execution_records/`
 - threat-intel archive execution results：`knowledge-base/threat-intelligence/archive_execution_results/`
+- threat-intel archive 治理 SOP：`knowledge-base/threat-intelligence/Threat-Intel归档治理SOP.md`
 
 
 ### 4.2.1 Docker Compose 覆盖配置

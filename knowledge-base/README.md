@@ -21,6 +21,8 @@
   身份治理、SSO、RBAC、团队初始化
 - [threat-intelligence/](/Users/newmba/Downloads/onyx-main/knowledge-base/threat-intelligence)
   threat-intel 生命周期治理、归档、执行结果
+- [Threat-Intel归档治理SOP.md](/Users/newmba/Downloads/onyx-main/knowledge-base/threat-intelligence/Threat-Intel归档治理SOP.md)
+  archive candidate 评审、执行、验证、回滚流程
 
 ## 事件响应与调查
 
