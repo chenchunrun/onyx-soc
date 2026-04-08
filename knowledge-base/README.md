@@ -26,6 +26,8 @@
 
 - [应急响应/](/Users/newmba/Downloads/onyx-main/knowledge-base/应急响应)
   总体响应知识
+- [应急响应索引](/Users/newmba/Downloads/onyx-main/knowledge-base/应急响应/README.md)
+  事件响应入口页
 - [专项SOP/](/Users/newmba/Downloads/onyx-main/knowledge-base/应急响应/专项SOP)
   钓鱼、账号失陷、勒索等专项 SOP
 - [证据与复盘/](/Users/newmba/Downloads/onyx-main/knowledge-base/应急响应/证据与复盘)
@@ -37,6 +39,8 @@
 
 - [检测工程/](/Users/newmba/Downloads/onyx-main/knowledge-base/检测工程)
   检测工程总目录
+- [检测工程索引](/Users/newmba/Downloads/onyx-main/knowledge-base/检测工程/README.md)
+  规则、映射、查询样例入口页
 - [规则方法论/](/Users/newmba/Downloads/onyx-main/knowledge-base/检测工程/规则方法论)
   检测规则设计、误报降噪、ATT&CK 映射
 - [查询样例/](/Users/newmba/Downloads/onyx-main/knowledge-base/检测工程/查询样例)
@@ -64,6 +68,8 @@
 
 - [内部运行手册/](/Users/newmba/Downloads/onyx-main/knowledge-base/内部运行手册)
   值班、分级、升级、工单流转、SIEM / EDR 手册、字段字典
+- [内部运行手册索引](/Users/newmba/Downloads/onyx-main/knowledge-base/内部运行手册/README.md)
+  值班与平台操作入口页
 
 重点入口：
 
