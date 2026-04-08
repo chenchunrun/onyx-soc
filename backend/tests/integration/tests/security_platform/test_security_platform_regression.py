@@ -28,6 +28,9 @@ ADMIN_PASSWORD = os.environ.get("ONYX_PASSWORD", "admin123")
 SECURITY_DOCUMENT_SET_NAME = "安全知识库"
 REPO_ROOT = Path(__file__).resolve().parents[5]
 PLAYBOOK_RUNNER = REPO_ROOT / "knowledge-base" / "run_security_playbook.py"
+SECURITY_TOOLS_SETUP = (
+    REPO_ROOT / "knowledge-base" / "security-automation" / "setup_security_tools.py"
+)
 SECURITY_PERSONA_TOOL_REQUIREMENTS = {
     "安全事件分析师": {
         "builtin_tools": {"Internal Search", "Web Search", "Open URL"},
@@ -293,6 +296,35 @@ LIVE_TOOL_INVOCATION_SCENARIOS = [
         "expected_method": "GET",
         "expected_path_fragment": "/assets/search",
         "response_markers": ["finance-host-01", "Finance", "asset-001"],
+    },
+    {
+        "persona_name": "威胁狩猎工程师",
+        "tool_name": "search_security_alerts",
+        "prompt": "请仅使用 search_security_alerts 查询 query=powershell、severity=high、limit=5，并用一句话总结狩猎结果。",
+        "expected_method": "GET",
+        "expected_path_fragment": "/alerts/search",
+        "response_markers": ["ALERT-1001", "PowerShell", "finance-host-01"],
+    },
+    {
+        "persona_name": "恶意软件分析师",
+        "tool_name": "isolate_endpoint_host",
+        "prompt": "请仅使用 isolate_endpoint_host 隔离 host_id=finance-host-01，reason=Malware regression containment，并简要确认。",
+        "expected_method": "POST",
+        "expected_path_fragment": "/hosts/finance-host-01/isolate",
+        "response_markers": ["finance-host-01", "queued", "isolate"],
+    },
+    {
+        "persona_name": "检测工程师",
+        "tool_name": "create_security_ticket",
+        "prompt": (
+            "请仅使用 create_security_ticket 创建一条检测工程工单，"
+            "summary=Detection engineering follow-up for finance-host-01，"
+            "description=PowerShell hunt requires rule tuning and triage，"
+            "priority=HIGH，project_key=SEC，并简要确认创建结果。"
+        ),
+        "expected_method": "POST",
+        "expected_path_fragment": "/issue",
+        "response_markers": ["SEC-", "finance-host-01", "HIGH"],
     },
 ]
 
@@ -715,10 +747,41 @@ def _verify_playbook_definitions() -> subprocess.CompletedProcess[str]:
     )
 
 
+def _apply_security_tools_profile(profile: str, mock_server_url: str | None = None) -> None:
+    command = [
+        sys.executable,
+        str(SECURITY_TOOLS_SETUP),
+        "--apply",
+        "--profile",
+        profile,
+        "--url",
+        FRONTEND_API_URL,
+        "--email",
+        ADMIN_EMAIL,
+        "--password",
+        ADMIN_PASSWORD,
+    ]
+    env = os.environ.copy()
+    if mock_server_url:
+        env["SECURITY_TOOLS_MOCK_SERVER_URL"] = mock_server_url
+        env.setdefault("SECURITY_TOOLS_MOCK_API_KEY", "integration-test-mock-api-key")
+    result = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=180,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+
+
 @pytest.fixture(scope="module")
 def seeded_security_platform(
     mock_security_tools_server: str,
 ) -> Generator[SeededSecurityPlatform, None, None]:
+    _apply_security_tools_profile("mock", mock_server_url="http://host.docker.internal:9999")
     admin_user = _login_admin_user()
     analyst_id = int(_get_persona_map(admin_user)["安全事件分析师"]["id"])
     default_text_model, available_text_models = _get_llm_provider_state(admin_user)
@@ -1409,6 +1472,122 @@ def test_security_platform_cross_persona_live_containment_chain_regression(
         isolate_request["body"]["reason"]
         == "PowerShell high severity alert on finance-host-01"
     )
+
+
+def test_security_platform_hunt_detection_malware_live_chain_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    hunter_id, alerts_tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        "威胁狩猎工程师",
+        "search_security_alerts",
+    )
+    detection_id, ticket_tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        "检测工程师",
+        "create_security_ticket",
+    )
+    malware_id, isolate_tool_id = _get_tool_id_for_persona(
+        seeded_security_platform.admin_user,
+        "恶意软件分析师",
+        "isolate_endpoint_host",
+    )
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+
+    hunter_chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        hunter_id,
+        description=f"regression-hunt-chain-hunter-{uuid.uuid4()}",
+    )
+    hunter_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        hunter_chat_session_id,
+        message=(
+            "请仅使用 search_security_alerts 查询 query=powershell、severity=high、limit=5，"
+            "并用一句话总结狩猎结果。"
+        ),
+        forced_tool_id=alerts_tool_id,
+    )
+    assert hunter_response["error"] is None, hunter_response
+    assert any(
+        marker in hunter_response["full_message"]
+        for marker in ["ALERT-1001", "PowerShell", "finance-host-01"]
+    ), hunter_response["full_message"]
+
+    detection_chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        detection_id,
+        description=f"regression-hunt-chain-detection-{uuid.uuid4()}",
+    )
+    detection_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        detection_chat_session_id,
+        message=(
+            "基于狩猎结果 ALERT-1001 和主机 finance-host-01 的高危 PowerShell 告警，"
+            "请仅使用 create_security_ticket 创建工单，"
+            "summary=Detection follow-up for finance-host-01，"
+            "description=PowerShell hunt found ALERT-1001 on finance-host-01 requiring rule review，"
+            "priority=HIGH，project_key=SEC，并在回复中确认工单编号。"
+        ),
+        forced_tool_id=ticket_tool_id,
+    )
+    assert detection_response["error"] is None, detection_response
+    assert any(
+        marker in detection_response["full_message"]
+        for marker in ["SEC-", "finance-host-01", "工单"]
+    ), detection_response["full_message"]
+
+    malware_chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        malware_id,
+        description=f"regression-hunt-chain-malware-{uuid.uuid4()}",
+    )
+    malware_response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        malware_chat_session_id,
+        message=(
+            "基于刚才的狩猎结果和检测工程工单，请仅使用 isolate_endpoint_host "
+            "隔离 host_id=finance-host-01，reason=Threat hunt ALERT-1001 PowerShell containment，"
+            "并简要确认。"
+        ),
+        forced_tool_id=isolate_tool_id,
+    )
+    assert malware_response["error"] is None, malware_response
+    assert any(
+        marker in malware_response["full_message"]
+        for marker in ["finance-host-01", "queued", "隔离", "isolate"]
+    ), malware_response["full_message"]
+
+    requests_received = get_mock_requests(seeded_security_platform.mock_server_url)
+    assert len(requests_received) == 3, requests_received
+
+    alerts_request = _find_mock_request(
+        requests_received,
+        method="GET",
+        path_fragment="/alerts/search",
+    )
+    alerts_query = _query_params(alerts_request["path"])
+    assert alerts_query["query"] == "powershell"
+    assert alerts_query["severity"] == "high"
+    assert alerts_query["limit"] == "5"
+
+    ticket_request = _find_mock_request(
+        requests_received,
+        method="POST",
+        path_fragment="/issue",
+    )
+    assert ticket_request["body"]["summary"] == "Detection follow-up for finance-host-01"
+    assert ticket_request["body"]["priority"] == "HIGH"
+    assert ticket_request["body"]["project_key"] == "SEC"
+    assert "ALERT-1001" in ticket_request["body"]["description"]
+
+    isolate_request = _find_mock_request(
+        requests_received,
+        method="POST",
+        path_fragment="/hosts/finance-host-01/isolate",
+    )
+    assert isolate_request["body"]["reason"] == "Threat hunt ALERT-1001 PowerShell containment"
 
 
 @pytest.mark.parametrize("scenario", PLAYBOOK_EXECUTION_SCENARIOS)
