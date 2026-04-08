@@ -60,18 +60,49 @@ SECURITY_PERSONA_TOOL_REQUIREMENTS = {
         "builtin_tools": {"Internal Search", "Web Search", "Open URL"},
         "custom_tools": {"create_security_ticket", "lookup_asset_context"},
     },
+    "威胁狩猎工程师": {
+        "builtin_tools": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
+        "custom_tools": {
+            "search_security_alerts",
+            "threat_intel_lookup",
+            "lookup_asset_context",
+        },
+    },
+    "恶意软件分析师": {
+        "builtin_tools": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
+        "custom_tools": {
+            "threat_intel_lookup",
+            "lookup_asset_context",
+            "isolate_endpoint_host",
+            "create_security_ticket",
+        },
+    },
+    "检测工程师": {
+        "builtin_tools": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
+        "custom_tools": {
+            "search_security_alerts",
+            "lookup_asset_context",
+            "create_security_ticket",
+        },
+    },
 }
 USER_PERSONA_BY_EMAIL = {
     "commander@security.local": "应急响应指挥官",
     "analyst@security.local": "安全事件分析师",
     "vuln_expert@security.local": "漏洞评估专家",
     "auditor@security.local": "合规审计员",
+    "hunter@security.local": "威胁狩猎工程师",
+    "malware@security.local": "恶意软件分析师",
+    "detection@security.local": "检测工程师",
 }
 PERSONA_CHAT_SCENARIOS = [
     ("安全事件分析师", "REGRESSION_OK_ANALYST"),
     ("应急响应指挥官", "REGRESSION_OK_COMMANDER"),
     ("漏洞评估专家", "REGRESSION_OK_VULN"),
     ("合规审计员", "REGRESSION_OK_COMPLIANCE"),
+    ("威胁狩猎工程师", "REGRESSION_OK_HUNTER"),
+    ("恶意软件分析师", "REGRESSION_OK_MALWARE"),
+    ("检测工程师", "REGRESSION_OK_DETECTION"),
 ]
 PERSONA_LIVE_CHAT_SCENARIOS = [
     (
@@ -93,6 +124,21 @@ PERSONA_LIVE_CHAT_SCENARIOS = [
         "合规审计员",
         "REGRESSION_LIVE_OK_COMPLIANCE",
         "你是合规审计员。请直接回复字符串 REGRESSION_LIVE_OK_COMPLIANCE，不要添加任何其他内容。",
+    ),
+    (
+        "威胁狩猎工程师",
+        "REGRESSION_LIVE_OK_HUNTER",
+        "你是威胁狩猎工程师。请直接回复字符串 REGRESSION_LIVE_OK_HUNTER，不要添加任何其他内容。",
+    ),
+    (
+        "恶意软件分析师",
+        "REGRESSION_LIVE_OK_MALWARE",
+        "你是恶意软件分析师。请直接回复字符串 REGRESSION_LIVE_OK_MALWARE，不要添加任何其他内容。",
+    ),
+    (
+        "检测工程师",
+        "REGRESSION_LIVE_OK_DETECTION",
+        "你是检测工程师。请直接回复字符串 REGRESSION_LIVE_OK_DETECTION，不要添加任何其他内容。",
     ),
 ]
 TOOL_INVOCATION_SCENARIOS = [

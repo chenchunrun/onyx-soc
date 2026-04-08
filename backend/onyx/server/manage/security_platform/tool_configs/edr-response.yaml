@@ -10,3 +10,4 @@ api_key_env: SECURITY_EDR_API_KEY
 persona_bindings:
   - 安全事件分析师
   - 应急响应指挥官
+  - 恶意软件分析师

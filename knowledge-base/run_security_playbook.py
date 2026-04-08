@@ -38,6 +38,9 @@ SECURITY_PERSONA_NAMES = {
     "应急响应指挥官",
     "漏洞评估专家",
     "合规审计员",
+    "威胁狩猎工程师",
+    "恶意软件分析师",
+    "检测工程师",
 }
 SUPPORTED_EXECUTION_MODES = {"chat", "direct", "template"}
 

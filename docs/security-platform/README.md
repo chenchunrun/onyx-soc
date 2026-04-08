@@ -43,6 +43,9 @@
 - [应急响应指挥官](/Users/newmba/Downloads/onyx-main/docs/security-platform/4-agents/emergency-commander.md)
 - [漏洞评估专家](/Users/newmba/Downloads/onyx-main/docs/security-platform/4-agents/vulnerability-expert.md)
 - [合规审计员](/Users/newmba/Downloads/onyx-main/docs/security-platform/4-agents/compliance-auditor.md)
+- [威胁狩猎工程师](/Users/newmba/Downloads/onyx-main/docs/security-platform/4-agents/threat-hunter.md)
+- [恶意软件分析师](/Users/newmba/Downloads/onyx-main/docs/security-platform/4-agents/malware-analyst.md)
+- [检测工程师](/Users/newmba/Downloads/onyx-main/docs/security-platform/4-agents/detection-engineer.md)
 
 ### 4.2 集成配置
 

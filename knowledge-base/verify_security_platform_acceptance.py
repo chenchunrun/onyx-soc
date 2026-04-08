@@ -92,6 +92,9 @@ SECURITY_PERSONA_BUILTIN_REQUIREMENTS = {
     "应急响应指挥官": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
     "漏洞评估专家": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
     "合规审计员": {"Internal Search", "Web Search", "Open URL"},
+    "威胁狩猎工程师": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
+    "恶意软件分析师": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
+    "检测工程师": {"Internal Search", "Web Search", "Open URL", "Code Interpreter"},
 }
 
 SECURITY_USERS = {
@@ -99,6 +102,9 @@ SECURITY_USERS = {
     "analyst@security.local",
     "vuln_expert@security.local",
     "auditor@security.local",
+    "hunter@security.local",
+    "malware@security.local",
+    "detection@security.local",
 }
 
 USER_PERSONA_BY_EMAIL = {
@@ -106,6 +112,9 @@ USER_PERSONA_BY_EMAIL = {
     "analyst@security.local": "安全事件分析师",
     "vuln_expert@security.local": "漏洞评估专家",
     "auditor@security.local": "合规审计员",
+    "hunter@security.local": "威胁狩猎工程师",
+    "malware@security.local": "恶意软件分析师",
+    "detection@security.local": "检测工程师",
 }
 
 

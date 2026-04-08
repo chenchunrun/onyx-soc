@@ -84,12 +84,18 @@ SECURITY_PERSONA_NAMES = {
     "应急响应指挥官",
     "漏洞评估专家",
     "合规审计员",
+    "威胁狩猎工程师",
+    "恶意软件分析师",
+    "检测工程师",
 }
 SECURITY_USER_EMAILS = {
     "commander@security.local",
     "analyst@security.local",
     "vuln_expert@security.local",
     "auditor@security.local",
+    "hunter@security.local",
+    "malware@security.local",
+    "detection@security.local",
 }
 SECURITY_TOOL_NAMES = {
     "create_security_ticket",

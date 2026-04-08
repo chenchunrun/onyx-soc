@@ -46,6 +46,21 @@ PERSONA_SMOKE_SCENARIOS = [
         "token": "SMOKE_OK_COMPLIANCE",
         "prompt": "你是合规审计员。请直接回复字符串 SMOKE_OK_COMPLIANCE，不要添加任何其他内容。",
     },
+    {
+        "persona_name": "威胁狩猎工程师",
+        "token": "SMOKE_OK_HUNTER",
+        "prompt": "你是威胁狩猎工程师。请直接回复字符串 SMOKE_OK_HUNTER，不要添加任何其他内容。",
+    },
+    {
+        "persona_name": "恶意软件分析师",
+        "token": "SMOKE_OK_MALWARE",
+        "prompt": "你是恶意软件分析师。请直接回复字符串 SMOKE_OK_MALWARE，不要添加任何其他内容。",
+    },
+    {
+        "persona_name": "检测工程师",
+        "token": "SMOKE_OK_DETECTION",
+        "prompt": "你是检测工程师。请直接回复字符串 SMOKE_OK_DETECTION，不要添加任何其他内容。",
+    },
 ]
 
 ANALYST_PERSONA_NAME = "安全事件分析师"

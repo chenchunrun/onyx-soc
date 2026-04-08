@@ -28,7 +28,14 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
     module.load_security_tool_configs = lambda: [
         {
             "name": "create_security_ticket",
-            "persona_bindings": ["安全事件分析师", "应急响应指挥官", "漏洞评估专家", "合规审计员"],
+            "persona_bindings": [
+                "安全事件分析师",
+                "应急响应指挥官",
+                "漏洞评估专家",
+                "合规审计员",
+                "恶意软件分析师",
+                "检测工程师",
+            ],
         },
         {
             "name": "send_security_alert",
@@ -36,19 +43,26 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
         },
         {
             "name": "threat_intel_lookup",
-            "persona_bindings": ["安全事件分析师", "漏洞评估专家"],
+            "persona_bindings": ["安全事件分析师", "漏洞评估专家", "威胁狩猎工程师", "恶意软件分析师"],
         },
         {
             "name": "search_security_alerts",
-            "persona_bindings": ["安全事件分析师", "应急响应指挥官"],
+            "persona_bindings": ["安全事件分析师", "应急响应指挥官", "威胁狩猎工程师", "检测工程师"],
         },
         {
             "name": "isolate_endpoint_host",
-            "persona_bindings": ["安全事件分析师", "应急响应指挥官"],
+            "persona_bindings": ["安全事件分析师", "应急响应指挥官", "恶意软件分析师"],
         },
         {
             "name": "lookup_asset_context",
-            "persona_bindings": ["安全事件分析师", "漏洞评估专家", "合规审计员"],
+            "persona_bindings": [
+                "安全事件分析师",
+                "漏洞评估专家",
+                "合规审计员",
+                "威胁狩猎工程师",
+                "恶意软件分析师",
+                "检测工程师",
+            ],
         },
     ]
 
@@ -95,12 +109,49 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
             "name": "合规审计员",
             "tools": [
                 {"display_name": "Internal Search"},
-                    {"display_name": "Web Search"},
-                    {"display_name": "Open URL"},
-                    {"name": "create_security_ticket"},
-                    {"name": "lookup_asset_context"},
-                ],
-            },
+                {"display_name": "Web Search"},
+                {"display_name": "Open URL"},
+                {"name": "create_security_ticket"},
+                {"name": "lookup_asset_context"},
+            ],
+        },
+        {
+            "name": "威胁狩猎工程师",
+            "tools": [
+                {"display_name": "Internal Search"},
+                {"display_name": "Web Search"},
+                {"display_name": "Open URL"},
+                {"display_name": "Code Interpreter"},
+                {"name": "search_security_alerts"},
+                {"name": "threat_intel_lookup"},
+                {"name": "lookup_asset_context"},
+            ],
+        },
+        {
+            "name": "恶意软件分析师",
+            "tools": [
+                {"display_name": "Internal Search"},
+                {"display_name": "Web Search"},
+                {"display_name": "Open URL"},
+                {"display_name": "Code Interpreter"},
+                {"name": "threat_intel_lookup"},
+                {"name": "lookup_asset_context"},
+                {"name": "isolate_endpoint_host"},
+                {"name": "create_security_ticket"},
+            ],
+        },
+        {
+            "name": "检测工程师",
+            "tools": [
+                {"display_name": "Internal Search"},
+                {"display_name": "Web Search"},
+                {"display_name": "Open URL"},
+                {"display_name": "Code Interpreter"},
+                {"name": "search_security_alerts"},
+                {"name": "lookup_asset_context"},
+                {"name": "create_security_ticket"},
+            ],
+        },
     ]
 
     db_state = {
@@ -109,6 +160,9 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
             "应急响应指挥官": {"id": 3, "is_public": False},
             "漏洞评估专家": {"id": 4, "is_public": False},
             "合规审计员": {"id": 5, "is_public": False},
+            "威胁狩猎工程师": {"id": 6, "is_public": False},
+            "恶意软件分析师": {"id": 7, "is_public": False},
+            "检测工程师": {"id": 8, "is_public": False},
         },
         "document_set_id": 1,
         "user_rows": {
@@ -116,18 +170,27 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
             "commander@security.local": "u-2",
             "vuln_expert@security.local": "u-3",
             "auditor@security.local": "u-4",
+            "hunter@security.local": "u-5",
+            "malware@security.local": "u-6",
+            "detection@security.local": "u-7",
         },
         "persona_user_links": {
             (2, "u-1"),
             (3, "u-2"),
             (4, "u-3"),
             (5, "u-4"),
+            (6, "u-5"),
+            (7, "u-6"),
+            (8, "u-7"),
         },
         "document_set_links": {
             (1, "u-1"),
             (1, "u-2"),
             (1, "u-3"),
             (1, "u-4"),
+            (1, "u-5"),
+            (1, "u-6"),
+            (1, "u-7"),
         },
         "rbac": {
             "user_group_count": 3,
@@ -267,7 +330,7 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
         },
         "scim": {
             "active_token_count": 1,
-            "user_mapping_count": 4,
+            "user_mapping_count": 7,
             "group_mapping_count": 2,
             "recent_group_sync_failure_count": 0,
         },
@@ -315,7 +378,7 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
                     "definition": {"servers": [{"url": "http://localhost:9999"}]},
                     "custom_headers": [{"key": "Authorization", "value": "Bearer mock"}],
                 },
-            ],
+        ],
         ingestion_docs=[{"semantic_id": "CVE-2024-1234_threat_intel"}],
         db_state=db_state,
         threat_intel_sync_summary={
@@ -483,7 +546,7 @@ def test_evaluate_acceptance_returns_ok_for_complete_state() -> None:
     assert result["summary"]["self_hosting_license_status"] == "active"
     assert result["summary"]["self_hosting_has_admin_billing_page"] is True
     assert result["summary"]["scim_active_token_count"] == 1
-    assert result["summary"]["scim_user_mapping_count"] == 4
+    assert result["summary"]["scim_user_mapping_count"] == 7
     assert result["summary"]["secrets_encryption_enabled"] is True
     assert result["summary"]["permission_sync_cc_pairs"] == 2
     assert result["summary"]["permission_docs_with_external_acl"] == 25

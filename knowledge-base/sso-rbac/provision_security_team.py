@@ -60,6 +60,24 @@ SECURITY_TEAM = [
         "role": "BASIC",
         "description": "合规审计员 - Compliance audit access",
     },
+    {
+        "name": "威胁狩猎工程师",
+        "email": "hunter@security.local",
+        "role": "BASIC",
+        "description": "威胁狩猎工程师 - Threat hunting and behavior correlation access",
+    },
+    {
+        "name": "恶意软件分析师",
+        "email": "malware@security.local",
+        "role": "BASIC",
+        "description": "恶意软件分析师 - Malware triage and IOC analysis access",
+    },
+    {
+        "name": "检测工程师",
+        "email": "detection@security.local",
+        "role": "BASIC",
+        "description": "检测工程师 - Detection engineering and alert tuning access",
+    },
 ]
 
 # Default password for initial setup (MUST be changed after first login)

@@ -9,3 +9,5 @@ api_key_env: SECURITY_SIEM_API_KEY
 persona_bindings:
   - 安全事件分析师
   - 应急响应指挥官
+  - 威胁狩猎工程师
+  - 检测工程师

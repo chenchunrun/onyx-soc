@@ -826,7 +826,7 @@ def test_build_health_status_reports_warning_for_due_threat_intel_only() -> None
             name="安全知识库",
             exists=True,
             is_public=True,
-            shared_user_count=4,
+            shared_user_count=7,
         ),
         personas=[
             SecurityPlatformPersonaStatus(
@@ -842,6 +842,9 @@ def test_build_health_status_reports_warning_for_due_threat_intel_only() -> None
                 "应急响应指挥官",
                 "漏洞评估专家",
                 "合规审计员",
+                "威胁狩猎工程师",
+                "恶意软件分析师",
+                "检测工程师",
             ]
         ],
         tools=[
@@ -875,11 +878,14 @@ def test_build_health_status_reports_warning_for_due_threat_intel_only() -> None
                 "analyst@security.local",
                 "auditor@security.local",
                 "commander@security.local",
+                "detection@security.local",
+                "hunter@security.local",
+                "malware@security.local",
                 "vuln_expert@security.local",
             ]
         ],
-        persona_user_links=4,
-        document_set_user_links=4,
+        persona_user_links=7,
+        document_set_user_links=7,
         snapshot={
             "threat_intel_sync": {
                 "source_profile": "mock",
