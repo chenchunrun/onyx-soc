@@ -13,8 +13,9 @@
 2. [架构说明](/Users/newmba/Downloads/onyx-main/docs/security-platform/2-architecture.md)
 3. [实施指南](/Users/newmba/Downloads/onyx-main/docs/security-platform/6-implementation-guide.md)
 4. [部署指南](/Users/newmba/Downloads/onyx-main/docs/security-platform/7-deployment.md)
-5. [最小验收清单](/Users/newmba/Downloads/onyx-main/docs/security-platform/9-minimal-acceptance-checklist.md)
-6. [开发 Backlog](/Users/newmba/Downloads/onyx-main/docs/security-platform/12-development-backlog.md)
+5. [Secret 管理说明](/Users/newmba/Downloads/onyx-main/docs/security-platform/20-secret-management.md)
+6. [最小验收清单](/Users/newmba/Downloads/onyx-main/docs/security-platform/9-minimal-acceptance-checklist.md)
+7. [开发 Backlog](/Users/newmba/Downloads/onyx-main/docs/security-platform/12-development-backlog.md)
 
 
 ## 3. 当前有效文档
@@ -31,6 +32,7 @@
 - [架构说明](/Users/newmba/Downloads/onyx-main/docs/security-platform/2-architecture.md)
 - [实施指南](/Users/newmba/Downloads/onyx-main/docs/security-platform/6-implementation-guide.md)
 - [部署指南](/Users/newmba/Downloads/onyx-main/docs/security-platform/7-deployment.md)
+- [Secret 管理说明](/Users/newmba/Downloads/onyx-main/docs/security-platform/20-secret-management.md)
 - [专家评审记录](/Users/newmba/Downloads/onyx-main/docs/security-platform/8-expert-review-notes.md)
 - [最小验收清单](/Users/newmba/Downloads/onyx-main/docs/security-platform/9-minimal-acceptance-checklist.md)
 
@@ -90,6 +92,8 @@
   用于回答“安全底座目录下详细要继续做什么”。
 - `1-9` 正式文档
   用于回答“这套东西是什么、怎么实现、怎么部署、怎么验收”。
+- `20` Secret 管理文档
+  用于回答“生产环境里的敏感配置应如何注入、轮换和校验”。
 - `10-17` 阶段性材料
   用于沟通、汇报、发布，不作为唯一真相源。
 

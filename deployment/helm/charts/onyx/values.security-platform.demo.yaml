@@ -8,6 +8,9 @@
 #
 # If the mock server runs on the host while Onyx runs in Kubernetes or Docker
 # Desktop, use a host-reachable DNS name instead of localhost.
+#
+# This overlay is intended for demo/offline environments only. It should not be
+# treated as production-ready because it assumes mock integrations.
 
 configMap:
   WEB_DOMAIN: "https://onyx-demo.example.com"
@@ -20,6 +23,8 @@ auth:
   securityPlatform:
     enabled: true
     secretName: "onyx-security-platform-demo"
+    # Demo environments may inline this value, but an existingSecret still works
+    # if the environment wants to avoid keeping any sensitive values in Helm.
     existingSecret: ""
     secretKeys:
       SECURITY_TOOLS_MOCK_API_KEY: security_tools_mock_api_key

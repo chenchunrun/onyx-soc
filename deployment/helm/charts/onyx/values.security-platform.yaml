@@ -45,6 +45,7 @@ auth:
       SECURITY_EDR_API_KEY: security_edr_api_key
       SECURITY_ASSET_API_KEY: security_asset_api_key
       SECURITY_TOOLS_MOCK_API_KEY: security_tools_mock_api_key
+      ENCRYPTION_KEY_SECRET: encryption_key_secret
     values:
       security_alert_webhook_url: "https://hooks.slack.com/services/replace-me"
       security_ticket_api_key: "replace-me"
@@ -53,3 +54,4 @@ auth:
       security_edr_api_key: "replace-me"
       security_asset_api_key: "replace-me"
       security_tools_mock_api_key: "mock-api-key-for-testing"
+      encryption_key_secret: "replace-me"

@@ -46,6 +46,7 @@
 
 - `deployment/helm/charts/onyx/values.security-platform.live.yaml`
 - `deployment/helm/charts/onyx/values.security-platform.demo.yaml`
+- `deployment/helm/charts/onyx/values.security-platform.existing-secret.example.yaml`
 
 示例：
 
@@ -68,7 +69,13 @@ helm upgrade --install onyx . -n onyx --create-namespace \
 
 - `values.security-platform.live.yaml` 适合生产化或联调环境
 - `values.security-platform.demo.yaml` 适合演示或离线环境
+- `values.security-platform.existing-secret.example.yaml` 适合叠加到 `live` 环境，改为引用已有 Kubernetes Secret
 - `demo` 环境下，`SECURITY_TOOLS_MOCK_SERVER_URL` 不应写为 `localhost`
+
+推荐用法：
+
+- `live` 环境：`values.yaml + values.security-platform.live.yaml + existingSecret overlay`
+- `demo` 环境：`values.yaml + values.security-platform.demo.yaml`
 
 
 ### 4.2 准备基础资源
@@ -216,6 +223,11 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 
 - `knowledge-base/security-automation/setup_security_tools.py`
 
+平台级 Secret 还包括：
+
+- `USER_AUTH_SECRET`
+- `ENCRYPTION_KEY_SECRET`
+
 演示或离线环境建议：
 
 - `SECURITY_TOOLS_PROFILE=mock`
@@ -223,6 +235,24 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 - 如果 Onyx 运行在 Docker 容器里，而 mock server 运行在宿主机上，`SECURITY_TOOLS_MOCK_SERVER_URL` 不要写 `localhost`
 - 此场景应使用 `http://host.docker.internal:<port>`，否则后端容器会把 `localhost` 解析成容器自身
 - 如果使用统一入口，优先设置 `SECURITY_PLATFORM_DEPLOYMENT_PROFILE=demo`
+
+
+### 6.1 Secret 管理建议
+
+生产、联调和演示环境应区分“模板占位值”和“真实 Secret 注入”。
+
+建议同时参考：
+
+- `docs/security-platform/20-secret-management.md`
+- `deployment/helm/charts/onyx/values.security-platform.existing-secret.example.yaml`
+
+当前推荐模式是：
+
+- Compose 场景通过未纳管 env file 注入真实值
+- Helm/Kubernetes 场景通过 `existingSecret` 引用已有 Secret
+- Secret Manager 负责下发，Onyx 负责消费，不在仓库中提交真实值
+- `live` overlay 负责环境档位和非敏感 URL；Secret overlay 负责敏感值映射
+- `demo` overlay 只用于 mock 工具和离线 threat-intel 场景
 
 
 ## 7. 部署后验收
@@ -251,6 +281,7 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 
 - 安全工作台的 `Operational Checks` 也会展示 `placeholder env`
 - 如果这里非 `0`，说明变量虽然存在，但仍是模板/示例值，当前环境不应视为完成配置收口
+- `ENCRYPTION_KEY_SECRET` 在生产化环境中不应缺失
 
 建议结合以下清单执行：
 
@@ -259,10 +290,11 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 
 ## 8. 当前限制
 
-- 真实环境密钥管理仍需结合现有部署体系完成
+- 当前仓库通过环境变量、Compose env file 和 Helm existingSecret 消费 Secret
+- 真实环境 Secret 分发仍需结合现有部署体系或 Secret Manager 完成
 
 
 ## 9. 推荐后续增强
 
 - 增加按环境拆分的 Helm values overlay（例如 `live` / `demo` 独立文件）
-- 增加更贴近企业 Secret Manager 的接入示例
+- 增加更贴近企业 Secret Manager 的组织级接入约定

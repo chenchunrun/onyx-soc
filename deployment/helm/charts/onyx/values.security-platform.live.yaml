@@ -4,7 +4,8 @@
 #   helm upgrade --install onyx ./charts/onyx \
 #     -n onyx --create-namespace \
 #     -f values.yaml \
-#     -f values.security-platform.live.yaml
+#     -f values.security-platform.live.yaml \
+#     -f values.security-platform.existing-secret.example.yaml
 #
 # Prefer existing Kubernetes Secrets in real environments. Replace placeholders
 # before use.
@@ -24,6 +25,7 @@ auth:
   securityPlatform:
     enabled: true
     secretName: "onyx-security-platform"
+    # Prefer setting this to an existing Kubernetes Secret in production.
     existingSecret: ""
     secretKeys:
       SECURITY_ALERT_WEBHOOK_URL: security_alert_webhook_url
@@ -32,6 +34,7 @@ auth:
       SECURITY_SIEM_API_KEY: security_siem_api_key
       SECURITY_EDR_API_KEY: security_edr_api_key
       SECURITY_ASSET_API_KEY: security_asset_api_key
+      ENCRYPTION_KEY_SECRET: encryption_key_secret
     values:
       security_alert_webhook_url: "https://hooks.slack.com/services/replace-me"
       security_ticket_api_key: "replace-me"
@@ -39,3 +42,4 @@ auth:
       security_siem_api_key: "replace-me"
       security_edr_api_key: "replace-me"
       security_asset_api_key: "replace-me"
+      encryption_key_secret: "replace-me"

@@ -117,6 +117,7 @@ TEMPLATE_HEADER_KEYS = {
 DEPLOYMENT_PROFILES: dict[str, dict[str, Any]] = {
     "live": {
         "required_env": [
+            "ENCRYPTION_KEY_SECRET",
             "SECURITY_ALERT_WEBHOOK_URL",
             "SECURITY_TICKET_API_URL",
             "SECURITY_TICKET_API_KEY",
