@@ -379,6 +379,26 @@ function SummaryCard({
   );
 }
 
+function SectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-background/60 p-4">
+      <div className="text-sm font-medium text-foreground">{title}</div>
+      {description ? (
+        <div className="mt-1 text-xs text-muted-foreground">{description}</div>
+      ) : null}
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
 function ToolEndpoint({
   tool,
 }: {
@@ -554,6 +574,16 @@ function Main() {
     return <Text>Failed to load security platform status.</Text>;
   }
 
+  const failingChecks = runtimeData.health.checks.filter(
+    (check) => check.status === "failing"
+  );
+  const warningChecks = runtimeData.health.checks.filter(
+    (check) => check.status === "warning"
+  );
+  const healthyChecks = runtimeData.health.checks.filter(
+    (check) => check.status !== "failing" && check.status !== "warning"
+  );
+
   return (
     <div className="space-y-6">
       <Card className="p-5">
@@ -585,6 +615,89 @@ function Main() {
               threat-intel={runtimeData.threat_intel_source_profile}
             </div>
           </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-3">
+          <SectionCard
+            title="Risk Items"
+            description="These checks are currently failing and should be treated as immediate blockers."
+          >
+            <div className="space-y-3">
+              {failingChecks.length > 0 ? (
+                failingChecks.map((check) => (
+                  <div key={check.name} className="rounded-md border p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-medium">{check.name}</div>
+                      <HealthBadge status={check.status} />
+                    </div>
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      {check.summary}
+                    </div>
+                    <div className="mt-2 text-xs text-foreground">
+                      {check.issues.length > 0 ? check.issues.join(" | ") : "none"}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  No failing checks.
+                </div>
+              )}
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Pending Configuration"
+            description="These items are not blockers yet, but still need cleanup before treating the platform as production-ready."
+          >
+            <div className="space-y-3">
+              {warningChecks.length > 0 ? (
+                warningChecks.map((check) => (
+                  <div key={check.name} className="rounded-md border p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-medium">{check.name}</div>
+                      <HealthBadge status={check.status} />
+                    </div>
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      {check.summary}
+                    </div>
+                    <div className="mt-2 text-xs text-foreground">
+                      {check.issues.length > 0 ? check.issues.join(" | ") : "none"}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  No warning checks.
+                </div>
+              )}
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Ready Areas"
+            description="These checks are currently healthy and can be treated as ready baselines."
+          >
+            <div className="space-y-3">
+              {healthyChecks.length > 0 ? (
+                healthyChecks.map((check) => (
+                  <div key={check.name} className="rounded-md border p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-medium">{check.name}</div>
+                      <HealthBadge status={check.status} />
+                    </div>
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      {check.summary}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  No healthy checks reported.
+                </div>
+              )}
+            </div>
+          </SectionCard>
         </div>
 
         <div className="mt-5 rounded-md border border-border bg-background/60 p-4">
