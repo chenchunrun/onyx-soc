@@ -28,6 +28,7 @@
 - threat-intel 同步、manifest、curation、生命周期评估、historical package 管理已形成链路
 - 最小验收、smoke、安全平台回归已具备基础覆盖
 - 安全工作台页面与后端状态 API 已落地
+- 七个安全 persona 已完成初始化、工具绑定与前端实测
 - 安全工作台已补齐轻量运维摘要：
   - 工具调用审计摘要
   - 配置漂移检查
@@ -35,12 +36,21 @@
 - 生产化配置检查已补齐：
   - placeholder env 检测
   - 验收脚本与工作台统一提示
+- 生产化配置文档已补齐：
+  - Secret 管理说明
+  - Helm existingSecret 示例
+  - live/demo Helm overlay 边界
 - 企业能力的最小收口已完成：
   - Document Permissions / RBAC / Service Accounts / SCIM
   - Secrets Encryption / Query History / Usage Limits / Hooks
   - Custom Permissions / Custom Theming / White-labeling
   - Custom Deployments / Region Processing / Self-hosting
 - Docker Compose / Helm 安全底座覆盖资产已提供
+- threat-intel archive 治理 SOP 已补齐
+- 回归矩阵已增强：
+  - 七个 persona 的 live chat 回归
+  - 新增 persona 的 live tool 回归
+  - 新增长链路跨 persona live 回归
 
 当前可视为：
 
@@ -50,69 +60,7 @@
 
 ## 3. Next
 
-### 3.1 收口生产化配置管理
-
-目标：
-
-- 把当前示例级配置收口为更接近真实交付的配置方案
-
-待办：
-
-- 明确真实环境 Secret 管理方式
-- 补齐与企业 secret manager 对接说明
-- 继续细化 live/demo 环境差异说明
-- 收口工具、threat-intel、deployment profile 的生产配置边界
-
-验收标准：
-
-- required env、密钥来源、环境切换规则完整可追踪
-- 不再依赖口头约定配置 mock/live 端点
-- 新环境可以按文档完成稳定部署
-
-
-### 3.2 增强业务回归测试矩阵
-
-目标：
-
-- 在现有最小闭环基础上补长链路和更多 live 场景回归
-
-待办：
-
-- 扩展更多真实模型下的工具联动回归
-- 继续补跨 persona 的多步骤场景覆盖
-- 补更多长链路 playbook / chat / tool 联调路径
-- 继续扩大 smoke、acceptance、regression 三类测试边界覆盖
-
-验收标准：
-
-- 工具调用、角色问答、流程场景均有明确自动化入口
-- 新增工具或流程时有对应回归补位要求
-- 回归矩阵可以直接服务部署验收
-
-
-### 3.3 完善 threat-intel 生命周期治理
-
-目标：
-
-- 从“已具备治理能力”提升到“长期可维护”
-
-待办：
-
-- 按 `source / year / quality` 推进 archive candidate 评审
-- 收敛运行态 feed 与正式知识包的发布边界
-- 评估是否需要更细的治理视图或归档节奏
-- 明确 archive 执行、审批、验证与回滚的操作规范
-
-验收标准：
-
-- 可以清晰说明何时纳管、何时归档、何时仅保留运行态
-- historical package catalog 与归档流程持续一致
-- 生命周期报告可以稳定支撑后续运营
-
-
-## 4. Later
-
-### 4.1 扩展 threat-intel 上游源
+### 3.1 扩展 threat-intel 上游源
 
 目标：
 
@@ -130,11 +78,11 @@
 - 每个新增源有清晰同步规则
 
 
-### 4.2 增强运维观测与审计
+### 3.2 增强运维观测与审计
 
 目标：
 
-- 在当前已落地摘要基础上，决定是否继续扩更细的运营视角
+- 在当前已落地摘要基础上，按需补更细的运营视角
 
 待办：
 
@@ -149,63 +97,120 @@
 - 若继续增强，应服务运维排障，而不是演变成复杂 BI 页面
 
 
-### 4.3 收敛文档入口
+### 3.3 收敛版本边界与文档入口
 
 目标：
 
-- 降低历史文档与当前文档并存带来的误导
+- 保持当前版本边界清晰，降低历史文档误导
 
 待办：
 
 - 标记历史阶段性报告的适用范围
-- 明确本文件与 `docs/security-platform/12-development-backlog.md` 的关系
-- 收口安全底座文档统一入口
+- 增加版本基线、升级说明和已知限制
+- 继续收口安全底座文档统一入口
 
 验收标准：
 
 - 团队成员能快速识别当前有效文档
-- 历史评估不再被误认为现状
+- 非原开发成员也能理解当前版本边界
+
+
+## 4. Later
+
+### 4.1 继续深化生产化配置管理
+
+目标：
+
+- 在现有第一轮收口基础上，按真实交付需要继续深化
+
+待办：
+
+- 视部署目标继续补强 Helm 生产 values 模板
+- 视组织要求继续细化 Secret Manager 接入约定
+- 持续收敛 live/demo/mock 的部署边界
+
+验收标准：
+
+- 新环境部署时不依赖额外口头说明
+- 配置来源、档位边界、secret 注入方式持续一致
+
+
+### 4.2 继续加深回归矩阵
+
+目标：
+
+- 在当前已可用的回归基线上继续增加更长链路和更多场景
+
+待办：
+
+- 继续扩真实模型下的更长链路场景
+- 继续扩大 smoke / acceptance / regression 分层边界
+- 新增 persona / tool / playbook 时同步补对应回归
+
+验收标准：
+
+- 回归矩阵持续服务部署验收
+- 新增能力有明确自动化落点
+
+
+### 4.3 维持 threat-intel 生命周期治理节奏
+
+目标：
+
+- 在已成型治理流程基础上，持续按批次执行和校验
+
+待办：
+
+- 按 `source / year / quality` 继续推进 archive candidate 评审
+- 定期重建 lifecycle report、historical package catalog
+- 持续验证 archive result 与实际产物一致
+
+验收标准：
+
+- archive candidate 评审与执行形成稳定节奏
+- historical package catalog 与归档结果持续一致
 
 
 ## 5. 建议推进顺序
 
 建议按以下顺序推进：
 
-1. 先收口生产化配置管理
-2. 再扩业务回归测试矩阵
-3. 然后继续 threat-intel 生命周期治理
-4. 最后补上游源扩展与运维审计增强
+1. 先扩 threat-intel 上游源
+2. 再补按需的运维观测增强
+3. 然后继续版本边界与文档收口
+4. 最后按需深化配置、回归和治理细节
 
 原因：
 
-- 当前主要缺口已不是“能力不存在”
-- 下一阶段重点是交付稳定性、配置可控性、回归深度和长期维护性
+- 当前主要主线能力已经成立
+- 下一阶段重点更多是覆盖面、运营增强和长期维护性
 
 
 ## 6. 里程碑建议
 
-### 里程碑 A：V1 配置收口
+### 里程碑 A：V1 主线收口
 
 完成标志：
 
 - live/demo/profile 规则清晰
 - 真实 Secret 管理方式明确
 - 部署文档与配置约束一致
+- 回归矩阵与 threat-intel 治理已形成稳定基线
 
 
-### 里程碑 B：V1 验收增强
-
-完成标志：
-
-- 长链路 regression 覆盖增强
-- live 工具与 playbook 回归边界清晰
-- 验收脚本可直接支撑部署后验证
-
-
-### 里程碑 C：V2 运维治理增强
+### 里程碑 B：V2 覆盖增强
 
 完成标志：
 
-- archive 生命周期治理流程稳定
-- 运维观测与审计摘要落地
+- threat-intel 上游源继续扩展
+- 运维观测按需增强
+- 交付边界说明继续稳定
+
+
+### 里程碑 C：V2 运营增强
+
+完成标志：
+
+- 更深的运维观测能力落地
+- 历史文档与版本边界继续收敛
 - 威胁情报扩展策略清晰
