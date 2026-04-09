@@ -65,6 +65,7 @@
 - 仍应避免模板占位值
 - 若使用 `demo/mock` profile，应明确标注环境性质
 - 若使用 `gateway` profile，应单独维护 `SECURITY_TOOLS_GATEWAY_API_KEY`，不要与真实上游厂商 Key 混放
+- 若网关需要转发 VirusTotal，请将 `VIRUSTOTAL_API_KEY` 仅配置在网关服务，不要注入 Onyx API / background 容器
 
 
 ### 4.3 演示环境
@@ -82,6 +83,7 @@
 - 通过环境变量消费 Secret
 - 通过 Compose env file 注入
 - 通过 Helm values + existingSecret 引用注入
+- 通过独立 gateway 进程持有上游厂商 Secret，并仅向 Onyx 暴露内部网关鉴权 Secret
 - 通过工作台和验收脚本识别缺失值与占位值
 
 当前未直接提供：

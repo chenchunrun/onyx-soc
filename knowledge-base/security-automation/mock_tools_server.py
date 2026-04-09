@@ -2,7 +2,14 @@
 """
 Mock Security Tools Server
 
-Simulates the security tools for end-to-end testing:
+Acts as a local security tools gateway.
+
+Supports two threat-intel modes:
+- mock: return local deterministic threat-intel data
+- virustotal: forward IP/domain/file lookups to VirusTotal v3 when
+  VIRUSTOTAL_API_KEY is configured
+
+Non-threat-intel endpoints continue to use local mock responses for testing:
 - send_security_alert: POST / → Slack/Teams/PagerDuty webhook
 - create_security_ticket: POST /issue → Jira/Linear/ServiceNow
 - threat_intel_lookup: GET /ip_addresses/{ip}, GET /domains/{domain}, GET /files/{hash}
@@ -13,11 +20,19 @@ Simulates the security tools for end-to-end testing:
 Usage:
     python mock_tools_server.py [--port PORT] [--verbose]
     python mock_tools_server.py --port 9999 --verbose
+
+Gateway auth:
+    SECURITY_TOOLS_GATEWAY_API_KEY=<internal gateway key>
+
+VirusTotal forwarding:
+    VIRUSTOTAL_API_KEY=<virustotal key>
+    VIRUSTOTAL_BASE_URL=https://www.virustotal.com/api/v3
 """
 
 import argparse
 import hashlib
 import json
+import os
 import random
 import re
 import sys
@@ -27,6 +42,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse, parse_qs
+from urllib.parse import quote
+
+import requests
 
 # ANSI colors for terminal output
 GREEN = "\033[92m"
@@ -40,6 +58,65 @@ CYAN = "\033[96m"
 # Global log store
 RECEIVED_REQUESTS: list[dict] = []
 MOCK_DB: dict[str, Any] = {}
+DEFAULT_VIRUSTOTAL_BASE_URL = "https://www.virustotal.com/api/v3"
+
+
+def get_gateway_api_key() -> str:
+    return (
+        os.environ.get("SECURITY_TOOLS_GATEWAY_API_KEY", "").strip()
+        or os.environ.get("GATEWAY_API_KEY", "").strip()
+    )
+
+
+def get_virustotal_api_key() -> str:
+    return os.environ.get("VIRUSTOTAL_API_KEY", "").strip()
+
+
+def get_virustotal_base_url() -> str:
+    return os.environ.get("VIRUSTOTAL_BASE_URL", DEFAULT_VIRUSTOTAL_BASE_URL).rstrip("/")
+
+
+def get_threat_intel_mode() -> str:
+    return "virustotal" if get_virustotal_api_key() else "mock"
+
+
+def extract_gateway_token(headers: dict[str, str]) -> str:
+    api_key = str(headers.get("x-apikey", "")).strip()
+    if api_key:
+        return api_key
+
+    authorization = str(headers.get("Authorization", "")).strip()
+    if authorization.lower().startswith("bearer "):
+        return authorization[7:].strip()
+    return authorization
+
+
+def is_gateway_authorized(headers: dict[str, str]) -> bool:
+    configured_key = get_gateway_api_key()
+    if not configured_key:
+        return True
+    return extract_gateway_token(headers) == configured_key
+
+
+def forward_virustotal_lookup(resource_type: str, value: str) -> tuple[int, dict[str, Any]]:
+    value = value.strip()
+    path_value = quote(value, safe="")
+    response = requests.get(
+        f"{get_virustotal_base_url()}/{resource_type}/{path_value}",
+        headers={"x-apikey": get_virustotal_api_key()},
+        timeout=20,
+    )
+
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = {
+            "error": {
+                "code": "upstream_invalid_json",
+                "message": response.text[:500],
+            }
+        }
+    return response.status_code, payload
 
 
 def log(tag: str, color: str, msg: str):
@@ -238,17 +315,33 @@ class MockToolsHandler(BaseHTTPRequestHandler):
         path = parsed.path
         headers = self._read_headers()
 
+        if path not in {"/health", "/__requests__"} and not is_gateway_authorized(headers):
+            log("AUTH", RED, f"Unauthorized request: {path}")
+            self._set_headers(401)
+            self.wfile.write(
+                json.dumps(
+                    {
+                        "error": "unauthorized",
+                        "detail": "Gateway API key is missing or invalid",
+                    }
+                ).encode("utf-8")
+            )
+            return
+
         # ── Threat Intel: IP lookup ──
         m = re.match(r"/ip_addresses/(.+)", path)
         if m:
             ip = m.group(1)
             log_request("GET", path, None, headers)
+            if get_threat_intel_mode() == "virustotal":
+                status_code, payload = forward_virustotal_lookup("ip_addresses", ip)
+                self._set_headers(status_code)
+                self.wfile.write(json.dumps(payload).encode("utf-8"))
+                log("RESPONSE", GREEN, f"VT IP {ip}: status={status_code}")
+                return
+
             result = ip_lookup(ip)
-            data = {
-                "data": {
-                    "attributes": result
-                }
-            }
+            data = {"data": {"attributes": result}}
             self._set_headers(200)
             self.wfile.write(json.dumps(data).encode("utf-8"))
             log("RESPONSE", GREEN, f"IP {ip}: malicious={result.get('malicious')}, country={result.get('country')}")
@@ -259,6 +352,13 @@ class MockToolsHandler(BaseHTTPRequestHandler):
         if m:
             domain = m.group(1)
             log_request("GET", path, None, headers)
+            if get_threat_intel_mode() == "virustotal":
+                status_code, payload = forward_virustotal_lookup("domains", domain)
+                self._set_headers(status_code)
+                self.wfile.write(json.dumps(payload).encode("utf-8"))
+                log("RESPONSE", GREEN, f"VT Domain {domain}: status={status_code}")
+                return
+
             result = domain_lookup(domain)
             self._set_headers(200)
             self.wfile.write(json.dumps({"data": {"attributes": result}}).encode("utf-8"))
@@ -316,6 +416,13 @@ class MockToolsHandler(BaseHTTPRequestHandler):
         if m:
             hash_val = m.group(1)
             log_request("GET", path, None, headers)
+            if get_threat_intel_mode() == "virustotal":
+                status_code, payload = forward_virustotal_lookup("files", hash_val)
+                self._set_headers(status_code)
+                self.wfile.write(json.dumps(payload).encode("utf-8"))
+                log("RESPONSE", GREEN, f"VT Hash {hash_val[:16]}...: status={status_code}")
+                return
+
             result = hash_lookup(hash_val)
             self._set_headers(200)
             self.wfile.write(json.dumps({"data": {"attributes": result}}).encode("utf-8"))
@@ -325,7 +432,17 @@ class MockToolsHandler(BaseHTTPRequestHandler):
         # ── Health check ──
         if path == "/health":
             self._set_headers(200)
-            self.wfile.write(json.dumps({"status": "ok", "requests_received": len(RECEIVED_REQUESTS)}).encode())
+            self.wfile.write(
+                json.dumps(
+                    {
+                        "status": "ok",
+                        "requests_received": len(RECEIVED_REQUESTS),
+                        "threat_intel_mode": get_threat_intel_mode(),
+                        "gateway_auth_enabled": bool(get_gateway_api_key()),
+                        "virustotal_enabled": bool(get_virustotal_api_key()),
+                    }
+                ).encode()
+            )
             return
 
         # ── Get received requests ──
@@ -360,6 +477,19 @@ class MockToolsHandler(BaseHTTPRequestHandler):
         path = parsed.path
         body = self._parse_json()
         headers = self._read_headers()
+
+        if path not in {"/health", "/__requests__"} and not is_gateway_authorized(headers):
+            log("AUTH", RED, f"Unauthorized request: {path}")
+            self._set_headers(401)
+            self.wfile.write(
+                json.dumps(
+                    {
+                        "error": "unauthorized",
+                        "detail": "Gateway API key is missing or invalid",
+                    }
+                ).encode("utf-8")
+            )
+            return
 
         # ── Security Alert Webhook ──
         if path == "/" or path == "/webhook":
@@ -451,7 +581,11 @@ class MockToolsHandler(BaseHTTPRequestHandler):
 
 def run_server(port: int, verbose: bool):
     server = HTTPServer(("0.0.0.0", port), MockToolsHandler)
-    log("SERVER", BOLD + GREEN, f"Mock Tools Server running on http://localhost:{port}")
+    log(
+        "SERVER",
+        BOLD + GREEN,
+        f"Security Tools Gateway running on http://localhost:{port} (threat-intel={get_threat_intel_mode()})",
+    )
     log("ENDPOINTS", BOLD + BLUE, """
   POST /                     → send_security_alert (webhook)
   POST /issue               → create_security_ticket (Jira)
