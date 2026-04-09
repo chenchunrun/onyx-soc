@@ -51,6 +51,16 @@ def test_get_deployment_profile_issues_allows_host_docker_internal(monkeypatch) 
     assert issues == []
 
 
+def test_get_deployment_profile_issues_rejects_localhost_for_gateway(monkeypatch) -> None:
+    monkeypatch.setenv("SECURITY_TOOLS_GATEWAY_URL", "http://localhost:9999")
+
+    issues = get_deployment_profile_issues("gateway")
+
+    assert issues == [
+        "SECURITY_TOOLS_GATEWAY_URL must use host.docker.internal in Docker-backed gateway deployments"
+    ]
+
+
 def test_get_placeholder_required_env_detects_example_values(monkeypatch) -> None:
     monkeypatch.setenv("SECURITY_TICKET_API_URL", "https://your-company.atlassian.net/rest/api/3")
     monkeypatch.setenv("SECURITY_TICKET_API_KEY", "replace-me")

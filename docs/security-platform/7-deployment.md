@@ -212,6 +212,8 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 - `THREAT_INTEL_API_URL`
 - `THREAT_INTEL_API_KEY`
 - `SECURITY_TOOLS_PROFILE`
+- `SECURITY_TOOLS_GATEWAY_URL`
+- `SECURITY_TOOLS_GATEWAY_API_KEY`
 - `SECURITY_TOOLS_MOCK_SERVER_URL`
 - `SECURITY_TOOLS_MOCK_API_KEY`
 - `THREAT_INTEL_SOURCE_PROFILE`
@@ -228,6 +230,14 @@ export SECURITY_PLATFORM_DEPLOYMENT_PROFILE=live
 
 - `USER_AUTH_SECRET`
 - `ENCRYPTION_KEY_SECRET`
+
+网关化环境建议：
+
+- `SECURITY_TOOLS_PROFILE=gateway`
+- 将 `SECURITY_TOOLS_GATEWAY_URL` 指向内部安全工具网关或 Actions gateway
+- 如果 Onyx 运行在 Docker 容器里，而网关运行在宿主机上，`SECURITY_TOOLS_GATEWAY_URL` 不要写 `localhost`
+- 此场景应使用 `http://host.docker.internal:<port>`，否则后端容器会把 `localhost` 解析成容器自身
+- 如果使用统一入口，优先设置 `SECURITY_PLATFORM_DEPLOYMENT_PROFILE=gateway`
 
 演示或离线环境建议：
 

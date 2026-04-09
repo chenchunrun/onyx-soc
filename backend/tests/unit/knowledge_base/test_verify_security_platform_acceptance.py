@@ -1097,6 +1097,24 @@ def test_validate_deployment_profile_runtime_rejects_localhost_for_demo(
     ]
 
 
+def test_validate_deployment_profile_runtime_rejects_localhost_for_gateway(
+    monkeypatch,
+) -> None:
+    module = _load_module()
+    monkeypatch.setenv("SECURITY_TOOLS_GATEWAY_URL", "http://localhost:9999")
+
+    issues = module.validate_deployment_profile_runtime(
+        {
+            "deployment_profile": "gateway",
+            "profile_env": {},
+        }
+    )
+
+    assert issues == [
+        "Deployment profile gateway requires SECURITY_TOOLS_GATEWAY_URL to be reachable from Docker containers; use host.docker.internal instead of http://localhost:9999"
+    ]
+
+
 def test_load_security_tool_profile_summary_derives_profile_from_deployment_profile(
     monkeypatch, tmp_path: Path
 ) -> None:

@@ -64,6 +64,7 @@
 - 允许使用独立测试 Secret
 - 仍应避免模板占位值
 - 若使用 `demo/mock` profile，应明确标注环境性质
+- 若使用 `gateway` profile，应单独维护 `SECURITY_TOOLS_GATEWAY_API_KEY`，不要与真实上游厂商 Key 混放
 
 
 ### 4.3 演示环境

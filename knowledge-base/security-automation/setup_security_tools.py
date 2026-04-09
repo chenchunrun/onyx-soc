@@ -841,9 +841,9 @@ def main():
     parser.add_argument("--validate-configs", action="store_true")
     parser.add_argument(
         "--profile",
-        choices=["live", "mock"],
+        choices=["live", "gateway", "mock"],
         default=os.environ.get("SECURITY_TOOLS_PROFILE", "live"),
-        help="Security tools integration profile. 'mock' remaps env vars to the local mock tool server.",
+        help="Security tools integration profile. 'gateway' routes requests through a shared internal gateway; 'mock' remaps env vars to the local mock tool server.",
     )
     parser.add_argument("--list-tools", action="store_true")
     parser.add_argument("--create-tool", action="store_true")
@@ -1007,17 +1007,24 @@ def main():
             print(f"  Personas updated: {len(results['personas_updated'])}")
             print()
             print("Environment variables to set:")
-            print("  SECURITY_ALERT_WEBHOOK_URL=https://hooks.slack.com/services/...")
-            print("  SECURITY_TICKET_API_URL=https://your-company.atlassian.net/rest/api/3")
-            print("  SECURITY_TICKET_API_KEY=your-jira-api-token")
-            print("  THREAT_INTEL_API_URL=https://www.virustotal.com/api/v3")
-            print("  THREAT_INTEL_API_KEY=your-virustotal-api-key")
-            print("  SECURITY_SIEM_API_URL=https://siem.example.com/api/v1")
-            print("  SECURITY_SIEM_API_KEY=your-siem-api-token")
-            print("  SECURITY_EDR_API_URL=https://edr.example.com/api/v1")
-            print("  SECURITY_EDR_API_KEY=your-edr-api-token")
-            print("  SECURITY_ASSET_API_URL=https://cmdb.example.com/api/v1")
-            print("  SECURITY_ASSET_API_KEY=your-asset-api-token")
+            if args.profile == "mock":
+                print("  SECURITY_TOOLS_MOCK_SERVER_URL=http://host.docker.internal:9999")
+                print("  SECURITY_TOOLS_MOCK_API_KEY=<mock api key>")
+            elif args.profile == "gateway":
+                print("  SECURITY_TOOLS_GATEWAY_URL=http://host.docker.internal:9999")
+                print("  SECURITY_TOOLS_GATEWAY_API_KEY=<gateway api key>")
+            else:
+                print("  SECURITY_ALERT_WEBHOOK_URL=https://hooks.slack.com/services/...")
+                print("  SECURITY_TICKET_API_URL=https://your-company.atlassian.net/rest/api/3")
+                print("  SECURITY_TICKET_API_KEY=your-jira-api-token")
+                print("  THREAT_INTEL_API_URL=https://www.virustotal.com/api/v3")
+                print("  THREAT_INTEL_API_KEY=your-virustotal-api-key")
+                print("  SECURITY_SIEM_API_URL=https://siem.example.com/api/v1")
+                print("  SECURITY_SIEM_API_KEY=your-siem-api-token")
+                print("  SECURITY_EDR_API_URL=https://edr.example.com/api/v1")
+                print("  SECURITY_EDR_API_KEY=your-edr-api-token")
+                print("  SECURITY_ASSET_API_URL=https://cmdb.example.com/api/v1")
+                print("  SECURITY_ASSET_API_KEY=your-asset-api-token")
         return
 
     parser.print_help()

@@ -1,0 +1,29 @@
+# Example Helm values overlay for a gateway-routed security-platform deployment.
+#
+# Usage:
+#   helm upgrade --install onyx ./charts/onyx \
+#     -n onyx --create-namespace \
+#     -f values.yaml \
+#     -f values.security-platform.gateway.yaml
+#
+# If the gateway runs outside the cluster while Onyx runs in Docker Desktop or a
+# local Kubernetes environment, use a host-reachable DNS name instead of localhost.
+
+configMap:
+  WEB_DOMAIN: "https://onyx-gateway.example.com"
+  SECURITY_PLATFORM_DEPLOYMENT_PROFILE: "gateway"
+  THREAT_INTEL_SOURCE_PROFILE: "live"
+  SECURITY_TOOLS_PROFILE: "gateway"
+  SECURITY_TOOLS_GATEWAY_URL: "http://host.docker.internal:9999"
+
+auth:
+  securityPlatform:
+    enabled: true
+    secretName: "onyx-security-platform-gateway"
+    existingSecret: ""
+    secretKeys:
+      SECURITY_TOOLS_GATEWAY_API_KEY: security_tools_gateway_api_key
+      ENCRYPTION_KEY_SECRET: encryption_key_secret
+    values:
+      security_tools_gateway_api_key: "replace-me"
+      encryption_key_secret: "replace-me"

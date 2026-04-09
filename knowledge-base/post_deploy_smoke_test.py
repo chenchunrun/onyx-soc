@@ -67,7 +67,15 @@ ANALYST_PERSONA_NAME = "安全事件分析师"
 THREAT_INTEL_TOOL_NAME = "threat_intel_lookup"
 SMOKE_PROBE_TOKEN = "SMOKE_OK_ANALYST"
 ROOT = Path(__file__).resolve().parent
-DEPLOYMENT_PROFILES_PATH = ROOT.parent / "docs" / "security-platform" / "deployment-profiles.yaml"
+DEPLOYMENT_PROFILES_PATH = (
+    ROOT.parent
+    / "backend"
+    / "onyx"
+    / "server"
+    / "manage"
+    / "security_platform"
+    / "deployment_profiles.yaml"
+)
 
 
 def get_cookie(base_url: str, email: str, password: str) -> str | None:

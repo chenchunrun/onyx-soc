@@ -30,7 +30,15 @@ ROOT = Path(__file__).resolve().parent
 SECURITY_AUTOMATION_DIR = ROOT / "security-automation"
 SSO_RBAC_DIR = ROOT / "sso-rbac"
 VENV_PYTHON = ROOT.parent / ".venv" / "bin" / "python"
-DEPLOYMENT_PROFILES_PATH = ROOT.parent / "docs" / "security-platform" / "deployment-profiles.yaml"
+DEPLOYMENT_PROFILES_PATH = (
+    ROOT.parent
+    / "backend"
+    / "onyx"
+    / "server"
+    / "manage"
+    / "security_platform"
+    / "deployment_profiles.yaml"
+)
 
 STAGE_KNOWLEDGE_BASE = "knowledge-base"
 STAGE_THREAT_INTEL = "threat-intel"
@@ -184,6 +192,21 @@ def validate_deployment_profile(args: argparse.Namespace, env: dict[str, str]) -
             "Deployment profile demo requires SECURITY_TOOLS_MOCK_SERVER_URL to be "
             "reachable from Docker containers; use host.docker.internal instead of "
             f"{mock_server_url}"
+        )
+
+    gateway_url = str(env.get("SECURITY_TOOLS_GATEWAY_URL", "")).strip()
+    if (
+        deployment_profile == "gateway"
+        and gateway_url
+        and (
+            "localhost" in gateway_url.lower()
+            or "127.0.0.1" in gateway_url
+        )
+    ):
+        errors.append(
+            "Deployment profile gateway requires SECURITY_TOOLS_GATEWAY_URL to be "
+            "reachable from Docker containers; use host.docker.internal instead of "
+            f"{gateway_url}"
         )
 
     return errors

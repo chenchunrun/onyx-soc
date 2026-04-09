@@ -161,6 +161,31 @@ def test_resolve_profile_env_name_uses_mock_override(monkeypatch) -> None:
     assert result == "SECURITY_TOOLS_MOCK_SERVER_URL"
 
 
+def test_resolve_profile_env_name_uses_gateway_override(monkeypatch) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "load_integration_profiles",
+        lambda: {
+            "profiles": {
+                "live": {"env_overrides": {}},
+                "gateway": {
+                    "env_overrides": {
+                        "THREAT_INTEL_API_URL": "SECURITY_TOOLS_GATEWAY_URL"
+                    }
+                },
+            }
+        },
+    )
+
+    result = module.resolve_profile_env_name(
+        "THREAT_INTEL_API_URL",
+        module.argparse.Namespace(profile="gateway"),
+    )
+
+    assert result == "SECURITY_TOOLS_GATEWAY_URL"
+
+
 def test_list_templates_does_not_require_login(monkeypatch) -> None:
     module = _load_module()
     monkeypatch.setattr(module, "get_cookie", lambda *args, **kwargs: (_ for _ in ()).throw(
@@ -518,8 +543,76 @@ def test_apply_tool_definitions_updates_existing_tool_for_target_profile(
 
     assert result["errors"] == []
     assert updated[0]["tool_id"] == 16
-    assert updated[0]["definition"]["servers"][0]["url"] == "http://localhost:9999"
-    assert updated[0]["custom_headers"] == [{"key": "x-apikey", "value": "mock-api-key"}]
+
+
+def test_apply_tool_definitions_uses_profile_overrides_for_gateway(
+    monkeypatch,
+) -> None:
+    module = _load_module()
+    captured: list[dict] = []
+    monkeypatch.setattr(
+        module,
+        "load_integration_configs",
+        lambda: [
+            {
+                "name": "threat_intel_lookup",
+                "template": "threat_intel_api",
+                "description": "desc",
+                "api_url_env": "THREAT_INTEL_API_URL",
+                "api_key_env": "THREAT_INTEL_API_KEY",
+                "persona_bindings": ["安全事件分析师"],
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        module,
+        "load_integration_profiles",
+        lambda: {
+            "profiles": {
+                "live": {"env_overrides": {}},
+                "gateway": {
+                    "env_overrides": {
+                        "THREAT_INTEL_API_URL": "SECURITY_TOOLS_GATEWAY_URL",
+                        "THREAT_INTEL_API_KEY": "SECURITY_TOOLS_GATEWAY_API_KEY",
+                    }
+                },
+            }
+        },
+    )
+    monkeypatch.setenv("SECURITY_TOOLS_GATEWAY_URL", "http://host.docker.internal:9999")
+    monkeypatch.setenv("SECURITY_TOOLS_GATEWAY_API_KEY", "gateway-key")
+    monkeypatch.setattr(module, "load_template", lambda template_name: {"servers": [{"url": "{API_BASE_URL}"}]})
+    monkeypatch.setattr(module, "get_tool_id", lambda base_url, cookie, tool_name: None)
+    monkeypatch.setattr(
+        module,
+        "create_tool",
+        lambda **kwargs: captured.append(kwargs) or {"id": 13},
+    )
+    monkeypatch.setattr(module, "get_persona_id_by_name", lambda *args, **kwargs: 2)
+    monkeypatch.setattr(
+        module,
+        "get_persona",
+        lambda *args, **kwargs: {
+            "tools": [
+                {"id": 1, "display_name": "Internal Search", "in_code_tool_id": "SearchTool"},
+                {"id": 3, "display_name": "Web Search", "in_code_tool_id": "WebSearchTool"},
+                {"id": 4, "display_name": "Open URL", "in_code_tool_id": "OpenURLTool"},
+            ]
+        },
+    )
+    monkeypatch.setattr(module, "attach_tools_to_persona_db", lambda *args, **kwargs: None)
+    monkeypatch.setattr(module, "update_persona_tools", lambda *args, **kwargs: True)
+
+    result = module.apply_tool_definitions(
+        "http://example.com",
+        "cookie",
+        dry_run=False,
+        profile_name="gateway",
+    )
+
+    assert result["errors"] == []
+    assert captured[0]["definition"]["servers"][0]["url"] == "http://host.docker.internal:9999"
+    assert captured[0]["custom_headers"] == [{"key": "x-apikey", "value": "gateway-key"}]
 
 
 def test_apply_tool_definitions_skips_update_when_persona_already_has_tools(

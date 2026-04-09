@@ -73,10 +73,12 @@ from shared_configs.configs import MULTI_TENANT
 
 
 router = APIRouter(prefix="/manage/admin/security-platform", tags=PUBLIC_API_TAGS)
-SNAPSHOT_PATH = Path(__file__).resolve().parent / "static_snapshot.json"
+RUNTIME_CONFIG_DIR = Path(__file__).resolve().parent
+SNAPSHOT_PATH = RUNTIME_CONFIG_DIR / "static_snapshot.json"
 ROOT_PATH = Path(__file__).resolve().parents[5]
-INTEGRATIONS_DIR = Path(__file__).resolve().parent / "tool_configs"
+INTEGRATIONS_DIR = RUNTIME_CONFIG_DIR / "tool_configs"
 INTEGRATION_PROFILES_PATH = INTEGRATIONS_DIR / "profiles.yaml"
+DEPLOYMENT_PROFILES_PATH = RUNTIME_CONFIG_DIR / "deployment_profiles.yaml"
 
 SECURITY_DOCUMENT_SET_NAME = "安全知识库"
 SECURITY_PERSONA_NAMES = {
@@ -114,34 +116,49 @@ TEMPLATE_HEADER_KEYS = {
     "asset_inventory_api": "Authorization",
 }
 
-DEPLOYMENT_PROFILES: dict[str, dict[str, Any]] = {
-    "live": {
-        "required_env": [
-            "ENCRYPTION_KEY_SECRET",
-            "SECURITY_ALERT_WEBHOOK_URL",
-            "SECURITY_TICKET_API_URL",
-            "SECURITY_TICKET_API_KEY",
-            "THREAT_INTEL_API_URL",
-            "THREAT_INTEL_API_KEY",
-            "SECURITY_SIEM_API_URL",
-            "SECURITY_SIEM_API_KEY",
-            "SECURITY_EDR_API_URL",
-            "SECURITY_EDR_API_KEY",
-            "SECURITY_ASSET_API_URL",
-            "SECURITY_ASSET_API_KEY",
-        ],
-        "threat_intel_source_profile": "live",
-        "security_tools_profile": "live",
-    },
-    "demo": {
-        "required_env": [
-            "SECURITY_TOOLS_MOCK_SERVER_URL",
-            "SECURITY_TOOLS_MOCK_API_KEY",
-        ],
-        "threat_intel_source_profile": "mock",
-        "security_tools_profile": "mock",
-    },
-}
+def load_deployment_profiles() -> dict[str, dict[str, Any]]:
+    with open(DEPLOYMENT_PROFILES_PATH, "r", encoding="utf-8") as handle:
+        payload = yaml.safe_load(handle) or {}
+
+    profiles = payload.get("profiles", {})
+    if not isinstance(profiles, dict) or not profiles:
+        raise ValueError(
+            f"Deployment profiles {DEPLOYMENT_PROFILES_PATH} must define profiles"
+        )
+
+    normalized: dict[str, dict[str, Any]] = {}
+    for profile_name, raw_profile in profiles.items():
+        if not isinstance(raw_profile, dict):
+            raise ValueError(f"Invalid deployment profile config for {profile_name}")
+
+        required_env = raw_profile.get("required_env", [])
+        if not isinstance(required_env, list):
+            raise ValueError(
+                f"Deployment profile {profile_name} must define required_env as a list"
+            )
+
+        expectations = raw_profile.get("expectations", {})
+        if not isinstance(expectations, dict):
+            raise ValueError(
+                f"Deployment profile {profile_name} must define expectations as a mapping"
+            )
+
+        normalized[str(profile_name)] = {
+            "required_env": [
+                str(value) for value in required_env if str(value).strip()
+            ],
+            "threat_intel_source_profile": str(
+                expectations.get("threat_intel_source_profile", "live")
+            ),
+            "security_tools_profile": str(
+                expectations.get("security_tools_profile", "live")
+            ),
+        }
+
+    return normalized
+
+
+DEPLOYMENT_PROFILES = load_deployment_profiles()
 
 
 class SecurityPlatformPersonaStatus(BaseModel):
@@ -1421,6 +1438,15 @@ def get_deployment_profile_issues(profile_name: str) -> list[str]:
     ):
         issues.append(
             "SECURITY_TOOLS_MOCK_SERVER_URL must use host.docker.internal in Docker-backed demo deployments"
+        )
+    gateway_url = str(os.environ.get("SECURITY_TOOLS_GATEWAY_URL", "")).strip()
+    if (
+        profile_name == "gateway"
+        and gateway_url
+        and ("localhost" in gateway_url.lower() or "127.0.0.1" in gateway_url)
+    ):
+        issues.append(
+            "SECURITY_TOOLS_GATEWAY_URL must use host.docker.internal in Docker-backed gateway deployments"
         )
     return issues
 

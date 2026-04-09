@@ -32,6 +32,7 @@
 - [架构说明](/Users/newmba/Downloads/onyx-main/docs/security-platform/2-architecture.md)
 - [实施指南](/Users/newmba/Downloads/onyx-main/docs/security-platform/6-implementation-guide.md)
 - [部署指南](/Users/newmba/Downloads/onyx-main/docs/security-platform/7-deployment.md)
+- Helm overlays 已包含 `live / gateway / demo`
 - [Secret 管理说明](/Users/newmba/Downloads/onyx-main/docs/security-platform/20-secret-management.md)
 - [专家评审记录](/Users/newmba/Downloads/onyx-main/docs/security-platform/8-expert-review-notes.md)
 - [最小验收清单](/Users/newmba/Downloads/onyx-main/docs/security-platform/9-minimal-acceptance-checklist.md)

@@ -13,7 +13,13 @@ configMap:
   # Optional public-facing URL for the deployed Onyx instance.
   WEB_DOMAIN: "https://onyx.example.com"
 
-  # Default to the live profile. For demo/offline environments, switch these to:
+  # Default to the live profile. For gateway-routed environments, switch these to:
+  #   SECURITY_PLATFORM_DEPLOYMENT_PROFILE: "gateway"
+  #   THREAT_INTEL_SOURCE_PROFILE: "live"
+  #   SECURITY_TOOLS_PROFILE: "gateway"
+  #   SECURITY_TOOLS_GATEWAY_URL: "http://host.docker.internal:9999"
+  #
+  # For demo/offline environments, switch these to:
   #   SECURITY_PLATFORM_DEPLOYMENT_PROFILE: "demo"
   #   THREAT_INTEL_SOURCE_PROFILE: "mock"
   #   SECURITY_TOOLS_PROFILE: "mock"
@@ -28,6 +34,9 @@ configMap:
   SECURITY_SIEM_API_URL: "https://siem.example.com/api/v1"
   SECURITY_EDR_API_URL: "https://edr.example.com/api/v1"
   SECURITY_ASSET_API_URL: "https://cmdb.example.com/api/v1"
+
+  # Used only when SECURITY_TOOLS_PROFILE=gateway.
+  SECURITY_TOOLS_GATEWAY_URL: ""
 
   # Used only when SECURITY_TOOLS_PROFILE=mock.
   SECURITY_TOOLS_MOCK_SERVER_URL: ""
@@ -44,6 +53,7 @@ auth:
       SECURITY_SIEM_API_KEY: security_siem_api_key
       SECURITY_EDR_API_KEY: security_edr_api_key
       SECURITY_ASSET_API_KEY: security_asset_api_key
+      SECURITY_TOOLS_GATEWAY_API_KEY: security_tools_gateway_api_key
       SECURITY_TOOLS_MOCK_API_KEY: security_tools_mock_api_key
       ENCRYPTION_KEY_SECRET: encryption_key_secret
     values:
@@ -53,5 +63,6 @@ auth:
       security_siem_api_key: "replace-me"
       security_edr_api_key: "replace-me"
       security_asset_api_key: "replace-me"
+      security_tools_gateway_api_key: "replace-me"
       security_tools_mock_api_key: "mock-api-key-for-testing"
       encryption_key_secret: "replace-me"

@@ -242,6 +242,38 @@ def test_validate_deployment_profile_rejects_localhost_mock_server_for_demo(
     ]
 
 
+def test_validate_deployment_profile_rejects_localhost_gateway_for_gateway(
+    monkeypatch,
+) -> None:
+    module = _load_module()
+    monkeypatch.setattr(
+        module,
+        "selected_deployment_profile",
+        lambda args: {
+            "env": {"SECURITY_PLATFORM_DEPLOYMENT_PROFILE": "gateway"},
+            "required_env": ["SECURITY_TOOLS_GATEWAY_URL"],
+            "expectations": {},
+        },
+    )
+    monkeypatch.setattr(
+        module,
+        "selected_deployment_profile_name",
+        lambda args: "gateway",
+    )
+
+    errors = module.validate_deployment_profile(
+        Namespace(dry_run=False, deployment_profile="gateway"),
+        {
+            "SECURITY_PLATFORM_DEPLOYMENT_PROFILE": "gateway",
+            "SECURITY_TOOLS_GATEWAY_URL": "http://localhost:9999",
+        },
+    )
+
+    assert errors == [
+        "Deployment profile gateway requires SECURITY_TOOLS_GATEWAY_URL to be reachable from Docker containers; use host.docker.internal instead of http://localhost:9999"
+    ]
+
+
 def test_main_continues_in_verify_mode_with_profile_errors(monkeypatch) -> None:
     module = _load_module()
     captured_stages: list[str] = []

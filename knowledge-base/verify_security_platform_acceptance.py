@@ -74,7 +74,15 @@ SECURITY_TOOL_INTEGRATIONS_DIR = (
     / "tool_configs"
 )
 SECURITY_TOOL_PROFILES_PATH = SECURITY_TOOL_INTEGRATIONS_DIR / "profiles.yaml"
-DEPLOYMENT_PROFILES_PATH = ROOT.parent / "docs" / "security-platform" / "deployment-profiles.yaml"
+DEPLOYMENT_PROFILES_PATH = (
+    ROOT.parent
+    / "backend"
+    / "onyx"
+    / "server"
+    / "manage"
+    / "security_platform"
+    / "deployment_profiles.yaml"
+)
 PLAYBOOKS_DIR = ROOT.parent / "docs" / "security-platform" / "playbooks"
 HISTORICAL_PACKAGE_INDEX_PATH = (
     ROOT / "threat-intelligence" / "historical_packages" / "index.json"
@@ -641,6 +649,24 @@ def validate_deployment_profile_runtime(
             "Deployment profile demo requires SECURITY_TOOLS_MOCK_SERVER_URL to be "
             "reachable from Docker containers; use host.docker.internal instead of "
             f"{mock_server_url}"
+        )
+    gateway_url = resolve_env_value(
+        "SECURITY_TOOLS_GATEWAY_URL",
+        "",
+        deployment_profile_summary,
+    )
+    if (
+        deployment_profile == "gateway"
+        and gateway_url
+        and (
+            "localhost" in gateway_url.lower()
+            or "127.0.0.1" in gateway_url
+        )
+    ):
+        issues.append(
+            "Deployment profile gateway requires SECURITY_TOOLS_GATEWAY_URL to be "
+            "reachable from Docker containers; use host.docker.internal instead of "
+            f"{gateway_url}"
         )
     required_env = [
         str(env_name)
