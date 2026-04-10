@@ -266,6 +266,7 @@ class DirectoryManager:
     def setup_agent_instructions(
         self,
         sandbox_path: Path,
+        allowed_skill_names: set[str] | None = None,
         provider: str | None = None,
         model_name: str | None = None,
         nextjs_port: int | None = None,
@@ -303,6 +304,7 @@ class DirectoryManager:
         content = generate_agent_instructions(
             template_path=self._agent_instructions_template_path,
             skills_path=self._skills_path,
+            allowed_skill_names=allowed_skill_names,
             files_path=files_path if files_path.exists() else None,
             provider=provider,
             model_name=model_name,
@@ -318,7 +320,12 @@ class DirectoryManager:
         agent_md_path.write_text(content)
         logger.debug(f"Generated AGENTS.md at {agent_md_path}")
 
-    def setup_skills(self, sandbox_path: Path, overwrite: bool = True) -> None:
+    def setup_skills(
+        self,
+        sandbox_path: Path,
+        overwrite: bool = True,
+        allowed_skill_names: set[str] | None = None,
+    ) -> None:
         """Copy skills directory to .opencode/skills.
 
         Copies all skills from the source skills directory to the sandbox's
@@ -350,7 +357,14 @@ class DirectoryManager:
 
             # Create parent directory and copy skills
             skills_dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(self._skills_path, skills_dest)
+            if allowed_skill_names is None:
+                shutil.copytree(self._skills_path, skills_dest)
+            else:
+                skills_dest.mkdir(parents=True, exist_ok=True)
+                for item in sorted(self._skills_path.iterdir()):
+                    if not item.is_dir() or item.name not in allowed_skill_names:
+                        continue
+                    shutil.copytree(item, skills_dest / item.name)
 
             # Verify the copy succeeded
             if not skills_dest.exists():

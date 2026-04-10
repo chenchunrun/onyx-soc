@@ -385,6 +385,7 @@ class LocalSandboxManager(SandboxManager):
         session_id: UUID,
         llm_config: LLMProviderConfig,
         nextjs_port: int,
+        allowed_skill_names: set[str] | None = None,
         file_system_path: str | None = None,
         snapshot_path: str | None = None,  # noqa: ARG002
         user_name: str | None = None,
@@ -492,7 +493,9 @@ class LocalSandboxManager(SandboxManager):
             logger.debug("Outputs directory ready")
 
             logger.debug("Setting up skills")
-            self._directory_manager.setup_skills(session_path)
+            self._directory_manager.setup_skills(
+                session_path, allowed_skill_names=allowed_skill_names
+            )
             logger.debug("Skills ready")
 
             # Setup attachments directory
@@ -536,6 +539,7 @@ class LocalSandboxManager(SandboxManager):
             logger.debug("Setting up agent instructions (AGENTS.md)")
             self._directory_manager.setup_agent_instructions(
                 sandbox_path=session_path,
+                allowed_skill_names=allowed_skill_names,
                 provider=llm_config.provider,
                 model_name=llm_config.model_name,
                 nextjs_port=nextjs_port,

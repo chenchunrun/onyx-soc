@@ -1,0 +1,176 @@
+skills:
+  asset-discovery:
+    access_scope: quarantined
+    enabled: false
+    notes: Active asset discovery and reconnaissance workflow. Keep quarantined.
+    risk_level: high
+  asset-monitor:
+    access_scope: security_team
+    enabled: true
+    notes: Defensive monitoring workflow for security operations.
+    risk_level: medium
+  auth-log-analysis:
+    access_scope: security_team
+    enabled: true
+    notes: Defensive authentication log analysis.
+    risk_level: low
+  binary-reverse-engineering:
+    access_scope: security_team
+    enabled: true
+    notes: Malware and sample reverse engineering for authorized analysts only.
+    risk_level: high
+  brand-impersonation:
+    access_scope: quarantined
+    enabled: false
+    notes: Can drift into external reconnaissance and impersonation workflows.
+    risk_level: high
+  code-audit:
+    access_scope: all_users
+    enabled: true
+    notes: General secure code review guidance.
+    risk_level: low
+  cyberspace-search:
+    access_scope: quarantined
+    enabled: false
+    notes: Internet-facing asset search should not be broadly exposed.
+    risk_level: high
+  data-desensitize:
+    access_scope: all_users
+    enabled: true
+    notes: Safe utility for redaction and privacy protection.
+    risk_level: low
+  dns-cache-detection:
+    access_scope: security_team
+    enabled: true
+    notes: Defensive DNS anomaly analysis.
+    risk_level: medium
+  domain-analysis:
+    access_scope: security_team
+    enabled: true
+    notes: Domain investigation for security analysis.
+    risk_level: medium
+  email-osint:
+    access_scope: quarantined
+    enabled: false
+    notes: Bundles third-party account enumeration tools; keep out of default system.
+    risk_level: critical
+  ip-analysis:
+    access_scope: security_team
+    enabled: true
+    notes: IP reputation and investigation workflow.
+    risk_level: medium
+  linux-ir:
+    access_scope: security_team
+    enabled: true
+    notes: Linux incident response.
+    risk_level: medium
+  macos-ir:
+    access_scope: security_team
+    enabled: true
+    notes: macOS incident response.
+    risk_level: medium
+  mail-attachment-downloader:
+    access_scope: quarantined
+    enabled: false
+    notes: Handles attachment retrieval; requires tighter safety review.
+    risk_level: high
+  office-malware-analyzer:
+    access_scope: security_team
+    enabled: true
+    notes: Attachment malware analysis for authorized analysts.
+    risk_level: high
+  office-report:
+    access_scope: all_users
+    enabled: true
+    notes: Report generation helper.
+    risk_level: low
+  pdf-analysis:
+    access_scope: security_team
+    enabled: true
+    notes: PDF threat analysis for authorized analysts.
+    risk_level: medium
+  pdf-report:
+    access_scope: all_users
+    enabled: true
+    notes: Report generation helper.
+    risk_level: low
+  phishing-analysis:
+    access_scope: security_team
+    enabled: true
+    notes: Defensive phishing triage and IOC extraction.
+    risk_level: medium
+  prompt-injection-detect:
+    access_scope: all_users
+    enabled: true
+    notes: Defensive prompt-injection analysis.
+    risk_level: low
+  redteam-intrusion-0day:
+    access_scope: quarantined
+    enabled: false
+    notes: Exploit and weaponization content should never be broadly enabled.
+    risk_level: critical
+  redteam-intrusion-hunter:
+    access_scope: quarantined
+    enabled: false
+    notes: Offensive intrusion workflow; keep quarantined.
+    risk_level: critical
+  redteam-intrusion-social:
+    access_scope: quarantined
+    enabled: false
+    notes: Social engineering workflow; keep quarantined.
+    risk_level: critical
+  redteam-recon-enterprise:
+    access_scope: quarantined
+    enabled: false
+    notes: External enterprise reconnaissance and scanning.
+    risk_level: critical
+  redteam-recon-nation:
+    access_scope: quarantined
+    enabled: false
+    notes: Sensitive reconnaissance workflow; keep quarantined.
+    risk_level: critical
+  redteam-recon-ngo:
+    access_scope: quarantined
+    enabled: false
+    notes: Sensitive reconnaissance workflow; keep quarantined.
+    risk_level: critical
+  redteam-recon-person:
+    access_scope: quarantined
+    enabled: false
+    notes: Personal OSINT / identity enumeration should not be broadly enabled.
+    risk_level: critical
+  researching-vulnerabilities:
+    access_scope: security_team
+    enabled: true
+    notes: Vulnerability research and analysis.
+    risk_level: medium
+  rga-knowledge-search:
+    access_scope: all_users
+    enabled: true
+    notes: Local repository search helper.
+    risk_level: low
+  sca-analyzer:
+    access_scope: all_users
+    enabled: true
+    notes: Software composition analysis helper.
+    risk_level: low
+  traffic-analysis:
+    access_scope: security_team
+    enabled: true
+    notes: Defensive traffic analysis.
+    risk_level: medium
+  ttp-extractor:
+    access_scope: all_users
+    enabled: true
+    notes: Extracts TTPs from reports and notes.
+    risk_level: low
+  url-analysis:
+    access_scope: security_team
+    enabled: true
+    notes: URL investigation and phishing analysis.
+    risk_level: medium
+  windows-ir:
+    access_scope: security_team
+    enabled: true
+    notes: Windows incident response.
+    risk_level: medium

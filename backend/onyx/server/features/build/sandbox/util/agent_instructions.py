@@ -235,7 +235,9 @@ def extract_skill_description(skill_md_path: Path) -> str:
         return "No description available."
 
 
-def _scan_skills_directory(skills_path: Path) -> str:
+def _scan_skills_directory(
+    skills_path: Path, allowed_skill_names: set[str] | None = None
+) -> str:
     """Internal function to scan skills directory (not cached).
 
     Args:
@@ -248,6 +250,8 @@ def _scan_skills_directory(skills_path: Path) -> str:
     try:
         for skill_dir in sorted(skills_path.iterdir()):
             if not skill_dir.is_dir():
+                continue
+            if allowed_skill_names is not None and skill_dir.name not in allowed_skill_names:
                 continue
 
             skill_md = skill_dir / "SKILL.md"
@@ -264,7 +268,9 @@ def _scan_skills_directory(skills_path: Path) -> str:
     return "\n".join(skills_list)
 
 
-def build_skills_section(skills_path: Path) -> str:
+def build_skills_section(
+    skills_path: Path, allowed_skill_names: set[str] | None = None
+) -> str:
     """Build the available skills section by scanning the skills directory.
 
     Skills are static, so results are cached indefinitely for performance.
@@ -278,7 +284,12 @@ def build_skills_section(skills_path: Path) -> str:
     if not skills_path.exists():
         return "No skills available."
 
-    cache_key = str(skills_path)
+    allowed_key = (
+        "__all__"
+        if allowed_skill_names is None
+        else ",".join(sorted(allowed_skill_names))
+    )
+    cache_key = f"{skills_path}:{allowed_key}"
 
     # Check cache first (skills are static, no TTL needed)
     with _skills_cache_lock:
@@ -287,7 +298,7 @@ def build_skills_section(skills_path: Path) -> str:
             return cached
 
     # Cache miss - scan the directory
-    result = _scan_skills_directory(skills_path)
+    result = _scan_skills_directory(skills_path, allowed_skill_names)
 
     # Update cache
     with _skills_cache_lock:
@@ -431,6 +442,7 @@ def build_knowledge_sources_section(files_path: Path) -> str:
 def generate_agent_instructions(
     template_path: Path,
     skills_path: Path,
+    allowed_skill_names: set[str] | None = None,
     files_path: Path | None = None,
     provider: str | None = None,
     model_name: str | None = None,
@@ -478,7 +490,7 @@ def generate_agent_instructions(
         disabled_tools_section = f"\n**Disabled Tools**: {', '.join(disabled_tools)}\n"
 
     # Build available skills section
-    available_skills_section = build_skills_section(skills_path)
+    available_skills_section = build_skills_section(skills_path, allowed_skill_names)
 
     # Build org info section (only included when demo data is enabled)
     org_info_section = build_org_info_section(include_org_info)

@@ -385,6 +385,7 @@ class KubernetesSandboxManager(SandboxManager):
 
     def _load_agent_instructions(
         self,
+        allowed_skill_names: set[str] | None = None,
         files_path: Path | None = None,
         provider: str | None = None,
         model_name: str | None = None,
@@ -420,6 +421,7 @@ class KubernetesSandboxManager(SandboxManager):
         return generate_agent_instructions(
             template_path=self._agent_instructions_template_path,
             skills_path=self._skills_path,
+            allowed_skill_names=allowed_skill_names,
             files_path=files_path,
             provider=provider,
             model_name=model_name,
@@ -1172,6 +1174,7 @@ done
         session_id: UUID,
         llm_config: LLMProviderConfig,
         nextjs_port: int,
+        allowed_skill_names: set[str] | None = None,
         file_system_path: str | None = None,  # noqa: ARG002
         snapshot_path: str | None = None,
         user_name: str | None = None,
@@ -1232,6 +1235,7 @@ done
         # for generate_agents_md.py to resolve at container runtime by scanning /workspace/files.
         # Attachments section is injected dynamically when first file is uploaded.
         agent_instructions = self._load_agent_instructions(
+            allowed_skill_names=allowed_skill_names,
             files_path=None,  # Container script handles this at runtime
             provider=llm_config.provider,
             model_name=llm_config.model_name,
@@ -1323,6 +1327,27 @@ fi
             session_path, nextjs_port, check_node_modules=False
         )
 
+        allowed_skills_setup = ""
+        if allowed_skill_names is None:
+            allowed_skills_setup = f"""
+# Symlink skills (baked into image at /workspace/skills/)
+if [ -d /workspace/skills ]; then
+    mkdir -p {session_path}/.opencode
+    ln -sf /workspace/skills {session_path}/.opencode/skills
+    echo "Linked skills to /workspace/skills"
+fi
+"""
+        else:
+            lines = [
+                "# Create filtered skill directory for this session",
+                f"mkdir -p {session_path}/.opencode/skills",
+            ]
+            for skill_name in sorted(allowed_skill_names):
+                lines.append(
+                    f'if [ -d /workspace/skills/{skill_name} ]; then ln -sf /workspace/skills/{skill_name} {session_path}/.opencode/skills/{skill_name}; fi'
+                )
+            allowed_skills_setup = "\n".join(lines)
+
         setup_script = f"""
 set -e
 
@@ -1334,12 +1359,7 @@ mkdir -p {session_path}/attachments
 # Setup outputs
 {outputs_setup}
 
-# Symlink skills (baked into image at /workspace/skills/)
-if [ -d /workspace/skills ]; then
-    mkdir -p {session_path}/.opencode
-    ln -sf /workspace/skills {session_path}/.opencode/skills
-    echo "Linked skills to /workspace/skills"
-fi
+{allowed_skills_setup}
 
 # Write agent instructions
 echo "Writing AGENTS.md"
