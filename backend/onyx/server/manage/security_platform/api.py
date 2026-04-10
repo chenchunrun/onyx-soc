@@ -231,12 +231,29 @@ class SecurityPlatformFailureEntry(BaseModel):
     persona_name: str | None
     user_email: str | None
     time_sent: str | None
+    stage: str
+    tool_name: str | None
     error: str
+
+
+class SecurityPlatformFailureAggregateEntry(BaseModel):
+    label: str
+    count: int
+
+
+class SecurityPlatformFailureTrendPoint(BaseModel):
+    day: str
+    count: int
 
 
 class SecurityPlatformFailureSummary(BaseModel):
     total_failures: int
     recent_failure_count: int
+    stage_counts: list[SecurityPlatformFailureAggregateEntry]
+    persona_counts: list[SecurityPlatformFailureAggregateEntry]
+    tool_counts: list[SecurityPlatformFailureAggregateEntry]
+    daily_counts: list[SecurityPlatformFailureTrendPoint]
+    remediation_hints: list[str]
     recent_failures: list[SecurityPlatformFailureEntry]
 
 
@@ -321,6 +338,23 @@ class SecurityPlatformQueryUsageSummary(BaseModel):
     recent_export_count: int
     recent_export_failure_count: int
     recent_exports: list[SecurityPlatformQueryUsageExportEntry]
+
+
+class SecurityPlatformPersonaUsageEntry(BaseModel):
+    persona_id: int
+    persona_name: str
+    recent_session_count: int
+    recent_message_count: int
+    recent_tool_call_count: int
+    last_activity_at: str | None
+
+
+class SecurityPlatformPersonaUsageSummary(BaseModel):
+    recent_active_persona_count: int
+    recent_session_count: int
+    recent_message_count: int
+    recent_tool_call_count: int
+    persona_entries: list[SecurityPlatformPersonaUsageEntry]
 
 
 class SecurityPlatformCustomPermissionSummary(BaseModel):
@@ -487,6 +521,7 @@ class SecurityPlatformRuntimeStatus(BaseModel):
     service_accounts: SecurityPlatformServiceAccountSummary
     scim: SecurityPlatformScimSummary
     query_history_usage: SecurityPlatformQueryUsageSummary
+    persona_usage: SecurityPlatformPersonaUsageSummary
     custom_permissions: SecurityPlatformCustomPermissionSummary
     usage_limits: SecurityPlatformUsageLimitSummary
     hooks: SecurityPlatformHookSummary
@@ -1639,6 +1674,10 @@ def build_failure_summary(
     *,
     total_failures: int,
     recent_rows: list[Any],
+    stage_count_rows: list[Any],
+    persona_count_rows: list[Any],
+    tool_count_rows: list[Any],
+    daily_count_rows: list[Any],
 ) -> SecurityPlatformFailureSummary:
     recent_failures: list[SecurityPlatformFailureEntry] = []
     for row in recent_rows:
@@ -1651,13 +1690,75 @@ def build_failure_summary(
                 persona_name=getattr(row, "persona_name", None),
                 user_email=getattr(row, "user_email", None),
                 time_sent=time_sent.isoformat() if time_sent is not None else None,
+                stage=str(getattr(row, "stage", "assistant_generation") or "assistant_generation"),
+                tool_name=getattr(row, "tool_name", None),
                 error=error,
             )
+        )
+
+    def _build_counts(rows: list[Any], label_field: str) -> list[SecurityPlatformFailureAggregateEntry]:
+        entries: list[SecurityPlatformFailureAggregateEntry] = []
+        for row in rows:
+            label = str(getattr(row, label_field, "") or "").strip()
+            if not label:
+                continue
+            entries.append(
+                SecurityPlatformFailureAggregateEntry(
+                    label=label,
+                    count=int(getattr(row, "failure_count", 0) or 0),
+                )
+            )
+        return entries
+
+    daily_counts_map = {
+        str(getattr(row, "day", "")): int(getattr(row, "failure_count", 0) or 0)
+        for row in daily_count_rows
+        if getattr(row, "day", None) is not None
+    }
+    trend_days = [
+        (datetime.now(timezone.utc).date() - timedelta(days=offset)).isoformat()
+        for offset in range(6, -1, -1)
+    ]
+
+    hints: list[str] = []
+    normalized_errors = [item.error.lower() for item in recent_failures]
+    if any("timeout" in error or "timed out" in error for error in normalized_errors):
+        hints.append(
+            "Inspect upstream timeout or latency for the affected model/tool path and verify retry budgets."
+        )
+    if any(
+        "gateway" in error or "502" in error or "503" in error or "bad gateway" in error
+        for error in normalized_errors
+    ):
+        hints.append(
+            "Check the security tools gateway health endpoint and recent upstream connectivity failures."
+        )
+    if any(
+        "401" in error or "403" in error or "auth" in error or "unauthorized" in error or "forbidden" in error
+        for error in normalized_errors
+    ):
+        hints.append(
+            "Verify gateway and upstream API keys, then confirm the expected secret values are injected into the active profile."
+        )
+    if any(item.stage == "tool_followup" for item in recent_failures):
+        hints.append(
+            "Review the linked tool configuration and the most recent gateway request logs for the failing tool."
         )
 
     return SecurityPlatformFailureSummary(
         total_failures=total_failures,
         recent_failure_count=len(recent_failures),
+        stage_counts=_build_counts(stage_count_rows, "stage"),
+        persona_counts=_build_counts(persona_count_rows, "persona_name"),
+        tool_counts=_build_counts(tool_count_rows, "tool_name"),
+        daily_counts=[
+            SecurityPlatformFailureTrendPoint(
+                day=day,
+                count=daily_counts_map.get(day, 0),
+            )
+            for day in trend_days
+        ],
+        remediation_hints=hints[:3],
         recent_failures=recent_failures,
     )
 
@@ -1783,6 +1884,28 @@ def build_scim_summary(
 
 
 def load_failure_summary(db_session: Session) -> SecurityPlatformFailureSummary:
+    lookback_start = datetime.now(timezone.utc) - timedelta(days=30)
+    failure_stage = case(
+        (
+            exists(
+                select(ToolCall.id)
+                .where(ToolCall.parent_chat_message_id == ChatMessage.id)
+                .limit(1)
+            ),
+            "tool_followup",
+        ),
+        else_="assistant_generation",
+    )
+    recent_tool_name = (
+        select(Tool.name)
+        .select_from(ToolCall)
+        .join(Tool, Tool.id == ToolCall.tool_id)
+        .where(ToolCall.parent_chat_message_id == ChatMessage.id)
+        .order_by(ToolCall.id.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+
     total_failures = int(
         db_session.scalar(
             select(func.count())
@@ -1801,6 +1924,8 @@ def load_failure_summary(db_session: Session) -> SecurityPlatformFailureSummary:
             User.email.label("user_email"),
             ChatMessage.time_sent.label("time_sent"),
             ChatMessage.error.label("error"),
+            failure_stage.label("stage"),
+            recent_tool_name.label("tool_name"),
         )
         .select_from(ChatMessage)
         .join(ChatSession, ChatSession.id == ChatMessage.chat_session_id)
@@ -1814,9 +1939,82 @@ def load_failure_summary(db_session: Session) -> SecurityPlatformFailureSummary:
         .limit(10)
     ).all()
 
+    stage_count_rows = db_session.execute(
+        select(
+            failure_stage.label("stage"),
+            func.count().label("failure_count"),
+        )
+        .select_from(ChatMessage)
+        .where(
+            ChatMessage.message_type == MessageType.ASSISTANT,
+            ChatMessage.error.is_not(None),
+            ChatMessage.time_sent >= lookback_start,
+        )
+        .group_by(failure_stage)
+        .order_by(func.count().desc(), failure_stage.asc())
+    ).all()
+
+    persona_count_rows = db_session.execute(
+        select(
+            Persona.name.label("persona_name"),
+            func.count().label("failure_count"),
+        )
+        .select_from(ChatMessage)
+        .join(ChatSession, ChatSession.id == ChatMessage.chat_session_id)
+        .outerjoin(Persona, Persona.id == ChatSession.persona_id)
+        .where(
+            ChatMessage.message_type == MessageType.ASSISTANT,
+            ChatMessage.error.is_not(None),
+            ChatMessage.time_sent >= lookback_start,
+            Persona.name.is_not(None),
+        )
+        .group_by(Persona.name)
+        .order_by(func.count().desc(), Persona.name.asc())
+    ).all()
+
+    tool_count_rows = db_session.execute(
+        select(
+            Tool.name.label("tool_name"),
+            func.count(func.distinct(ChatMessage.id)).label("failure_count"),
+        )
+        .select_from(ChatMessage)
+        .join(ToolCall, ToolCall.parent_chat_message_id == ChatMessage.id)
+        .join(Tool, Tool.id == ToolCall.tool_id)
+        .where(
+            ChatMessage.message_type == MessageType.ASSISTANT,
+            ChatMessage.error.is_not(None),
+            ChatMessage.time_sent >= lookback_start,
+        )
+        .group_by(Tool.name)
+        .order_by(func.count(func.distinct(ChatMessage.id)).desc(), Tool.name.asc())
+    ).all()
+
+    daily_count_rows = db_session.execute(
+        select(
+            cast(func.date(ChatMessage.time_sent), String).label("day"),
+            func.count().label("failure_count"),
+        )
+        .select_from(ChatMessage)
+        .where(
+            ChatMessage.message_type == MessageType.ASSISTANT,
+            ChatMessage.error.is_not(None),
+            ChatMessage.time_sent >= datetime.combine(
+                datetime.now(timezone.utc).date() - timedelta(days=6),
+                datetime.min.time(),
+                tzinfo=timezone.utc,
+            ),
+        )
+        .group_by(cast(func.date(ChatMessage.time_sent), String))
+        .order_by(cast(func.date(ChatMessage.time_sent), String).asc())
+    ).all()
+
     return build_failure_summary(
         total_failures=total_failures,
         recent_rows=list(recent_rows),
+        stage_count_rows=list(stage_count_rows),
+        persona_count_rows=list(persona_count_rows),
+        tool_count_rows=list(tool_count_rows),
+        daily_count_rows=list(daily_count_rows),
     )
 
 
@@ -2193,6 +2391,134 @@ def build_query_history_usage_summary(
             )
             for row in recent_export_rows
         ],
+    )
+
+
+def build_persona_usage_summary(
+    *,
+    recent_active_persona_count: int,
+    recent_session_count: int,
+    recent_message_count: int,
+    recent_tool_call_count: int,
+    persona_rows: list[Any],
+) -> SecurityPlatformPersonaUsageSummary:
+    return SecurityPlatformPersonaUsageSummary(
+        recent_active_persona_count=recent_active_persona_count,
+        recent_session_count=recent_session_count,
+        recent_message_count=recent_message_count,
+        recent_tool_call_count=recent_tool_call_count,
+        persona_entries=[
+            SecurityPlatformPersonaUsageEntry(
+                persona_id=int(row.persona_id),
+                persona_name=str(row.persona_name),
+                recent_session_count=int(row.recent_session_count or 0),
+                recent_message_count=int(row.recent_message_count or 0),
+                recent_tool_call_count=int(row.recent_tool_call_count or 0),
+                last_activity_at=(
+                    row.last_activity_at.isoformat()
+                    if row.last_activity_at is not None
+                    else None
+                ),
+            )
+            for row in persona_rows
+        ],
+    )
+
+
+def load_persona_usage_summary(
+    db_session: Session,
+) -> SecurityPlatformPersonaUsageSummary:
+    lookback_start = datetime.now(timezone.utc) - timedelta(days=30)
+
+    recent_session_count = int(
+        db_session.scalar(
+            select(func.count(func.distinct(ChatSession.id)))
+            .select_from(ChatSession)
+            .join(Persona, Persona.id == ChatSession.persona_id)
+            .where(
+                Persona.name.in_(SECURITY_PERSONA_NAMES),
+                ChatSession.time_created >= lookback_start,
+            )
+        )
+        or 0
+    )
+    recent_message_count = int(
+        db_session.scalar(
+            select(func.count())
+            .select_from(ChatMessage)
+            .join(ChatSession, ChatSession.id == ChatMessage.chat_session_id)
+            .join(Persona, Persona.id == ChatSession.persona_id)
+            .where(
+                Persona.name.in_(SECURITY_PERSONA_NAMES),
+                ChatMessage.time_sent >= lookback_start,
+            )
+        )
+        or 0
+    )
+    recent_tool_call_count = int(
+        db_session.scalar(
+            select(func.count())
+            .select_from(ToolCall)
+            .join(ChatSession, ChatSession.id == ToolCall.chat_session_id)
+            .join(Persona, Persona.id == ChatSession.persona_id)
+            .where(
+                Persona.name.in_(SECURITY_PERSONA_NAMES),
+                ToolCall.time_sent >= lookback_start,
+            )
+        )
+        or 0
+    )
+
+    persona_rows = db_session.execute(
+        select(
+            Persona.id.label("persona_id"),
+            Persona.name.label("persona_name"),
+            func.count(func.distinct(ChatSession.id)).label("recent_session_count"),
+            func.count(func.distinct(ChatMessage.id)).label("recent_message_count"),
+            func.count(func.distinct(ToolCall.id)).label("recent_tool_call_count"),
+            func.max(ChatMessage.time_sent).label("last_activity_at"),
+        )
+        .select_from(Persona)
+        .outerjoin(
+            ChatSession,
+            (
+                (ChatSession.persona_id == Persona.id)
+                & (ChatSession.time_created >= lookback_start)
+            ),
+        )
+        .outerjoin(
+            ChatMessage,
+            (
+                (ChatMessage.chat_session_id == ChatSession.id)
+                & (ChatMessage.time_sent >= lookback_start)
+            ),
+        )
+        .outerjoin(
+            ToolCall,
+            (
+                (ToolCall.chat_session_id == ChatSession.id)
+                & (ToolCall.time_sent >= lookback_start)
+            ),
+        )
+        .where(Persona.name.in_(SECURITY_PERSONA_NAMES))
+        .group_by(Persona.id, Persona.name)
+        .order_by(
+            func.count(func.distinct(ChatSession.id)).desc(),
+            func.count(func.distinct(ToolCall.id)).desc(),
+            Persona.id.asc(),
+        )
+    ).all()
+
+    recent_active_persona_count = sum(
+        1 for row in persona_rows if int(row.recent_session_count or 0) > 0
+    )
+
+    return build_persona_usage_summary(
+        recent_active_persona_count=recent_active_persona_count,
+        recent_session_count=recent_session_count,
+        recent_message_count=recent_message_count,
+        recent_tool_call_count=recent_tool_call_count,
+        persona_rows=list(persona_rows),
     )
 
 
@@ -3222,6 +3548,7 @@ def get_security_platform_status(
     service_accounts = load_service_account_summary(db_session)
     scim = load_scim_summary(db_session)
     query_history_usage = load_query_history_usage_summary(db_session)
+    persona_usage = load_persona_usage_summary(db_session)
     custom_permissions = load_custom_permission_summary(db_session)
     usage_limits = load_usage_limit_summary(db_session)
     hooks = load_hook_summary(db_session)
@@ -3309,6 +3636,7 @@ def get_security_platform_status(
             "service_accounts": service_accounts.model_dump(),
             "scim": scim.model_dump(),
             "query_history_usage": query_history_usage.model_dump(),
+            "persona_usage": persona_usage.model_dump(),
             "custom_permissions": custom_permissions.model_dump(),
             "usage_limits": usage_limits.model_dump(),
             "hooks": hooks.model_dump(),
@@ -3355,6 +3683,7 @@ def get_security_platform_status(
         service_accounts=service_accounts,
         scim=scim,
         query_history_usage=query_history_usage,
+        persona_usage=persona_usage,
         custom_permissions=custom_permissions,
         usage_limits=usage_limits,
         hooks=hooks,

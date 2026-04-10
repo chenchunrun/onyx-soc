@@ -14,6 +14,7 @@ from onyx.server.manage.security_platform.api import load_region_processing_summ
 from onyx.server.manage.security_platform.api import load_self_hosting_summary
 from onyx.server.manage.security_platform.api import load_white_labeling_summary
 from onyx.server.manage.security_platform.api import build_permission_inheritance_summary
+from onyx.server.manage.security_platform.api import build_persona_usage_summary
 from onyx.server.manage.security_platform.api import build_query_history_usage_summary
 from onyx.server.manage.security_platform.api import build_rbac_summary
 from onyx.server.manage.security_platform.api import build_scim_summary
@@ -207,22 +208,47 @@ def test_build_failure_summary_formats_recent_failures() -> None:
                 persona_name="安全事件分析师",
                 user_email="analyst@security.local",
                 time_sent=datetime(2026, 4, 7, 9, 30, tzinfo=timezone.utc),
+                stage="tool_followup",
+                tool_name="create_security_ticket",
                 error="Tool call timed out",
             ),
             SimpleNamespace(
                 persona_name=None,
                 user_email=None,
                 time_sent=None,
+                stage="assistant_generation",
+                tool_name=None,
                 error="Upstream gateway error",
             ),
+        ],
+        stage_count_rows=[
+            SimpleNamespace(stage="assistant_generation", failure_count=2),
+            SimpleNamespace(stage="tool_followup", failure_count=2),
+        ],
+        persona_count_rows=[
+            SimpleNamespace(persona_name="安全事件分析师", failure_count=1),
+        ],
+        tool_count_rows=[
+            SimpleNamespace(tool_name="create_security_ticket", failure_count=1),
+        ],
+        daily_count_rows=[
+            SimpleNamespace(day="2026-04-06", failure_count=1),
+            SimpleNamespace(day="2026-04-07", failure_count=2),
         ],
     )
 
     assert summary.total_failures == 4
     assert summary.recent_failure_count == 2
+    assert summary.stage_counts[0].label == "assistant_generation"
     assert summary.recent_failures[0].time_sent == "2026-04-07T09:30:00+00:00"
+    assert summary.recent_failures[0].stage == "tool_followup"
+    assert summary.recent_failures[0].tool_name == "create_security_ticket"
     assert summary.recent_failures[0].error == "Tool call timed out"
     assert summary.recent_failures[1].persona_name is None
+    assert len(summary.daily_counts) == 7
+    assert any("tool configuration" in hint.lower() for hint in summary.remediation_hints)
+    assert any("timeout" in hint.lower() for hint in summary.remediation_hints)
+    assert any("gateway" in hint.lower() for hint in summary.remediation_hints)
 
 
 def test_build_permission_inheritance_summary_formats_recent_attempts() -> None:
@@ -364,6 +390,154 @@ def test_build_query_history_usage_summary_formats_export_state() -> None:
     assert summary.recent_export_count == 3
     assert summary.recent_export_failure_count == 1
     assert summary.recent_exports[0].start_time == "2026-04-07T13:00:00+00:00"
+
+
+def test_build_persona_usage_summary_formats_entries() -> None:
+    summary = build_persona_usage_summary(
+        recent_active_persona_count=2,
+        recent_session_count=5,
+        recent_message_count=12,
+        recent_tool_call_count=4,
+        persona_rows=[
+            SimpleNamespace(
+                persona_id=6,
+                persona_name="威胁狩猎工程师",
+                recent_session_count=3,
+                recent_message_count=8,
+                recent_tool_call_count=3,
+                last_activity_at=datetime(2026, 4, 8, 9, 30, tzinfo=timezone.utc),
+            ),
+            SimpleNamespace(
+                persona_id=7,
+                persona_name="恶意软件分析师",
+                recent_session_count=2,
+                recent_message_count=4,
+                recent_tool_call_count=1,
+                last_activity_at=None,
+            ),
+        ],
+    )
+
+    assert summary.recent_active_persona_count == 2
+    assert summary.recent_session_count == 5
+    assert summary.recent_message_count == 12
+    assert summary.recent_tool_call_count == 4
+    assert len(summary.persona_entries) == 2
+    assert summary.persona_entries[0].persona_name == "威胁狩猎工程师"
+    assert summary.persona_entries[0].last_activity_at == "2026-04-08T09:30:00+00:00"
+    assert summary.persona_entries[1].last_activity_at is None
+
+
+def test_build_failure_summary_formats_recent_rows_and_aggregates() -> None:
+    summary = build_failure_summary(
+        total_failures=5,
+        recent_rows=[
+            SimpleNamespace(
+                persona_name="威胁狩猎工程师",
+                user_email="hunter@security.local",
+                time_sent=datetime(2026, 4, 9, 10, 0, tzinfo=timezone.utc),
+                stage="tool_followup",
+                tool_name="search_security_alerts",
+                error="tool follow-up failed",
+            ),
+            SimpleNamespace(
+                persona_name="检测工程师",
+                user_email="detection@security.local",
+                time_sent=datetime(2026, 4, 9, 11, 0, tzinfo=timezone.utc),
+                stage="assistant_generation",
+                tool_name=None,
+                error="assistant failed",
+            ),
+        ],
+        stage_count_rows=[
+            SimpleNamespace(stage="assistant_generation", failure_count=3),
+            SimpleNamespace(stage="tool_followup", failure_count=2),
+        ],
+        persona_count_rows=[
+            SimpleNamespace(persona_name="威胁狩猎工程师", failure_count=2),
+            SimpleNamespace(persona_name="检测工程师", failure_count=1),
+        ],
+        tool_count_rows=[
+            SimpleNamespace(tool_name="search_security_alerts", failure_count=2),
+        ],
+        daily_count_rows=[
+            SimpleNamespace(day="2026-04-08", failure_count=1),
+            SimpleNamespace(day="2026-04-09", failure_count=2),
+        ],
+    )
+
+    assert summary.total_failures == 5
+    assert summary.recent_failure_count == 2
+    assert summary.stage_counts[0].label == "assistant_generation"
+    assert summary.stage_counts[0].count == 3
+    assert summary.persona_counts[0].label == "威胁狩猎工程师"
+    assert summary.tool_counts[0].label == "search_security_alerts"
+    assert summary.recent_failures[0].stage == "tool_followup"
+    assert summary.recent_failures[0].tool_name == "search_security_alerts"
+    assert summary.recent_failures[1].stage == "assistant_generation"
+    assert summary.recent_failures[1].tool_name is None
+    assert len(summary.daily_counts) == 7
+
+
+def test_build_failure_summary_fills_missing_days_in_trend(monkeypatch) -> None:
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 4, 9, 12, 0, tzinfo=timezone.utc if tz else None)
+
+    monkeypatch.setattr("onyx.server.manage.security_platform.api.datetime", FixedDateTime)
+
+    summary = build_failure_summary(
+        total_failures=2,
+        recent_rows=[],
+        stage_count_rows=[],
+        persona_count_rows=[],
+        tool_count_rows=[],
+        daily_count_rows=[
+            SimpleNamespace(day="2026-04-08", failure_count=1),
+            SimpleNamespace(day="2026-04-09", failure_count=1),
+        ],
+    )
+
+    assert [item.day for item in summary.daily_counts] == [
+        "2026-04-03",
+        "2026-04-04",
+        "2026-04-05",
+        "2026-04-06",
+        "2026-04-07",
+        "2026-04-08",
+        "2026-04-09",
+    ]
+    assert [item.count for item in summary.daily_counts] == [0, 0, 0, 0, 0, 1, 1]
+
+
+def test_build_failure_summary_limits_remediation_hints(monkeypatch) -> None:
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 4, 9, 12, 0, tzinfo=timezone.utc if tz else None)
+
+    monkeypatch.setattr("onyx.server.manage.security_platform.api.datetime", FixedDateTime)
+
+    summary = build_failure_summary(
+        total_failures=3,
+        recent_rows=[
+            SimpleNamespace(
+                persona_name="安全事件分析师",
+                user_email="analyst@security.local",
+                time_sent=datetime(2026, 4, 9, 12, 0, tzinfo=timezone.utc),
+                stage="tool_followup",
+                tool_name="threat_intel_lookup",
+                error="401 unauthorized bad gateway timeout",
+            )
+        ],
+        stage_count_rows=[],
+        persona_count_rows=[],
+        tool_count_rows=[],
+        daily_count_rows=[],
+    )
+
+    assert len(summary.remediation_hints) == 3
 
 
 def test_build_custom_permission_summary_sorts_permission_counts() -> None:

@@ -146,10 +146,29 @@ interface SecurityPlatformRuntimeStatus {
   failure_summary: {
     total_failures: number;
     recent_failure_count: number;
+    stage_counts: {
+      label: string;
+      count: number;
+    }[];
+    persona_counts: {
+      label: string;
+      count: number;
+    }[];
+    tool_counts: {
+      label: string;
+      count: number;
+    }[];
+    daily_counts: {
+      day: string;
+      count: number;
+    }[];
+    remediation_hints: string[];
     recent_failures: {
       persona_name: string | null;
       user_email: string | null;
       time_sent: string | null;
+      stage: string;
+      tool_name: string | null;
       error: string;
     }[];
   };
@@ -215,6 +234,20 @@ interface SecurityPlatformRuntimeStatus {
       task_id: string;
       status: string;
       start_time: string | null;
+    }[];
+  };
+  persona_usage: {
+    recent_active_persona_count: number;
+    recent_session_count: number;
+    recent_message_count: number;
+    recent_tool_call_count: number;
+    persona_entries: {
+      persona_id: number;
+      persona_name: string;
+      recent_session_count: number;
+      recent_message_count: number;
+      recent_tool_call_count: number;
+      last_activity_at: string | null;
     }[];
   };
   custom_permissions: {
@@ -524,6 +557,9 @@ function FailureItem({
       <div className="font-medium">{item.error}</div>
       <div className="mt-1 text-xs text-muted-foreground">
         persona={item.persona_name || "unknown"} / user={item.user_email || "unknown"}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">
+        stage={item.stage} / tool={item.tool_name || "none"}
       </div>
       <div className="mt-1 text-xs text-muted-foreground">
         time={item.time_sent || "unknown"}
@@ -840,6 +876,19 @@ function Main() {
           </div>
         </SummaryCard>
 
+        <SummaryCard title="Persona Activity">
+          <div className="text-2xl font-semibold">
+            {runtimeData.persona_usage.recent_active_persona_count}
+          </div>
+          <div className="mt-2 text-sm text-muted-foreground">
+            sessions={runtimeData.persona_usage.recent_session_count}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            messages={runtimeData.persona_usage.recent_message_count} / tool calls=
+            {runtimeData.persona_usage.recent_tool_call_count}
+          </div>
+        </SummaryCard>
+
         <SummaryCard title="Config Drift">
           <div className="text-2xl font-semibold">
             {runtimeData.tool_drift.mismatch_count}
@@ -858,6 +907,9 @@ function Main() {
           </div>
           <div className="mt-2 text-sm text-muted-foreground">
             recent={runtimeData.failure_summary.recent_failure_count}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            top stage={runtimeData.failure_summary.stage_counts[0]?.label || "none"}
           </div>
         </SummaryCard>
 
@@ -903,6 +955,24 @@ function Main() {
           </div>
         </SummaryCard>
       </div>
+
+      <SummaryCard title="Persona Activity Detail">
+        <div className="space-y-3">
+          {runtimeData.persona_usage.persona_entries.map((item) => (
+            <div key={item.persona_id} className="rounded-md border p-3">
+              <div className="font-medium">{item.persona_name}</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                sessions={item.recent_session_count} / messages=
+                {item.recent_message_count} / tool calls=
+                {item.recent_tool_call_count}
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                last activity={item.last_activity_at || "none in 30d"}
+              </div>
+            </div>
+          ))}
+        </div>
+      </SummaryCard>
 
       <div className="grid gap-4 xl:grid-cols-3">
         <SummaryCard title="Playbook Catalog">
@@ -1051,6 +1121,87 @@ function Main() {
           ) : (
             <div className="text-sm text-muted-foreground">
               No recent assistant failures recorded.
+            </div>
+          )}
+        </div>
+      </SummaryCard>
+
+      <SummaryCard title="Failure Breakdown">
+        <div className="grid gap-4 xl:grid-cols-4">
+          <div>
+            <div className="text-sm font-medium">By Stage</div>
+            <div className="mt-3 space-y-2">
+              {runtimeData.failure_summary.stage_counts.length > 0 ? (
+                runtimeData.failure_summary.stage_counts.map((item) => (
+                  <div key={`stage-${item.label}`} className="rounded-md border p-3 text-sm">
+                    <div className="font-medium">{item.label}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">count={item.count}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-muted-foreground">No recent stage failures.</div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-sm font-medium">By Persona</div>
+            <div className="mt-3 space-y-2">
+              {runtimeData.failure_summary.persona_counts.length > 0 ? (
+                runtimeData.failure_summary.persona_counts.map((item) => (
+                  <div key={`persona-${item.label}`} className="rounded-md border p-3 text-sm">
+                    <div className="font-medium">{item.label}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">count={item.count}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-muted-foreground">No recent persona failures.</div>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-sm font-medium">By Tool</div>
+            <div className="mt-3 space-y-2">
+              {runtimeData.failure_summary.tool_counts.length > 0 ? (
+                runtimeData.failure_summary.tool_counts.map((item) => (
+                  <div key={`tool-${item.label}`} className="rounded-md border p-3 text-sm">
+                    <div className="font-medium">{item.label}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">count={item.count}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-muted-foreground">No recent tool-linked failures.</div>
+              )}
+            </div>
+          </div>
+
+
+          <div>
+            <div className="text-sm font-medium">7d Trend</div>
+            <div className="mt-3 space-y-2">
+              {runtimeData.failure_summary.daily_counts.map((item) => (
+                <div key={`day-${item.day}`} className="rounded-md border p-3 text-sm">
+                  <div className="font-medium">{item.day}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">count={item.count}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </SummaryCard>
+
+      <SummaryCard title="Failure Hints">
+        <div className="space-y-3">
+          {runtimeData.failure_summary.remediation_hints.length > 0 ? (
+            runtimeData.failure_summary.remediation_hints.map((hint) => (
+              <div key={hint} className="rounded-md border p-3 text-sm text-muted-foreground">
+                {hint}
+              </div>
+            ))
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              No remediation hints generated from recent failure patterns.
             </div>
           )}
         </div>
