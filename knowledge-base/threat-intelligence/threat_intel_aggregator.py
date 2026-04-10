@@ -26,6 +26,7 @@ Requirements:
 """
 
 import argparse
+from io import BytesIO
 import json
 import os
 import sys
@@ -33,8 +34,11 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urljoin
 
 import requests
+from bs4 import BeautifulSoup
+from pypdf import PdfReader
 
 venv_path = Path(__file__).parent.parent / ".venv"
 if venv_path.exists():
@@ -93,6 +97,16 @@ FEEDS = {
         "nvd_keyword": "medical device",
         "nvd_max_results": 200,
     },
+    "cncert_weekly_reports": {
+        "name": "CNCERT 网络安全信息与动态周报",
+        "url": "https://www.cert.org.cn/publish/main/44/index.html",
+        "description": "CNCERT 官方网络安全信息与动态周报列表与报告 PDF",
+        "category": "China Threat Reports",
+        "tags": ["CNCERT", "CERT", "China", "weekly-report", "threat-intel"],
+        "source": "CNCERT",
+        "max_reports": 6,
+        "pdf_page_limit": 1,
+    },
 
     # DEPRECATED - kept for reference, will be skipped
     "cisa_advisories": {
@@ -123,6 +137,214 @@ FEEDS = {
         "deprecated": True,
     },
 }
+
+
+def normalize_whitespace(value: str) -> str:
+    return " ".join(value.split()).strip()
+
+
+def cncert_request_headers() -> dict[str, str]:
+    return {
+        "User-Agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/135.0.0.0 Safari/537.36"
+        ),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    }
+
+
+def extract_cncert_weekly_report_links(
+    index_html: str,
+    base_url: str,
+    max_reports: int,
+) -> list[dict[str, str]]:
+    soup = BeautifulSoup(index_html, "html.parser")
+    links: list[dict[str, str]] = []
+
+    for item in soup.select("ul.waring_con li"):
+        title_anchor = item.find("a")
+        date_text = normalize_whitespace(item.find("span").get_text(" ", strip=True)) if item.find("span") else ""
+        title = normalize_whitespace(title_anchor.get_text(" ", strip=True)) if title_anchor else ""
+        onclick = title_anchor.get("onclick", "") if title_anchor else ""
+
+        page_path = ""
+        if 'window.open("' in onclick:
+            page_path = onclick.split('window.open("', 1)[1].split('"', 1)[0]
+        elif title_anchor and title_anchor.get("href"):
+            page_path = title_anchor["href"]
+
+        if not title or not page_path:
+            continue
+
+        links.append(
+            {
+                "title": title,
+                "page_url": urljoin(base_url, page_path),
+                "published_date": date_text.strip("[]"),
+            }
+        )
+        if len(links) >= max_reports:
+            break
+
+    return links
+
+
+def extract_pdf_text(pdf_bytes: bytes, page_limit: int) -> str:
+    if not pdf_bytes:
+        return ""
+    reader = PdfReader(BytesIO(pdf_bytes))
+    extracted_pages: list[str] = []
+    for page in reader.pages[:page_limit]:
+        text = normalize_whitespace(page.extract_text() or "")
+        if text:
+            extracted_pages.append(text)
+    return "\n\n".join(extracted_pages)
+
+
+def parse_cncert_weekly_report_page(
+    page_html: str,
+    page_url: str,
+    base_url: str,
+) -> dict[str, str]:
+    soup = BeautifulSoup(page_html, "html.parser")
+
+    title_node = soup.select_one(".artil_tit")
+    meta_node = soup.select_one(".artil_art")
+    content_node = soup.select_one(".artil_content")
+    pdf_anchor = content_node.find("a") if content_node else None
+
+    title = normalize_whitespace(title_node.get_text(" ", strip=True)) if title_node else ""
+    meta_text = normalize_whitespace(meta_node.get_text(" ", strip=True)) if meta_node else ""
+    pdf_url = urljoin(base_url, pdf_anchor["href"]) if pdf_anchor and pdf_anchor.get("href") else ""
+
+    published_date = ""
+    source = "CNCERT"
+    if "时间：" in meta_text:
+        published_date = meta_text.split("时间：", 1)[1].strip()
+    if "来源：" in meta_text:
+        source_part = meta_text.split("来源：", 1)[1]
+        source = normalize_whitespace(source_part.split("时间：", 1)[0])
+
+    return {
+        "title": title,
+        "page_url": page_url,
+        "pdf_url": pdf_url,
+        "published_date": published_date,
+        "source": source or "CNCERT",
+    }
+
+
+def fetch_cncert_weekly_reports(
+    index_url: str,
+    max_reports: int = 12,
+    pdf_page_limit: int = 2,
+    timeout: int = 30,
+) -> list[dict[str, Any]]:
+    request_headers = cncert_request_headers()
+    index_response = requests.get(index_url, headers=request_headers, timeout=timeout)
+    index_response.raise_for_status()
+
+    report_links = extract_cncert_weekly_report_links(
+        index_response.text,
+        base_url=index_url,
+        max_reports=max_reports,
+    )
+
+    reports: list[dict[str, Any]] = []
+    for item in report_links:
+        page_response = requests.get(
+            item["page_url"],
+            headers=request_headers,
+            timeout=timeout,
+        )
+        page_response.raise_for_status()
+        report_meta = parse_cncert_weekly_report_page(
+            page_response.text,
+            page_url=item["page_url"],
+            base_url=index_url,
+        )
+
+        pdf_excerpt = ""
+        if report_meta["pdf_url"]:
+            pdf_response = requests.get(
+                report_meta["pdf_url"],
+                headers=request_headers,
+                timeout=timeout,
+            )
+            pdf_response.raise_for_status()
+            pdf_excerpt = extract_pdf_text(pdf_response.content, page_limit=pdf_page_limit)
+
+        title = report_meta["title"] or item["title"]
+        published_date = report_meta["published_date"] or item["published_date"]
+        week_label = title.split("-")[-1] if "-" in title else title
+
+        content = f"""# {title}
+
+## 基本信息
+- **来源**: {report_meta["source"]}
+- **发布时间**: {published_date or "N/A"}
+- **报告期次**: {week_label}
+- **详情页**: {item["page_url"]}
+- **PDF 下载**: {report_meta["pdf_url"] or "N/A"}
+
+## 使用建议
+1. 提取周报中的重点事件、漏洞、攻击活动和行业趋势。
+2. 与本地告警、漏洞、资产上下文交叉验证，判断是否与当前环境相关。
+3. 将高相关事件转化为检测规则、hunt 线索或排查任务。
+
+## 正文摘录
+{pdf_excerpt or "未能提取 PDF 正文，请参考详情页或原始 PDF。"}
+
+---
+*Source: CNCERT Weekly Threat Report*
+*Retrieved: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}*
+"""
+
+        reports.append(
+            {
+                "advisory_id": f"CNCERT_WEEKLY_{published_date or week_label}",
+                "title": title,
+                "content": content,
+                "category": "CNCERT Weekly Report",
+                "severity": "MEDIUM",
+                "publication_date": published_date,
+                "tags": ["CNCERT", "China", "weekly-report", "threat-intel"],
+                "source": "CNCERT",
+                "doc_updated_at": f"{published_date}T00:00:00Z" if published_date else datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+        )
+
+    return reports
+
+
+def build_cncert_weekly_summary(records: list[dict], feed: dict) -> str:
+    content = f"""# {feed['name']} Summary
+
+## Overview
+- **Total Reports**: {len(records)}
+- **Source**: {feed['url']}
+- **Retrieved**: {datetime.now(timezone.utc).strftime('%Y-%m-%d')}
+
+## Latest Reports
+"""
+    for record in records[:10]:
+        content += (
+            f"- **{record.get('publication_date', 'N/A')}**: "
+            f"{record.get('title', 'Untitled report')}\n"
+        )
+
+    content += """
+## Suggested Usage
+1. Review weekly report topics for changes in attack activity, major vulnerabilities, and sector trends.
+2. Map relevant items to internal detections, threat hunts, and vulnerability remediation.
+3. Promote high-signal items into governed threat-intel packages when they remain relevant over time.
+
+---
+*Source: CNCERT Weekly Threat Report*
+*Generated: """ + datetime.now(timezone.utc).strftime('%Y-%m-%d') + "*\n"
+    return content
 
 # ─── NVD API Fetcher ─────────────────────────────────────────────────────────
 
@@ -998,6 +1220,35 @@ def main():
                 "category": "CISA KEV",
                 "severity": "CRITICAL",
                 "tags": ["CISA", "KEV", "summary"],
+                "source": "threat-intelligence",
+                "doc_updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            }
+
+        # ── CNCERT Weekly Reports ───────────────────────────────────────
+        elif feed_key == "cncert_weekly_reports":
+            print(f"  Fetching CNCERT weekly reports...")
+            try:
+                records = fetch_cncert_weekly_reports(
+                    feed["url"],
+                    max_reports=feed.get("max_reports", 12),
+                    pdf_page_limit=feed.get("pdf_page_limit", 2),
+                )
+            except Exception as e:
+                print(f"  [ERROR] {e}")
+                continue
+
+            if not records:
+                print(f"  [SKIP] Could not fetch {feed_key}")
+                continue
+
+            summary_content = build_cncert_weekly_summary(records, feed)
+            summary_record = {
+                "semantic_identifier": "CNCERT_Weekly_Threat_Report_Summary",
+                "title": f"{feed['name']} Summary",
+                "content": summary_content,
+                "category": feed["category"],
+                "severity": "MEDIUM",
+                "tags": feed["tags"],
                 "source": "threat-intelligence",
                 "doc_updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             }

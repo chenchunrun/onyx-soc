@@ -7,3 +7,5 @@ feeds:
     min_refresh_interval_hours: 48
   - name: nvd_medical_advisories
     min_refresh_interval_hours: 48
+  - name: cncert_weekly_reports
+    min_refresh_interval_hours: 24

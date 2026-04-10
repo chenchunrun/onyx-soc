@@ -55,6 +55,7 @@ DEFAULT_FEEDS = [
     "nvd_security_advisories",
     "nvd_ics_advisories",
     "nvd_medical_advisories",
+    "cncert_weekly_reports",
 ]
 
 
