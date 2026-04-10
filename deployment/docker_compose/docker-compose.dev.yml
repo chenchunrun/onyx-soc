@@ -12,11 +12,17 @@ services:
   api_server:
     ports:
       - "127.0.0.1:8080:8080"
+    volumes:
+      - ../../skills:/app/skills:ro
     deploy:
       resources:
         limits:
           cpus: "${API_SERVER_CPU_LIMIT:-0}"
           memory: "${API_SERVER_MEM_LIMIT:-0}"
+
+  background:
+    volumes:
+      - ../../skills:/app/skills:ro
 
   # Uncomment the block below to enable the MCP server for Onyx.
   # mcp_server:

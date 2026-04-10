@@ -13,7 +13,22 @@ from onyx.server.features.build.sandbox.util.agent_instructions import (
     extract_skill_description,
 )
 
-ROOT_PATH = Path(__file__).resolve().parents[5]
+_FILE_PATH = Path(__file__).resolve()
+_ROOT_CANDIDATES = (
+    _FILE_PATH.parents[5],
+    _FILE_PATH.parents[4],
+    Path("/app"),
+)
+
+
+def _detect_root_path() -> Path:
+    for candidate in _ROOT_CANDIDATES:
+        if (candidate / "skills").exists():
+            return candidate
+    return _ROOT_CANDIDATES[0]
+
+
+ROOT_PATH = _detect_root_path()
 SKILLS_ROOT = ROOT_PATH / "skills"
 REGISTRY_PATH = Path(__file__).resolve().parent / "registry.yaml"
 
