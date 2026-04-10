@@ -7,6 +7,7 @@ from onyx.server.manage.skills.registry import ManagedSkill
 from onyx.server.manage.skills.registry import SkillAccessScope
 from onyx.server.manage.skills.registry import SkillRiskLevel
 from onyx.server.manage.skills.registry import build_skill_registry_summary
+from onyx.server.manage.skills.registry import SkillRegistryImportRequest
 
 
 def _write_skill(skill_dir: Path, description: str) -> None:
@@ -193,3 +194,95 @@ def test_build_skill_registry_summary_exposes_role_previews(monkeypatch) -> None
         "all-users-skill",
         "security-only-skill",
     ]
+
+
+def test_import_and_export_skill_registry_round_trip(
+    tmp_path: Path, monkeypatch
+) -> None:
+    registry_path = tmp_path / "registry.yaml"
+    monkeypatch.setattr(registry, "REGISTRY_PATH", registry_path)
+
+    summary = registry.import_skill_registry(
+        SkillRegistryImportRequest(
+            yaml_content="""
+skills:
+  custom-skill:
+    enabled: true
+    risk_level: high
+    access_scope: security_team
+    notes: Imported for testing
+""".strip()
+        )
+    )
+
+    assert summary.imported_count == 1
+    assert summary.managed_count == 1
+
+    exported = registry.export_skill_registry_yaml()
+    assert "custom-skill" in exported
+    assert "security_team" in exported
+
+
+def test_list_managed_skills_supports_query_filters(monkeypatch) -> None:
+    skills = [
+        ManagedSkill(
+            key="code-audit",
+            name="code-audit",
+            description="Audit application code",
+            path="skills/code-audit",
+            risk_level=SkillRiskLevel.LOW,
+            access_scope=SkillAccessScope.ALL_USERS,
+            enabled=True,
+            builtin=False,
+            has_scripts=False,
+            has_references=False,
+            has_tools=False,
+            has_requirements=False,
+            notes="safe",
+        ),
+        ManagedSkill(
+            key="redteam-recon-enterprise",
+            name="redteam-recon-enterprise",
+            description="External reconnaissance",
+            path="skills/redteam-recon-enterprise",
+            risk_level=SkillRiskLevel.CRITICAL,
+            access_scope=SkillAccessScope.QUARANTINED,
+            enabled=False,
+            builtin=False,
+            has_scripts=True,
+            has_references=False,
+            has_tools=False,
+            has_requirements=False,
+            notes="blocked",
+        ),
+    ]
+    monkeypatch.setattr(
+        registry,
+        "scan_skill_directories",
+        lambda skills_root=None: {skill.key: skill for skill in skills},
+    )
+    monkeypatch.setattr(
+        registry,
+        "_load_registry_payload",
+        lambda: {
+            "skills": {
+                skill.key: {
+                    "enabled": skill.enabled,
+                    "risk_level": skill.risk_level.value,
+                    "access_scope": skill.access_scope.value,
+                    "notes": skill.notes,
+                }
+                for skill in skills
+            }
+        },
+    )
+
+    queried = registry.list_managed_skills(query="audit")
+    assert [skill.key for skill in queried] == ["code-audit"]
+
+    filtered = registry.list_managed_skills(
+        risk_level=SkillRiskLevel.CRITICAL,
+        access_scope=SkillAccessScope.QUARANTINED,
+        enabled=False,
+    )
+    assert [skill.key for skill in filtered] == ["redteam-recon-enterprise"]

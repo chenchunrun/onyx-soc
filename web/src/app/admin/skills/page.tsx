@@ -39,6 +39,12 @@ interface SkillRegistrySyncSummary {
   managed_count: number;
 }
 
+interface SkillRegistryImportSummary {
+  imported_count: number;
+  managed_count: number;
+  mode: "merge" | "replace";
+}
+
 interface SkillRolePreview {
   role: string;
   allowed_count: number;
@@ -117,8 +123,36 @@ function ScopeBadge({ scope }: { scope: SkillAccessScope }) {
 }
 
 export default function SkillsPage() {
+  const [query, setQuery] = useState("");
+  const [riskFilter, setRiskFilter] = useState<SkillRiskLevel | "all">("all");
+  const [scopeFilter, setScopeFilter] = useState<SkillAccessScope | "all">("all");
+  const [enabledFilter, setEnabledFilter] = useState<"all" | "enabled" | "disabled">(
+    "all"
+  );
+  const [importMode, setImportMode] = useState<"merge" | "replace">("merge");
+  const [importYaml, setImportYaml] = useState("");
+  const [importing, setImporting] = useState(false);
+
+  const skillsApiUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (query.trim()) {
+      params.set("query", query.trim());
+    }
+    if (riskFilter !== "all") {
+      params.set("risk_level", riskFilter);
+    }
+    if (scopeFilter !== "all") {
+      params.set("access_scope", scopeFilter);
+    }
+    if (enabledFilter !== "all") {
+      params.set("enabled", String(enabledFilter === "enabled"));
+    }
+    const serialized = params.toString();
+    return serialized ? `${SKILLS_API}?${serialized}` : SKILLS_API;
+  }, [enabledFilter, query, riskFilter, scopeFilter]);
+
   const { data, error, isLoading } = useSWR<ManagedSkill[]>(
-    SKILLS_API,
+    skillsApiUrl,
     errorHandlingFetcher
   );
   const { data: summary } = useSWR<SkillRegistrySummary>(
@@ -204,7 +238,7 @@ export default function SkillsPage() {
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      await mutate(SKILLS_API);
+      await mutate(skillsApiUrl);
       await mutate(SKILLS_SUMMARY_API);
       toast.success(`Updated ${skill.name}`);
     } catch (fetchError) {
@@ -228,7 +262,7 @@ export default function SkillsPage() {
         throw new Error(await response.text());
       }
       const result = (await response.json()) as SkillRegistrySyncSummary;
-      await mutate(SKILLS_API);
+      await mutate(skillsApiUrl);
       await mutate(SKILLS_SUMMARY_API);
       toast.success(
         `Skills synced. Discovered ${result.discovered_count}, added ${result.added_count}.`
@@ -241,6 +275,70 @@ export default function SkillsPage() {
       );
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await fetch(`${SKILLS_API}/export`);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const yamlContent = await response.text();
+      const blob = new Blob([yamlContent], { type: "application/x-yaml" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "skills-registry.yaml";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Exported skills registry");
+    } catch (fetchError) {
+      toast.error(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Failed to export skills registry"
+      );
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importYaml.trim()) {
+      toast.error("Paste a registry YAML payload before importing");
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const response = await fetch(`${SKILLS_API}/import`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          yaml_content: importYaml,
+          mode: importMode,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const result = (await response.json()) as SkillRegistryImportSummary;
+      await mutate(skillsApiUrl);
+      await mutate(SKILLS_SUMMARY_API);
+      toast.success(
+        `Imported ${result.imported_count} skills in ${result.mode} mode.`
+      );
+    } catch (fetchError) {
+      toast.error(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Failed to import skills registry"
+      );
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -372,9 +470,114 @@ export default function SkillsPage() {
                 only allowed skills are loaded into sandbox sessions.
               </p>
             </div>
-            <Button onClick={handleSync} disabled={syncing}>
-              {syncing ? "Syncing..." : "Sync Skills"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={handleExport}>Export YAML</Button>
+              <Button onClick={handleSync} disabled={syncing}>
+                {syncing ? "Syncing..." : "Sync Skills"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-background-100 p-4">
+            <div className="grid gap-3 lg:grid-cols-4">
+              <label className="flex flex-col gap-2">
+                <div className="text-sm font-medium text-text-01">Query</div>
+                <input
+                  className="rounded-lg border border-border bg-background px-3 py-2"
+                  placeholder="Search key, description, path, or notes"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </label>
+
+              <label className="flex flex-col gap-2">
+                <div className="text-sm font-medium text-text-01">Risk</div>
+                <select
+                  className="rounded-lg border border-border bg-background px-3 py-2"
+                  value={riskFilter}
+                  onChange={(event) =>
+                    setRiskFilter(event.target.value as SkillRiskLevel | "all")
+                  }
+                >
+                  <option value="all">All</option>
+                  {(Object.keys(RISK_LABELS) as SkillRiskLevel[]).map((risk) => (
+                    <option key={risk} value={risk}>
+                      {RISK_LABELS[risk]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-2">
+                <div className="text-sm font-medium text-text-01">Scope</div>
+                <select
+                  className="rounded-lg border border-border bg-background px-3 py-2"
+                  value={scopeFilter}
+                  onChange={(event) =>
+                    setScopeFilter(event.target.value as SkillAccessScope | "all")
+                  }
+                >
+                  <option value="all">All</option>
+                  {(Object.keys(SCOPE_LABELS) as SkillAccessScope[]).map((scope) => (
+                    <option key={scope} value={scope}>
+                      {SCOPE_LABELS[scope]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex flex-col gap-2">
+                <div className="text-sm font-medium text-text-01">Enabled</div>
+                <select
+                  className="rounded-lg border border-border bg-background px-3 py-2"
+                  value={enabledFilter}
+                  onChange={(event) =>
+                    setEnabledFilter(
+                      event.target.value as "all" | "enabled" | "disabled"
+                    )
+                  }
+                >
+                  <option value="all">All</option>
+                  <option value="enabled">Enabled</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-background-100 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-text-01">
+                  Import Registry YAML
+                </div>
+                <p className="text-sm text-text-03">
+                  Merge updates into the current registry, or replace the entire
+                  registry payload.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  className="rounded-lg border border-border bg-background px-3 py-2"
+                  value={importMode}
+                  onChange={(event) =>
+                    setImportMode(event.target.value as "merge" | "replace")
+                  }
+                >
+                  <option value="merge">Merge</option>
+                  <option value="replace">Replace</option>
+                </select>
+                <Button onClick={handleImport} disabled={importing}>
+                  {importing ? "Importing..." : "Import YAML"}
+                </Button>
+              </div>
+            </div>
+            <textarea
+              className="mt-3 min-h-40 w-full rounded-xl border border-border bg-background px-3 py-2 font-mono text-sm"
+              placeholder={"skills:\n  example-skill:\n    enabled: true\n    risk_level: medium\n    access_scope: security_team\n    notes: Imported registry entry"}
+              value={importYaml}
+              onChange={(event) => setImportYaml(event.target.value)}
+            />
           </div>
 
           {isLoading ? <SimpleLoader /> : null}

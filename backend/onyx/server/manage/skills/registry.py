@@ -3,6 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from pathlib import Path
 from typing import Any
+from typing import Literal
 
 from pydantic import BaseModel
 import yaml
@@ -84,6 +85,17 @@ class SkillRegistrySyncSummary(BaseModel):
     discovered_count: int
     added_count: int
     managed_count: int
+
+
+class SkillRegistryImportRequest(BaseModel):
+    yaml_content: str
+    mode: Literal["merge", "replace"] = "merge"
+
+
+class SkillRegistryImportSummary(BaseModel):
+    imported_count: int
+    managed_count: int
+    mode: Literal["merge", "replace"]
 
 
 class SkillRolePreview(BaseModel):
@@ -194,7 +206,12 @@ def scan_skill_directories(
     return scanned
 
 
-def list_managed_skills() -> list[ManagedSkill]:
+def list_managed_skills(
+    query: str | None = None,
+    risk_level: SkillRiskLevel | None = None,
+    access_scope: SkillAccessScope | None = None,
+    enabled: bool | None = None,
+) -> list[ManagedSkill]:
     payload = _load_registry_payload()
     scanned = scan_skill_directories()
 
@@ -219,6 +236,27 @@ def list_managed_skills() -> list[ManagedSkill]:
                 }
             )
         )
+
+    if query:
+        lowered_query = query.strip().lower()
+        managed = [
+            skill
+            for skill in managed
+            if lowered_query in skill.key.lower()
+            or lowered_query in skill.name.lower()
+            or lowered_query in skill.description.lower()
+            or lowered_query in skill.path.lower()
+            or lowered_query in (skill.notes or "").lower()
+        ]
+
+    if risk_level is not None:
+        managed = [skill for skill in managed if skill.risk_level == risk_level]
+
+    if access_scope is not None:
+        managed = [skill for skill in managed if skill.access_scope == access_scope]
+
+    if enabled is not None:
+        managed = [skill for skill in managed if skill.enabled == enabled]
 
     return sorted(
         managed,
@@ -250,6 +288,53 @@ def sync_skill_registry() -> SkillRegistrySyncSummary:
         discovered_count=len(scanned),
         added_count=added_count,
         managed_count=len(payload["skills"]),
+    )
+
+
+def export_skill_registry_yaml() -> str:
+    if not REGISTRY_PATH.exists():
+        return yaml.safe_dump({"skills": {}}, allow_unicode=True, sort_keys=True)
+    return REGISTRY_PATH.read_text(encoding="utf-8")
+
+
+def import_skill_registry(
+    request: SkillRegistryImportRequest,
+) -> SkillRegistryImportSummary:
+    loaded_payload = yaml.safe_load(request.yaml_content) or {}
+    skills_payload = loaded_payload.get("skills", {})
+    if not isinstance(skills_payload, dict):
+        raise ValueError("Imported registry must contain a top-level 'skills' mapping")
+
+    normalized_skills: dict[str, dict[str, Any]] = {}
+    for key, entry in skills_payload.items():
+        if not isinstance(key, str):
+            raise ValueError("Skill keys must be strings")
+        if not isinstance(entry, dict):
+            raise ValueError(f"Skill entry for '{key}' must be an object")
+
+        normalized_skills[key] = {
+            "enabled": bool(entry.get("enabled", False)),
+            "risk_level": SkillRiskLevel(
+                entry.get("risk_level", SkillRiskLevel.MEDIUM.value)
+            ).value,
+            "access_scope": SkillAccessScope(
+                entry.get("access_scope", SkillAccessScope.QUARANTINED.value)
+            ).value,
+            "notes": entry.get("notes"),
+        }
+
+    if request.mode == "replace":
+        next_payload = {"skills": normalized_skills}
+    else:
+        next_payload = _load_registry_payload()
+        next_payload["skills"].update(normalized_skills)
+
+    _write_registry_payload(next_payload)
+
+    return SkillRegistryImportSummary(
+        imported_count=len(normalized_skills),
+        managed_count=len(next_payload["skills"]),
+        mode=request.mode,
     )
 
 
