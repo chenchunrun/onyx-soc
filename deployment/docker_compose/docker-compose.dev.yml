@@ -14,6 +14,7 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - ../../skills:/app/skills:ro
+      - ../../notifications:/app/notifications:ro
     deploy:
       resources:
         limits:
@@ -23,6 +24,7 @@ services:
   background:
     volumes:
       - ../../skills:/app/skills:ro
+      - ../../notifications:/app/notifications:ro
 
   # Uncomment the block below to enable the MCP server for Onyx.
   # mcp_server:

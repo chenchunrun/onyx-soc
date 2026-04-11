@@ -147,7 +147,8 @@ def process_onyx_metadata(
     metadata: dict[str, Any],
 ) -> tuple[OnyxMetadata, dict[str, Any]]:
     """
-    Users may set Onyx metadata and custom tags in text files. https://docs.onyx.app/admins/connectors/official/file
+    Users may set Onyx metadata and custom tags in text files. See the local
+    file connector documentation for the supported metadata format.
     Any unrecognized fields are treated as custom tags.
     """
     p_owner_names = metadata.get("primary_owners")

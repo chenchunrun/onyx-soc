@@ -2,6 +2,14 @@ skills:
   asset-discovery:
     access_scope: quarantined
     enabled: false
+    execution_scope: authorized_scan
+    requires_approval: true
+    requires_network_gateway: true
+    allowed_target_types:
+      - domain
+      - ip
+      - cidr
+      - url
     notes: Active asset discovery and reconnaissance workflow. Keep quarantined.
     risk_level: high
   asset-monitor:
@@ -32,6 +40,13 @@ skills:
   cyberspace-search:
     access_scope: quarantined
     enabled: false
+    execution_scope: authorized_scan
+    requires_approval: true
+    requires_network_gateway: true
+    allowed_target_types:
+      - domain
+      - ip
+      - url
     notes: Internet-facing asset search should not be broadly exposed.
     risk_level: high
   data-desensitize:
@@ -122,21 +137,52 @@ skills:
   redteam-recon-enterprise:
     access_scope: quarantined
     enabled: false
+    execution_scope: authorized_scan
+    requires_approval: true
+    requires_network_gateway: true
+    allowed_target_types:
+      - domain
+      - ip
+      - cidr
+      - url
     notes: External enterprise reconnaissance and scanning.
     risk_level: critical
   redteam-recon-nation:
     access_scope: quarantined
     enabled: false
+    execution_scope: authorized_scan
+    requires_approval: true
+    requires_network_gateway: true
+    allowed_target_types:
+      - domain
+      - ip
+      - cidr
+      - url
     notes: Sensitive reconnaissance workflow; keep quarantined.
     risk_level: critical
   redteam-recon-ngo:
     access_scope: quarantined
     enabled: false
+    execution_scope: authorized_scan
+    requires_approval: true
+    requires_network_gateway: true
+    allowed_target_types:
+      - domain
+      - ip
+      - cidr
+      - url
     notes: Sensitive reconnaissance workflow; keep quarantined.
     risk_level: critical
   redteam-recon-person:
     access_scope: quarantined
     enabled: false
+    execution_scope: authorized_scan
+    requires_approval: true
+    requires_network_gateway: true
+    allowed_target_types:
+      - domain
+      - ip
+      - url
     notes: Personal OSINT / identity enumeration should not be broadly enabled.
     risk_level: critical
   researching-vulnerabilities:

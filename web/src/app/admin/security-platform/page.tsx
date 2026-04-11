@@ -68,6 +68,17 @@ interface SecurityPlatformRuntimeStatus {
       }[];
     };
   };
+  threat_intel_sync_health: {
+    configured_feed_count: number;
+    refreshed_feed_count: number;
+    healthy_feed_count: number;
+    issue_count: number;
+    issue_entries: {
+      feed_name: string;
+      issue: string;
+      last_success_at: string | null;
+    }[];
+  };
   playbooks: {
     count: number;
     with_examples: number;
@@ -913,6 +924,18 @@ function Main() {
           </div>
         </SummaryCard>
 
+        <SummaryCard title="Threat Intel Sync">
+          <div className="text-2xl font-semibold">
+            {runtimeData.threat_intel_sync_health.healthy_feed_count}
+          </div>
+          <div className="mt-2 text-sm text-muted-foreground">
+            healthy / configured={runtimeData.threat_intel_sync_health.configured_feed_count}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            issues={runtimeData.threat_intel_sync_health.issue_count}
+          </div>
+        </SummaryCard>
+
         <SummaryCard title="Permission Inheritance">
           <div className="text-2xl font-semibold">
             {runtimeData.permission_inheritance.sync_cc_pair_count}
@@ -1036,6 +1059,9 @@ function Main() {
               due feeds: {runtimeData.threat_intel_sync.due_feeds.length > 0
                 ? runtimeData.threat_intel_sync.due_feeds.join(", ")
                 : "none"}
+            </div>
+            <div>
+              sync feed issues: {runtimeData.threat_intel_sync_health.issue_count}
             </div>
             <div>
               deployment issues: {runtimeData.deployment_profile_issues.length > 0
@@ -1202,6 +1228,26 @@ function Main() {
           ) : (
             <div className="text-sm text-muted-foreground">
               No remediation hints generated from recent failure patterns.
+            </div>
+          )}
+        </div>
+      </SummaryCard>
+
+      <SummaryCard title="Threat Intel Feed Issues">
+        <div className="space-y-3">
+          {runtimeData.threat_intel_sync_health.issue_entries.length > 0 ? (
+            runtimeData.threat_intel_sync_health.issue_entries.map((item) => (
+              <div key={`${item.feed_name}-${item.issue}`} className="rounded-md border p-3">
+                <div className="font-medium">{item.feed_name}</div>
+                <div className="mt-1 text-sm text-muted-foreground">{item.issue}</div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  last success={item.last_success_at || "none"}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              No threat-intel feed sync issues detected.
             </div>
           )}
         </div>

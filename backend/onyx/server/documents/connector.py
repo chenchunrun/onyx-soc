@@ -33,6 +33,7 @@ from onyx.background.celery.versioned_apps.client import app as client_app
 from onyx.configs.app_configs import EMAIL_CONFIGURED
 from onyx.configs.app_configs import ENABLED_CONNECTOR_TYPES
 from onyx.configs.app_configs import MOCK_CONNECTOR_FILE_PATH
+from onyx.configs.app_configs import CONNECTOR_REQUEST_EMAIL
 from onyx.configs.constants import DocumentSource
 from onyx.configs.constants import FileOrigin
 from onyx.configs.constants import MilestoneRecordType
@@ -1945,7 +1946,7 @@ def submit_connector_request(
 ) -> StatusResponse:
     """
     Submit a connector request for Cloud deployments.
-    Tracks via PostHog telemetry and sends email to hello@onyx.app.
+    Tracks via PostHog telemetry and sends email to the configured connector-request mailbox.
     """
     tenant_id = get_current_tenant_id()
     connector_name = request_data.connector_name.strip()
@@ -1991,13 +1992,13 @@ Tenant ID: {tenant_id}
 </html>"""
 
             send_email(
-                user_email="hello@onyx.app",
+                user_email=CONNECTOR_REQUEST_EMAIL,
                 subject=subject,
                 html_body=email_body_html,
                 text_body=email_body_text,
             )
             logger.info(
-                f"Connector request email sent to hello@onyx.app for connector: {connector_name}"
+                f"Connector request email sent to {CONNECTOR_REQUEST_EMAIL} for connector: {connector_name}"
             )
         except Exception as e:
             # Log error but don't fail the request if email fails

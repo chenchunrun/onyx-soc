@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
 
+from onyx.configs.app_configs import DOCS_BASE_URL
 from onyx.db.enums import HookFailStrategy
 from onyx.db.enums import HookPoint
 from onyx.hooks.points.base import HookPointSpec
@@ -66,7 +67,7 @@ class QueryProcessingSpec(HookPointSpec):
     )
     default_fail_strategy = HookFailStrategy.HARD
     docs_url = (
-        "https://docs.onyx.app/admins/advanced_configs/hook_extensions#query-processing"
+        f"{DOCS_BASE_URL}/admins/advanced_configs/hook_extensions#query-processing"
     )
 
     payload_model = QueryProcessingPayload

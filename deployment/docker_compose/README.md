@@ -8,7 +8,8 @@ To set up Onyx there are several options, Onyx supports the following for deploy
 
 This README focuses on the easiest guided deployment which is via install.sh.
 
-**For more detailed guides, please refer to the documentation: https://docs.onyx.app/deployment/overview**
+For local deployments in this repository, use the compose files in this directory
+and the in-repo deployment notes under `knowledge-base/` and `deployment/`.
 
 ## install.sh script
 

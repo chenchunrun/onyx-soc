@@ -1,13 +1,29 @@
 """Constants for release notes functionality."""
 
+import os
+
+from onyx.configs.app_configs import WEB_DOMAIN
+
 # GitHub source
 GITHUB_RAW_BASE_URL = (
     "https://raw.githubusercontent.com/onyx-dot-app/documentation/main"
 )
-GITHUB_CHANGELOG_RAW_URL = f"{GITHUB_RAW_BASE_URL}/changelog.mdx"
+DEFAULT_GITHUB_CHANGELOG_RAW_URL = f"{GITHUB_RAW_BASE_URL}/changelog.mdx"
+GITHUB_CHANGELOG_RAW_URL = os.environ.get(
+    "CHANGELOG_RAW_URL", DEFAULT_GITHUB_CHANGELOG_RAW_URL
+)
 
 # Base URL for changelog documentation (used for notification links)
-DOCS_CHANGELOG_BASE_URL = "https://docs.onyx.app/changelog"
+DEFAULT_DOCS_CHANGELOG_BASE_URL = f"{WEB_DOMAIN.rstrip('/')}/admin/systeminfo"
+DOCS_CHANGELOG_BASE_URL = os.environ.get(
+    "CHANGELOG_DOCS_URL", f"{WEB_DOMAIN.rstrip('/')}/admin/systeminfo"
+)
+
+# Local self-hosted changelog feed. When present, this takes precedence over the
+# official remote changelog source.
+LOCAL_CHANGELOG_FILE = os.environ.get(
+    "LOCAL_CHANGELOG_FILE", "/app/notifications/changelog.mdx"
+)
 
 FETCH_TIMEOUT = 60.0
 

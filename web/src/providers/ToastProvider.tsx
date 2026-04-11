@@ -3,7 +3,10 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 import Message from "@/refresh-components/messages/Message";
-import { NEXT_PUBLIC_INCLUDE_ERROR_POPUP_SUPPORT_LINK } from "@/lib/constants";
+import {
+  COMMUNITY_URL,
+  NEXT_PUBLIC_INCLUDE_ERROR_POPUP_SUPPORT_LINK,
+} from "@/lib/constants";
 import { toast, toastStore, MAX_VISIBLE_TOASTS } from "@/hooks/useToast";
 import type { Toast, ToastLevel } from "@/hooks/useToast";
 
@@ -29,9 +32,7 @@ function buildDescription(t: Toast): string | undefined {
   const parts: string[] = [];
   if (t.description) parts.push(t.description);
   if (t.level === "error" && NEXT_PUBLIC_INCLUDE_ERROR_POPUP_SUPPORT_LINK) {
-    parts.push(
-      "Need help? Join our community at https://discord.gg/4NA5SbzrWb for support!"
-    );
+    parts.push(`Need help? Visit ${COMMUNITY_URL} for support.`);
   }
   return parts.length > 0 ? parts.join(" ") : undefined;
 }

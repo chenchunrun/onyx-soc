@@ -25,6 +25,7 @@ from requests import RequestException
 from requests import Response
 from retry import retry
 
+from onyx.configs.app_configs import DOCS_BASE_URL
 from onyx.configs.app_configs import INDEXING_EMBEDDING_MODEL_NUM_THREADS
 from onyx.configs.app_configs import LARGE_CHUNK_RATIO
 from onyx.configs.model_configs import BATCH_SIZE_ENCODE_CHUNKS
@@ -175,7 +176,7 @@ def _cleanup_thread_local(func: Callable) -> Callable:
 WARM_UP_STRINGS = [
     "Onyx is amazing!",
     "Check out our easy deployment guide at",
-    "https://docs.onyx.app/deployment/getting_started/quickstart",
+    f"{DOCS_BASE_URL}/deployment/getting_started/quickstart",
 ]
 
 

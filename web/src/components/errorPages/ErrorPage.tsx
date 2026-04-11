@@ -1,6 +1,6 @@
 import ErrorPageLayout from "@/components/errorPages/ErrorPageLayout";
 import Text from "@/refresh-components/texts/Text";
-import { DOCS_BASE_URL } from "@/lib/constants";
+import { COMMUNITY_URL, DOCS_BASE_URL } from "@/lib/constants";
 import { SvgAlertCircle } from "@opal/icons";
 
 export default function Error() {
@@ -36,11 +36,11 @@ export default function Error() {
         Need help? Join our{" "}
         <a
           className="text-action-link-05"
-          href="https://discord.gg/4NA5SbzrWb"
+          href={COMMUNITY_URL}
           target="_blank"
           rel="noopener noreferrer"
         >
-          Discord community
+          support center
         </a>{" "}
         for support.
       </Text>

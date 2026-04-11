@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 
+from onyx.configs.app_configs import WEB_DOMAIN
 from onyx.file_processing.html_utils import ParsedHTML
 from onyx.file_processing.html_utils import web_html_cleanup
 from onyx.tools.tool_implementations.open_url.models import (
@@ -24,7 +25,7 @@ logger = setup_logger()
 
 DEFAULT_READ_TIMEOUT_SECONDS = 15
 DEFAULT_CONNECT_TIMEOUT_SECONDS = 5
-DEFAULT_USER_AGENT = "OnyxWebCrawler/1.0 (+https://www.onyx.app)"
+DEFAULT_USER_AGENT = f"OnyxWebCrawler/1.0 (+{WEB_DOMAIN})"
 DEFAULT_MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 DEFAULT_MAX_HTML_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
 DEFAULT_MAX_WORKERS = 5

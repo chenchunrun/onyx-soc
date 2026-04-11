@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 import Text from "@/refresh-components/texts/Text";
+import {
+  COMMUNITY_URL,
+  CONTACT_EMAIL,
+  NEXT_PUBLIC_CLOUD_ENABLED,
+} from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { NEXT_PUBLIC_CLOUD_ENABLED } from "@/lib/constants";
 
 interface RequestConnectorModalProps {
   open: boolean;
@@ -74,7 +78,7 @@ export default function RequestConnectorModal({
   if (!open) return null;
 
   const isCloud = NEXT_PUBLIC_CLOUD_ENABLED;
-  const DISCORD_URL = "https://discord.gg/4NA5SbzrWb";
+  const DISCORD_URL = COMMUNITY_URL;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -181,10 +185,10 @@ export default function RequestConnectorModal({
                   <Text mainUiBody text04 className="text-center">
                     Email your request to{" "}
                     <a
-                      href="mailto:hello@onyx.app?subject=Onyx Craft Connector Request"
+                      href={`mailto:${CONTACT_EMAIL}?subject=Onyx Craft Connector Request`}
                       className="text-blue-600 dark:text-blue-400 hover:underline"
                     >
-                      hello@onyx.app
+                      {CONTACT_EMAIL}
                     </a>
                   </Text>
                 </div>

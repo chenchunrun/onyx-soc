@@ -6,6 +6,7 @@ from onyx.server.manage.security_platform.api import SecurityPlatformDocumentSet
 from onyx.server.manage.security_platform.api import SecurityPlatformPersonaStatus
 from onyx.server.manage.security_platform.api import SecurityPlatformUserStatus
 from onyx.server.manage.security_platform.api import build_failure_summary
+from onyx.server.manage.security_platform.api import build_threat_intel_sync_health_summary
 from onyx.server.manage.security_platform.api import build_custom_permission_summary
 from onyx.server.manage.security_platform.api import build_custom_theming_snapshot
 from onyx.server.manage.security_platform.api import build_hook_summary
@@ -538,6 +539,33 @@ def test_build_failure_summary_limits_remediation_hints(monkeypatch) -> None:
     )
 
     assert len(summary.remediation_hints) == 3
+
+
+def test_build_threat_intel_sync_health_summary_flags_missing_and_stale_feeds() -> None:
+    summary = build_threat_intel_sync_health_summary(
+        configured_feeds=[
+            {"name": "cisa_kev", "min_refresh_interval_hours": 24},
+            {"name": "cncert_weekly_reports", "min_refresh_interval_hours": 24},
+            {"name": "nvd_security_advisories", "min_refresh_interval_hours": 48},
+        ],
+        sync_state={
+            "feeds": {
+                "cisa_kev": {"last_success_at": "2026-04-10T08:00:00+00:00"},
+                "nvd_security_advisories": {"last_success_at": "2026-04-01T10:00:00+00:00"},
+            },
+            "last_refreshed_feeds": ["cisa_kev", "nvd_security_advisories"],
+        },
+        now=datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert summary.configured_feed_count == 3
+    assert summary.refreshed_feed_count == 2
+    assert summary.healthy_feed_count == 1
+    assert summary.issue_count == 2
+    assert summary.issue_entries[0].feed_name == "cncert_weekly_reports"
+    assert summary.issue_entries[0].issue == "No successful sync recorded"
+    assert summary.issue_entries[1].feed_name == "nvd_security_advisories"
+    assert "refresh window" in summary.issue_entries[1].issue
 
 
 def test_build_custom_permission_summary_sorts_permission_counts() -> None:

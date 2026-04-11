@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { COMMUNITY_URL, SUPPORT_EMAIL } from "@/lib/constants";
 import ErrorPageLayout from "@/components/errorPages/ErrorPageLayout";
 import { Button } from "@opal/components";
 import { Disabled } from "@opal/core";
@@ -170,8 +171,8 @@ export default function AccessRestricted() {
             </Link>{" "}
             page to {hadPreviousLicense ? "renew" : "activate"} your license,
             sign up through Stripe or reach out to{" "}
-            <a className={linkClassName} href="mailto:support@onyx.app">
-              support@onyx.app
+            <a className={linkClassName} href={`mailto:${SUPPORT_EMAIL}`}>
+              {SUPPORT_EMAIL}
             </a>{" "}
             for billing assistance.
           </Text>
@@ -193,9 +194,9 @@ export default function AccessRestricted() {
         Need help? Join our{" "}
         <InlineExternalLink
           className={linkClassName}
-          href="https://discord.gg/4NA5SbzrWb"
+          href={COMMUNITY_URL}
         >
-          Discord community
+          support center
         </InlineExternalLink>{" "}
         for support.
       </Text>

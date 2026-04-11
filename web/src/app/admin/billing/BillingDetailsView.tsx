@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Section } from "@/layouts/general-layouts";
+import { SUPPORT_EMAIL } from "@/lib/constants";
 import { Content } from "@opal/layouts";
 import * as InputLayouts from "@/layouts/input-layouts";
 import Card from "@/refresh-components/cards/Card";
@@ -238,7 +239,7 @@ function SubscriptionCard({
               Your plan is managed through sales.
               <br />
               <a
-                href="mailto:support@onyx.app?subject=Billing%20change%20request"
+                href={`mailto:${SUPPORT_EMAIL}?subject=Billing%20change%20request`}
                 className="underline"
               >
                 Contact billing

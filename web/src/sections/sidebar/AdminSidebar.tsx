@@ -28,7 +28,7 @@ import { IconFunctionComponent } from "@opal/types";
 import { Section } from "@/layouts/general-layouts";
 import Text from "@/refresh-components/texts/Text";
 import { getUserDisplayName } from "@/lib/user";
-import { APP_SLOGAN } from "@/lib/constants";
+import { APP_SLOGAN, HOST_URL } from "@/lib/constants";
 
 const SECTIONS = {
   UNLABELED: "",
@@ -267,7 +267,7 @@ export default function AdminSidebar({ enableCloudSS }: AdminSidebarProps) {
               <Text text03 secondaryAction>
                 <a
                   className="underline"
-                  href="https://onyx.app"
+                  href={HOST_URL}
                   target="_blank"
                 >
                   Onyx

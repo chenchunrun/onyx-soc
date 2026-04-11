@@ -2,6 +2,7 @@
 
 from urllib.parse import urlencode
 
+from sqlalchemy import delete
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,7 @@ from onyx.configs.constants import DANSWER_API_KEY_DUMMY_EMAIL_DOMAIN
 from onyx.configs.constants import NotificationType
 from onyx.configs.constants import ONYX_UTM_SOURCE
 from onyx.db.enums import AccountType
+from onyx.db.models import Notification
 from onyx.db.models import User
 from onyx.db.notification import batch_create_notifications
 from onyx.server.features.release_notes.constants import DOCS_CHANGELOG_BASE_URL
@@ -17,6 +19,12 @@ from onyx.server.features.release_notes.models import ReleaseNoteEntry
 from onyx.utils.logger import setup_logger
 
 logger = setup_logger()
+
+
+OFFICIAL_RELEASE_NOTE_LINK_PREFIXES = (
+    "https://docs.onyx.app/changelog",
+    "https://raw.githubusercontent.com/onyx-dot-app/documentation/",
+)
 
 
 def create_release_notifications_for_versions(
@@ -69,7 +77,9 @@ def create_release_notifications_for_versions(
             "utm_content": f"release_notes-{entry.version}",
         }
 
-        link = f"{DOCS_CHANGELOG_BASE_URL}#{version_anchor}?{urlencode(utm_params)}"
+        link = entry.link or (
+            f"{DOCS_CHANGELOG_BASE_URL}#{version_anchor}?{urlencode(utm_params)}"
+        )
 
         additional_data: dict[str, str] = {
             "version": entry.version,
@@ -91,3 +101,22 @@ def create_release_notifications_for_versions(
         )
 
     return total_created
+
+
+def delete_official_release_note_notifications(db_session: Session) -> int:
+    """Delete persisted release-note notifications that still point to official Onyx links."""
+
+    result = db_session.execute(
+        delete(Notification).where(
+            Notification.notif_type == NotificationType.RELEASE_NOTES,
+            Notification.additional_data.is_not(None),
+            Notification.additional_data["link"].astext.startswith(
+                OFFICIAL_RELEASE_NOTE_LINK_PREFIXES[0]
+            )
+            | Notification.additional_data["link"].astext.startswith(
+                OFFICIAL_RELEASE_NOTE_LINK_PREFIXES[1]
+            ),
+        )
+    )
+    db_session.commit()
+    return result.rowcount or 0

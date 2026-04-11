@@ -15,7 +15,7 @@ import {
   hasActiveSubscription,
   claimLicense,
 } from "@/lib/billing";
-import { NEXT_PUBLIC_CLOUD_ENABLED } from "@/lib/constants";
+import { NEXT_PUBLIC_CLOUD_ENABLED, SUPPORT_EMAIL } from "@/lib/constants";
 import { useUser } from "@/providers/UserProvider";
 import Message from "@/refresh-components/messages/Message";
 
@@ -43,8 +43,6 @@ interface ViewConfig {
 // ----------------------------------------------------------------------------
 // FooterLinks (inlined)
 // ----------------------------------------------------------------------------
-
-const SUPPORT_EMAIL = "support@onyx.app";
 
 function FooterLinks({
   hasSubscription,

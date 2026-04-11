@@ -26,6 +26,8 @@ from onyx.configs.app_configs import SMTP_PASS
 from onyx.configs.app_configs import SMTP_PORT
 from onyx.configs.app_configs import SMTP_SERVER
 from onyx.configs.app_configs import SMTP_USER
+from onyx.configs.app_configs import SUPPORT_EMAIL
+from onyx.configs.app_configs import SUBSCRIPTION_RENEWAL_URL
 from onyx.configs.app_configs import WEB_DOMAIN
 from onyx.configs.constants import AuthType
 from onyx.configs.constants import ONYX_DEFAULT_APPLICATION_NAME
@@ -210,7 +212,7 @@ def send_email_with_sendgrid(
     mail_from: str = EMAIL_FROM,
     inline_png: tuple[str, bytes] | None = None,
 ) -> None:
-    from_email = Email(mail_from) if mail_from else Email("noreply@onyx.app")
+    from_email = Email(mail_from) if mail_from else Email(SUPPORT_EMAIL)
     to_email = To(user_email)
 
     mail = Mail(
@@ -318,7 +320,7 @@ def send_subscription_cancellation_email(user_email: str) -> None:
         "<p>If you change your mind, you can always come back!</p>"
     )
     cta_text = "Renew Subscription"
-    cta_link = "https://www.onyx.app/pricing"
+    cta_link = SUBSCRIPTION_RENEWAL_URL
     html_content = build_html_email(
         application_name,
         heading,
@@ -329,7 +331,7 @@ def send_subscription_cancellation_email(user_email: str) -> None:
     text_content = (
         "We're sorry to see you go.\n"
         "Your subscription has been canceled and will end on your next billing date.\n"
-        "If you change your mind, visit https://www.onyx.app/pricing"
+        f"If you change your mind, visit {SUBSCRIPTION_RENEWAL_URL}"
     )
     send_email(
         user_email,

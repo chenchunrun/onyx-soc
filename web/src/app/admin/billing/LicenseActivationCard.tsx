@@ -12,8 +12,7 @@ import { SvgXCircle, SvgCheckCircle, SvgXOctagon } from "@opal/icons";
 import { uploadLicense } from "@/lib/billing/svc";
 import { LicenseStatus } from "@/lib/billing/interfaces";
 import { formatDateShort } from "@/lib/dateUtils";
-
-const BILLING_HELP_URL = "https://docs.onyx.app/more/billing";
+import { BILLING_HELP_URL } from "@/lib/constants";
 
 interface LicenseActivationCardProps {
   isOpen: boolean;

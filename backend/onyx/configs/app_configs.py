@@ -105,6 +105,15 @@ ONYX_QUERY_HISTORY_TYPE = QueryHistoryType(
 # on Windows, try  setting this to `http://127.0.0.1:3000` instead and see if that
 # fixes it)
 WEB_DOMAIN = os.environ.get("WEB_DOMAIN") or "http://localhost:3000"
+DOCS_BASE_URL = os.environ.get("DOCS_BASE_URL") or f"{WEB_DOMAIN.rstrip('/')}/docs"
+SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL") or "admin@localhost"
+CONNECTOR_REQUEST_EMAIL = (
+    os.environ.get("CONNECTOR_REQUEST_EMAIL") or SUPPORT_EMAIL
+)
+SUBSCRIPTION_RENEWAL_URL = (
+    os.environ.get("SUBSCRIPTION_RENEWAL_URL")
+    or f"{WEB_DOMAIN.rstrip('/')}/admin/billing"
+)
 
 
 #####
@@ -920,7 +929,7 @@ SCHEDULED_EVAL_DATASET_NAMES = [
 ]
 # Email address to use for search permissions during scheduled evals
 SCHEDULED_EVAL_PERMISSIONS_EMAIL = os.environ.get(
-    "SCHEDULED_EVAL_PERMISSIONS_EMAIL", "roshan@onyx.app"
+    "SCHEDULED_EVAL_PERMISSIONS_EMAIL", SUPPORT_EMAIL
 )
 # Braintrust project name to use for scheduled evals
 SCHEDULED_EVAL_PROJECT = os.environ.get("SCHEDULED_EVAL_PROJECT", "st-dev")
@@ -989,9 +998,8 @@ AUTO_LLM_UPDATE_INTERVAL_SECONDS = int(
 # Enterprise Edition Configs
 #####
 # NOTE: this should only be enabled if you have purchased an enterprise license.
-# if you're interested in an enterprise license, please reach out to us at
-# founders@onyx.app OR message Chris Weaver or Yuhong Sun in the Onyx
-# Discord community https://discord.gg/4NA5SbzrWb
+# For local or private deployments, configure your own support and upgrade path
+# through the environment and administrative surfaces exposed by this instance.
 ENTERPRISE_EDITION_ENABLED = (
     os.environ.get("ENABLE_PAID_ENTERPRISE_EDITION_FEATURES", "").lower() == "true"
 )

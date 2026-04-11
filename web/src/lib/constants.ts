@@ -12,8 +12,22 @@ export const HOST_URL = process.env.WEB_DOMAIN || "http://localhost:3000";
 
 export const INTERNAL_URL = process.env.INTERNAL_URL || "http://localhost:8080";
 
+export const APP_HOMEPAGE_URL =
+  process.env.NEXT_PUBLIC_APP_HOMEPAGE_URL || HOST_URL;
+export const SUPPORT_EMAIL =
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "admin@localhost";
+export const CONTACT_EMAIL =
+  process.env.NEXT_PUBLIC_CONTACT_EMAIL || SUPPORT_EMAIL;
+export const BILLING_HELP_URL =
+  process.env.NEXT_PUBLIC_BILLING_HELP_URL || `${HOST_URL}/admin/billing`;
+export const CONTACT_SALES_URL =
+  process.env.NEXT_PUBLIC_CONTACT_SALES_URL || `${HOST_URL}/admin/billing`;
+export const COMMUNITY_URL =
+  process.env.NEXT_PUBLIC_COMMUNITY_URL || `${HOST_URL}/admin/systeminfo`;
+
 // Documentation URLs
-export const DOCS_BASE_URL = "https://docs.onyx.app";
+export const DOCS_BASE_URL =
+  process.env.NEXT_PUBLIC_DOCS_BASE_URL || `${HOST_URL}/docs`;
 export const DOCS_ADMINS_PATH = `${DOCS_BASE_URL}/admins`;
 
 export const MCP_INTERNAL_URL =

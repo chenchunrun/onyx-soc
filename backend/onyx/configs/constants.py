@@ -1,3 +1,4 @@
+import os
 import platform
 import re
 import socket
@@ -6,7 +7,10 @@ from enum import Enum
 
 
 ONYX_DEFAULT_APPLICATION_NAME = "Onyx"
-ONYX_DISCORD_URL = "https://discord.gg/4NA5SbzrWb"
+ONYX_DISCORD_URL = os.environ.get("COMMUNITY_URL") or (
+    f"{(os.environ.get('WEB_DOMAIN') or 'http://localhost:3000').rstrip('/')}"
+    "/admin/systeminfo"
+)
 ONYX_UTM_SOURCE = "onyx_app"
 SLACK_USER_TOKEN_PREFIX = "xoxp-"
 SLACK_BOT_TOKEN_PREFIX = "xoxb-"

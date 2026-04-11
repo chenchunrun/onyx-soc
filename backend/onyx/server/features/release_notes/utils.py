@@ -3,6 +3,7 @@
 import re
 from datetime import datetime
 from datetime import timezone
+from pathlib import Path
 
 import httpx
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from onyx.db.release_notes import create_release_notifications_for_versions
 from onyx.server.features.release_notes.constants import AUTO_REFRESH_THRESHOLD_SECONDS
 from onyx.server.features.release_notes.constants import FETCH_TIMEOUT
 from onyx.server.features.release_notes.constants import GITHUB_CHANGELOG_RAW_URL
+from onyx.server.features.release_notes.constants import LOCAL_CHANGELOG_FILE
 from onyx.server.features.release_notes.constants import REDIS_CACHE_TTL
 from onyx.server.features.release_notes.constants import REDIS_KEY_ETAG
 from onyx.server.features.release_notes.constants import REDIS_KEY_FETCHED_AT
@@ -22,6 +24,11 @@ from onyx.server.features.release_notes.models import ReleaseNoteEntry
 from onyx.utils.logger import setup_logger
 
 logger = setup_logger()
+
+
+def get_local_changelog_path() -> Path | None:
+    path = Path(LOCAL_CHANGELOG_FILE)
+    return path if path.exists() else None
 
 
 # ============================================================================
@@ -60,23 +67,30 @@ def parse_mdx_to_release_note_entries(mdx_content: str) -> list[ReleaseNoteEntry
     """Parse MDX content into ReleaseNoteEntry objects."""
     all_entries = []
 
-    update_pattern = (
-        r'<Update\s+label="([^"]+)"\s+description="([^"]+)"'
-        r"(?:\s+tags=\{([^}]+)\})?[^>]*>"
-        r".*?"
-        r"</Update>"
-    )
+    update_pattern = r"<Update\s+([^>]*)>.*?</Update>"
 
     for match in re.finditer(update_pattern, mdx_content, re.DOTALL):
-        version = match.group(1)
-        date = match.group(2)
+        attrs = match.group(1)
+        label_match = re.search(r'label="([^"]+)"', attrs)
+        description_match = re.search(r'description="([^"]+)"', attrs)
+        title_match = re.search(r'title="([^"]+)"', attrs)
+        link_match = re.search(r'link="([^"]+)"', attrs)
+
+        if not label_match or not description_match:
+            continue
+
+        version = label_match.group(1)
+        date = description_match.group(1)
 
         if is_valid_version(version):
             all_entries.append(
                 ReleaseNoteEntry(
                     version=version,
                     date=date,
-                    title=f"Onyx {version} is available!",
+                    title=title_match.group(1)
+                    if title_match
+                    else f"Onyx {version} is available!",
+                    link=link_match.group(1) if link_match else None,
                 )
             )
 
@@ -157,6 +171,9 @@ def save_fetch_metadata(etag: str | None) -> None:
 
 def is_cache_stale() -> bool:
     """Check if we should fetch from GitHub."""
+    if get_local_changelog_path() is not None:
+        return True
+
     last_fetch = get_last_fetch_time()
     if last_fetch is None:
         return True
@@ -197,32 +214,39 @@ def ensure_release_notes_fresh_and_notify(db_session: Session) -> None:
     try:
         logger.debug("Checking GitHub for release notes updates.")
 
-        # Use ETag for conditional request
-        headers: dict[str, str] = {}
-        etag = get_cached_etag()
-        if etag:
-            headers["If-None-Match"] = etag
-
         try:
-            response = httpx.get(
-                GITHUB_CHANGELOG_RAW_URL,
-                headers=headers,
-                timeout=FETCH_TIMEOUT,
-                follow_redirects=True,
-            )
+            local_changelog_path = get_local_changelog_path()
+            if local_changelog_path is not None:
+                logger.debug(
+                    f"Loading local release notes feed from {local_changelog_path}"
+                )
+                entries = parse_mdx_to_release_note_entries(
+                    local_changelog_path.read_text(encoding="utf-8")
+                )
+                save_fetch_metadata(None)
+            else:
+                # Use ETag for conditional request
+                headers: dict[str, str] = {}
+                etag = get_cached_etag()
+                if etag:
+                    headers["If-None-Match"] = etag
 
-            if response.status_code == 304:
-                # Content unchanged, just update timestamp
-                logger.debug("Release notes unchanged (304).")
-                save_fetch_metadata(etag)
-                return
+                response = httpx.get(
+                    GITHUB_CHANGELOG_RAW_URL,
+                    headers=headers,
+                    timeout=FETCH_TIMEOUT,
+                    follow_redirects=True,
+                )
 
-            response.raise_for_status()
+                if response.status_code == 304:
+                    logger.debug("Release notes unchanged (304).")
+                    save_fetch_metadata(etag)
+                    return
 
-            # Parse and create notifications
-            entries = parse_mdx_to_release_note_entries(response.text)
-            new_etag = response.headers.get("ETag")
-            save_fetch_metadata(new_etag)
+                response.raise_for_status()
+                entries = parse_mdx_to_release_note_entries(response.text)
+                new_etag = response.headers.get("ETag")
+                save_fetch_metadata(new_etag)
 
             # Create notifications, sorted semantically to create them in chronological order
             entries = sorted(entries, key=lambda x: parse_version_tuple(x.version))

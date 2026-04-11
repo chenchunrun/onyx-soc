@@ -55,7 +55,7 @@ def scheduled_eval_task(self: Task, **kwargs: Any) -> None:  # noqa: ARG001
 
     Configure via environment variables (with defaults):
     - SCHEDULED_EVAL_DATASET_NAMES: Comma-separated list of Braintrust dataset names
-    - SCHEDULED_EVAL_PERMISSIONS_EMAIL: Email for search permissions (default: roshan@onyx.app)
+    - SCHEDULED_EVAL_PERMISSIONS_EMAIL: Email for search permissions
     - SCHEDULED_EVAL_PROJECT: Braintrust project name
     """
     if not BRAINTRUST_API_KEY:

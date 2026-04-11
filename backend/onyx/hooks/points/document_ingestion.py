@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from pydantic import Field
 
+from onyx.configs.app_configs import DOCS_BASE_URL
 from onyx.db.enums import HookFailStrategy
 from onyx.db.enums import HookPoint
 from onyx.hooks.points.base import HookPointSpec
@@ -108,7 +109,9 @@ class DocumentIngestionSpec(HookPointSpec):
     default_timeout_seconds = 30.0
     fail_hard_description = "The document will not be indexed."
     default_fail_strategy = HookFailStrategy.HARD
-    docs_url = "https://docs.onyx.app/admins/advanced_configs/hook_extensions#document-ingestion"
+    docs_url = (
+        f"{DOCS_BASE_URL}/admins/advanced_configs/hook_extensions#document-ingestion"
+    )
 
     payload_model = DocumentIngestionPayload
     response_model = DocumentIngestionResponse

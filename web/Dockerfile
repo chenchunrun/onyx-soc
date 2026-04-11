@@ -19,7 +19,10 @@ COPY package.json package-lock.json ./
 COPY lib/opal/package.json ./lib/opal/
 
 # Install dependencies
-RUN npm ci
+ARG NPM_CONFIG_REGISTRY
+ENV NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY}
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit --no-fund
 
 # pull in source code / package.json / package-lock.json
 COPY . .

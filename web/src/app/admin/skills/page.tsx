@@ -16,6 +16,8 @@ type SkillAccessScope =
   | "security_team"
   | "admin_only"
   | "quarantined";
+type SkillExecutionScope = "standard" | "authorized_scan";
+type AuthorizedTargetType = "domain" | "ip" | "cidr" | "url";
 
 interface ManagedSkill {
   key: string;
@@ -30,6 +32,10 @@ interface ManagedSkill {
   has_references: boolean;
   has_tools: boolean;
   has_requirements: boolean;
+  execution_scope: SkillExecutionScope;
+  requires_approval: boolean;
+  requires_network_gateway: boolean;
+  allowed_target_types: AuthorizedTargetType[];
   notes: string | null;
 }
 
@@ -60,19 +66,63 @@ interface SkillRegistrySummary {
   security_team_count: number;
   admin_only_count: number;
   critical_count: number;
+  authorized_scan_count: number;
+  approval_required_count: number;
+  gateway_enforced_count: number;
   role_previews: SkillRolePreview[];
+}
+
+interface AuthorizedScanTarget {
+  target: string;
+  target_type: AuthorizedTargetType;
+  owner: string;
+  approval_reference: string;
+  enabled: boolean;
+  expires_at: string | null;
+  notes: string | null;
+}
+
+interface AuthorizedScanPolicySummary {
+  managed_target_count: number;
+  enabled_target_count: number;
+  expired_target_count: number;
+  authorized_scan_skill_count: number;
+  approval_required_skill_count: number;
+  gateway_enforced_skill_count: number;
+}
+
+interface AuthorizedScanTargetsImportSummary {
+  imported_count: number;
+  managed_count: number;
+  mode: "merge" | "replace";
+}
+
+interface AuthorizedScanAuthorizationResult {
+  allowed: boolean;
+  skill_key: string;
+  execution_scope: SkillExecutionScope;
+  gateway_required: boolean;
+  allowed_targets: string[];
+  denied_targets: string[];
+  reasons: string[];
 }
 
 interface SkillDraft {
   enabled: boolean;
   risk_level: SkillRiskLevel;
   access_scope: SkillAccessScope;
+  execution_scope: SkillExecutionScope;
+  requires_approval: boolean;
+  requires_network_gateway: boolean;
+  allowed_target_types: AuthorizedTargetType[];
   notes: string;
 }
 
 const route = ADMIN_ROUTES.SKILLS;
 const SKILLS_API = "/api/manage/admin/skills";
 const SKILLS_SUMMARY_API = "/api/manage/admin/skills/summary";
+const AUTHORIZED_SCAN_SUMMARY_API = "/api/manage/admin/skills/scan-policy/summary";
+const AUTHORIZED_SCAN_TARGETS_API = "/api/manage/admin/skills/scan-policy/targets";
 
 const RISK_LABELS: Record<SkillRiskLevel, string> = {
   low: "Low",
@@ -86,6 +136,11 @@ const SCOPE_LABELS: Record<SkillAccessScope, string> = {
   security_team: "Security Team",
   admin_only: "Admin Only",
   quarantined: "Quarantined",
+};
+
+const EXECUTION_SCOPE_LABELS: Record<SkillExecutionScope, string> = {
+  standard: "Standard",
+  authorized_scan: "Authorized Scan",
 };
 
 function RiskBadge({ riskLevel }: { riskLevel: SkillRiskLevel }) {
@@ -159,9 +214,28 @@ export default function SkillsPage() {
     SKILLS_SUMMARY_API,
     errorHandlingFetcher
   );
+  const { data: scanPolicySummary } = useSWR<AuthorizedScanPolicySummary>(
+    AUTHORIZED_SCAN_SUMMARY_API,
+    errorHandlingFetcher
+  );
+  const { data: authorizedTargets } = useSWR<AuthorizedScanTarget[]>(
+    AUTHORIZED_SCAN_TARGETS_API,
+    errorHandlingFetcher
+  );
   const [drafts, setDrafts] = useState<Record<string, SkillDraft>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [targetImportMode, setTargetImportMode] = useState<"merge" | "replace">(
+    "merge"
+  );
+  const [targetImportYaml, setTargetImportYaml] = useState("");
+  const [targetImporting, setTargetImporting] = useState(false);
+  const [authorizationSkillKey, setAuthorizationSkillKey] = useState("");
+  const [authorizationTargets, setAuthorizationTargets] = useState("");
+  const [authorizationReference, setAuthorizationReference] = useState("");
+  const [authorizationResult, setAuthorizationResult] =
+    useState<AuthorizedScanAuthorizationResult | null>(null);
+  const [authorizing, setAuthorizing] = useState(false);
 
   useEffect(() => {
     if (!data) {
@@ -176,6 +250,10 @@ export default function SkillsPage() {
             enabled: skill.enabled,
             risk_level: skill.risk_level,
             access_scope: skill.access_scope,
+            execution_scope: skill.execution_scope,
+            requires_approval: skill.requires_approval,
+            requires_network_gateway: skill.requires_network_gateway,
+            allowed_target_types: skill.allowed_target_types,
             notes: skill.notes ?? "",
           },
         ])
@@ -200,13 +278,17 @@ export default function SkillsPage() {
   const updateDraft = (
     skillKey: string,
     field: keyof SkillDraft,
-    value: string | boolean
+    value: string | boolean | AuthorizedTargetType[]
   ) => {
     setDrafts((current) => {
       const baseDraft: SkillDraft = current[skillKey] ?? {
         enabled: false,
         risk_level: "medium",
         access_scope: "quarantined",
+        execution_scope: "standard",
+        requires_approval: false,
+        requires_network_gateway: false,
+        allowed_target_types: [],
         notes: "",
       };
       const nextDraft: SkillDraft = {
@@ -240,6 +322,7 @@ export default function SkillsPage() {
       }
       await mutate(skillsApiUrl);
       await mutate(SKILLS_SUMMARY_API);
+      await mutate(AUTHORIZED_SCAN_SUMMARY_API);
       toast.success(`Updated ${skill.name}`);
     } catch (fetchError) {
       toast.error(
@@ -264,6 +347,7 @@ export default function SkillsPage() {
       const result = (await response.json()) as SkillRegistrySyncSummary;
       await mutate(skillsApiUrl);
       await mutate(SKILLS_SUMMARY_API);
+      await mutate(AUTHORIZED_SCAN_SUMMARY_API);
       toast.success(
         `Skills synced. Discovered ${result.discovered_count}, added ${result.added_count}.`
       );
@@ -328,6 +412,7 @@ export default function SkillsPage() {
       const result = (await response.json()) as SkillRegistryImportSummary;
       await mutate(skillsApiUrl);
       await mutate(SKILLS_SUMMARY_API);
+      await mutate(AUTHORIZED_SCAN_SUMMARY_API);
       toast.success(
         `Imported ${result.imported_count} skills in ${result.mode} mode.`
       );
@@ -339,6 +424,115 @@ export default function SkillsPage() {
       );
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleExportTargets = async () => {
+    try {
+      const response = await fetch(`${SKILLS_API}/scan-policy/targets/export`);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const yamlContent = await response.text();
+      const blob = new Blob([yamlContent], { type: "application/x-yaml" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "authorized-scan-targets.yaml";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      toast.success("Exported authorized scan targets");
+    } catch (fetchError) {
+      toast.error(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Failed to export authorized scan targets"
+      );
+    }
+  };
+
+  const handleImportTargets = async () => {
+    if (!targetImportYaml.trim()) {
+      toast.error("Paste an authorized target YAML payload before importing");
+      return;
+    }
+
+    setTargetImporting(true);
+    try {
+      const response = await fetch(`${SKILLS_API}/scan-policy/targets/import`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          yaml_content: targetImportYaml,
+          mode: targetImportMode,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const result =
+        (await response.json()) as AuthorizedScanTargetsImportSummary;
+      await mutate(AUTHORIZED_SCAN_TARGETS_API);
+      await mutate(AUTHORIZED_SCAN_SUMMARY_API);
+      toast.success(
+        `Imported ${result.imported_count} authorized targets in ${result.mode} mode.`
+      );
+    } catch (fetchError) {
+      toast.error(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Failed to import authorized scan targets"
+      );
+    } finally {
+      setTargetImporting(false);
+    }
+  };
+
+  const handleAuthorizeDryRun = async () => {
+    if (!authorizationSkillKey) {
+      toast.error("Select an authorized scan skill first");
+      return;
+    }
+    const targets = authorizationTargets
+      .split("\n")
+      .map((target) => target.trim())
+      .filter(Boolean);
+    if (!targets.length) {
+      toast.error("Provide at least one target");
+      return;
+    }
+
+    setAuthorizing(true);
+    try {
+      const response = await fetch(`${SKILLS_API}/scan-policy/authorize`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          skill_key: authorizationSkillKey,
+          targets,
+          approval_reference: authorizationReference || null,
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      setAuthorizationResult(
+        (await response.json()) as AuthorizedScanAuthorizationResult
+      );
+    } catch (fetchError) {
+      toast.error(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Failed to evaluate authorized scan request"
+      );
+    } finally {
+      setAuthorizing(false);
     }
   };
 
@@ -418,6 +612,35 @@ export default function SkillsPage() {
               </div>
             </div>
           </div>
+
+          {scanPolicySummary ? (
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl border border-border bg-background-100 p-4">
+                <div className="text-sm font-medium text-text-03">
+                  Authorized Scan Skills
+                </div>
+                <div className="text-2xl font-semibold text-text-01">
+                  {String(scanPolicySummary.authorized_scan_skill_count)}
+                </div>
+              </div>
+              <div className="rounded-xl border border-border bg-background-100 p-4">
+                <div className="text-sm font-medium text-text-03">
+                  Allowlisted Targets
+                </div>
+                <div className="text-2xl font-semibold text-text-01">
+                  {String(scanPolicySummary.enabled_target_count)}
+                </div>
+              </div>
+              <div className="rounded-xl border border-border bg-background-100 p-4">
+                <div className="text-sm font-medium text-text-03">
+                  Approval Required
+                </div>
+                <div className="text-2xl font-semibold text-text-01">
+                  {String(scanPolicySummary.approval_required_skill_count)}
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {summary ? (
             <div className="rounded-xl border border-border bg-background-100 p-4">
@@ -580,6 +803,159 @@ export default function SkillsPage() {
             />
           </div>
 
+          <div className="rounded-xl border border-border bg-background-100 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-text-01">
+                  Authorized Scan Controls
+                </div>
+                <p className="text-sm text-text-03">
+                  Keep high-risk scanning skills disabled by default, then gate
+                  execution behind a target allowlist, approval reference, and
+                  gateway requirement.
+                </p>
+              </div>
+              <Button onClick={handleExportTargets}>Export Targets</Button>
+            </div>
+            <div className="mt-3 grid gap-3 lg:grid-cols-2">
+              <div className="rounded-xl border border-border p-4">
+                <div className="text-sm font-medium text-text-01">
+                  Authorized Targets
+                </div>
+                <div className="mt-3 max-h-64 space-y-2 overflow-auto">
+                  {(authorizedTargets ?? []).length ? (
+                    authorizedTargets?.map((target) => (
+                      <div
+                        key={`${target.target_type}:${target.target}`}
+                        className="rounded-lg border border-border px-3 py-2"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="text-sm font-medium text-text-01">
+                            {target.target}
+                          </div>
+                          <span className="text-xs text-text-03">
+                            {target.target_type}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-xs text-text-03">
+                          owner: {target.owner || "n/a"} | approval:{" "}
+                          {target.approval_reference || "n/a"}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-text-03">
+                      No authorized scan targets configured yet.
+                    </div>
+                  )}
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <select
+                    className="rounded-lg border border-border bg-background px-3 py-2"
+                    value={targetImportMode}
+                    onChange={(event) =>
+                      setTargetImportMode(event.target.value as "merge" | "replace")
+                    }
+                  >
+                    <option value="merge">Merge</option>
+                    <option value="replace">Replace</option>
+                  </select>
+                  <Button onClick={handleImportTargets} disabled={targetImporting}>
+                    {targetImporting ? "Importing..." : "Import Targets YAML"}
+                  </Button>
+                </div>
+                <textarea
+                  className="mt-3 min-h-32 w-full rounded-xl border border-border bg-background px-3 py-2 font-mono text-sm"
+                  placeholder={"targets:\n  - target: example.com\n    target_type: domain\n    owner: Security Engineering\n    approval_reference: CHG-2026-001\n    enabled: true"}
+                  value={targetImportYaml}
+                  onChange={(event) => setTargetImportYaml(event.target.value)}
+                />
+              </div>
+
+              <div className="rounded-xl border border-border p-4">
+                <div className="text-sm font-medium text-text-01">
+                  Authorization Dry Run
+                </div>
+                <div className="mt-3 grid gap-3">
+                  <select
+                    className="rounded-lg border border-border bg-background px-3 py-2"
+                    value={authorizationSkillKey}
+                    onChange={(event) => setAuthorizationSkillKey(event.target.value)}
+                  >
+                    <option value="">Select authorized scan skill</option>
+                    {(data ?? [])
+                      .filter(
+                        (skill) => skill.execution_scope === "authorized_scan"
+                      )
+                      .map((skill) => (
+                        <option key={skill.key} value={skill.key}>
+                          {skill.key}
+                        </option>
+                      ))}
+                  </select>
+                  <input
+                    className="rounded-lg border border-border bg-background px-3 py-2"
+                    placeholder="Approval reference (for example CHG-2026-001)"
+                    value={authorizationReference}
+                    onChange={(event) =>
+                      setAuthorizationReference(event.target.value)
+                    }
+                  />
+                  <textarea
+                    className="min-h-32 rounded-xl border border-border bg-background px-3 py-2 font-mono text-sm"
+                    placeholder={"example.com\n1.2.3.4\nhttps://target.example.com"}
+                    value={authorizationTargets}
+                    onChange={(event) =>
+                      setAuthorizationTargets(event.target.value)
+                    }
+                  />
+                  <Button onClick={handleAuthorizeDryRun} disabled={authorizing}>
+                    {authorizing ? "Evaluating..." : "Evaluate Authorization"}
+                  </Button>
+                </div>
+                {authorizationResult ? (
+                  <div className="mt-4 rounded-xl border border-border p-4">
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-medium text-text-01">
+                        Result
+                      </div>
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-medium ${
+                          authorizationResult.allowed
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                            : "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                        }`}
+                      >
+                        {authorizationResult.allowed ? "Allowed" : "Denied"}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-sm text-text-03">
+                      gateway required:{" "}
+                      {authorizationResult.gateway_required ? "yes" : "no"}
+                    </div>
+                    <div className="mt-3 text-sm text-text-01">
+                      Allowed targets:{" "}
+                      {authorizationResult.allowed_targets.length
+                        ? authorizationResult.allowed_targets.join(", ")
+                        : "none"}
+                    </div>
+                    <div className="mt-2 text-sm text-text-01">
+                      Denied targets:{" "}
+                      {authorizationResult.denied_targets.length
+                        ? authorizationResult.denied_targets.join(", ")
+                        : "none"}
+                    </div>
+                    <div className="mt-3 text-sm text-text-03">
+                      {authorizationResult.reasons.length
+                        ? authorizationResult.reasons.join(" | ")
+                        : "No policy violations detected"}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
           {isLoading ? <SimpleLoader /> : null}
 
           {error ? (
@@ -715,6 +1091,98 @@ export default function SkillsPage() {
                       </select>
                     </label>
                   </div>
+
+                  <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                    <label className="flex flex-col gap-2 rounded-xl border border-border p-3">
+                      <div className="text-sm font-medium text-text-01">
+                        Execution Scope
+                      </div>
+                      <select
+                        className="rounded-lg border border-border bg-background px-3 py-2"
+                        value={draft.execution_scope}
+                        onChange={(event) =>
+                          updateDraft(
+                            skill.key,
+                            "execution_scope",
+                            event.target.value as SkillExecutionScope
+                          )
+                        }
+                      >
+                        {(Object.keys(
+                          EXECUTION_SCOPE_LABELS
+                        ) as SkillExecutionScope[]).map((scope) => (
+                          <option key={scope} value={scope}>
+                            {EXECUTION_SCOPE_LABELS[scope]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="flex items-center gap-2 rounded-xl border border-border p-3">
+                      <input
+                        type="checkbox"
+                        checked={draft.requires_approval}
+                        onChange={(event) =>
+                          updateDraft(
+                            skill.key,
+                            "requires_approval",
+                            event.target.checked
+                          )
+                        }
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-text-01">
+                          Requires Approval
+                        </div>
+                        <p className="text-sm text-text-03">
+                          Block execution unless an approval reference is supplied.
+                        </p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-2 rounded-xl border border-border p-3">
+                      <input
+                        type="checkbox"
+                        checked={draft.requires_network_gateway}
+                        onChange={(event) =>
+                          updateDraft(
+                            skill.key,
+                            "requires_network_gateway",
+                            event.target.checked
+                          )
+                        }
+                      />
+                      <div>
+                        <div className="text-sm font-medium text-text-01">
+                          Requires Gateway
+                        </div>
+                        <p className="text-sm text-text-03">
+                          Force network egress through the authorized scan gateway.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <label className="mt-4 flex flex-col gap-2">
+                    <div className="text-sm font-medium text-text-01">
+                      Allowed Target Types
+                    </div>
+                    <input
+                      className="rounded-xl border border-border bg-background px-3 py-2"
+                      value={draft.allowed_target_types.join(", ")}
+                      onChange={(event) =>
+                        updateDraft(
+                          skill.key,
+                          "allowed_target_types",
+                          event.target.value
+                            .split(",")
+                            .map((value) => value.trim())
+                            .filter(Boolean) as AuthorizedTargetType[]
+                        )
+                      }
+                      placeholder="domain, ip, cidr, url"
+                    />
+                  </label>
 
                   <label className="mt-4 flex flex-col gap-2">
                     <div className="text-sm font-medium text-text-01">Notes</div>

@@ -257,6 +257,20 @@ class SecurityPlatformFailureSummary(BaseModel):
     recent_failures: list[SecurityPlatformFailureEntry]
 
 
+class SecurityPlatformThreatIntelSyncIssueEntry(BaseModel):
+    feed_name: str
+    issue: str
+    last_success_at: str | None
+
+
+class SecurityPlatformThreatIntelSyncHealthSummary(BaseModel):
+    configured_feed_count: int
+    refreshed_feed_count: int
+    healthy_feed_count: int
+    issue_count: int
+    issue_entries: list[SecurityPlatformThreatIntelSyncIssueEntry]
+
+
 class SecurityPlatformPermissionSyncAttemptEntry(BaseModel):
     attempt_id: int
     sync_type: str
@@ -505,6 +519,7 @@ class SecurityPlatformRuntimeStatus(BaseModel):
     threat_intel_source_profile: str
     security_tools_profile: str
     threat_intel_sync: dict[str, Any]
+    threat_intel_sync_health: SecurityPlatformThreatIntelSyncHealthSummary
     threat_intel_corpus: dict[str, Any]
     historical_packages: dict[str, Any]
     playbooks: dict[str, Any]
@@ -3010,6 +3025,87 @@ def load_secrets_encryption_summary() -> SecurityPlatformSecretsEncryptionSummar
     )
 
 
+def build_threat_intel_sync_health_summary(
+    *,
+    configured_feeds: list[dict[str, Any]],
+    sync_state: dict[str, Any],
+    now: datetime | None = None,
+) -> SecurityPlatformThreatIntelSyncHealthSummary:
+    now = now or datetime.now(timezone.utc)
+    feed_state = sync_state.get("feeds", {}) if isinstance(sync_state, dict) else {}
+    refreshed_feeds = sync_state.get("last_refreshed_feeds", []) if isinstance(sync_state, dict) else []
+    refreshed_feed_set = {str(feed) for feed in refreshed_feeds if str(feed).strip()}
+
+    issue_entries: list[SecurityPlatformThreatIntelSyncIssueEntry] = []
+    healthy_feed_count = 0
+    for feed in configured_feeds:
+        feed_name = str(feed.get("name", "") or "").strip()
+        if not feed_name:
+            continue
+        min_refresh_interval_hours = int(feed.get("min_refresh_interval_hours", 24) or 24)
+        state = feed_state.get(feed_name, {}) if isinstance(feed_state, dict) else {}
+        raw_last_success_at = state.get("last_success_at") if isinstance(state, dict) else None
+        last_success_at = None
+        if raw_last_success_at:
+            try:
+                last_success_at = datetime.fromisoformat(str(raw_last_success_at).replace("Z", "+00:00"))
+            except ValueError:
+                last_success_at = None
+
+        issue = None
+        if last_success_at is None:
+            issue = "No successful sync recorded"
+        elif (now - last_success_at) > timedelta(hours=min_refresh_interval_hours):
+            issue = f"Last success exceeds refresh window ({min_refresh_interval_hours}h)"
+
+        if issue is None:
+            healthy_feed_count += 1
+            continue
+
+        issue_entries.append(
+            SecurityPlatformThreatIntelSyncIssueEntry(
+                feed_name=feed_name,
+                issue=issue,
+                last_success_at=last_success_at.isoformat() if last_success_at else None,
+            )
+        )
+
+    issue_entries.sort(key=lambda item: (item.last_success_at is not None, item.last_success_at or "", item.feed_name))
+    return SecurityPlatformThreatIntelSyncHealthSummary(
+        configured_feed_count=len([feed for feed in configured_feeds if str(feed.get("name", "") or "").strip()]),
+        refreshed_feed_count=len(refreshed_feed_set),
+        healthy_feed_count=healthy_feed_count,
+        issue_count=len(issue_entries),
+        issue_entries=issue_entries,
+    )
+
+
+def load_threat_intel_sync_health_summary() -> SecurityPlatformThreatIntelSyncHealthSummary:
+    sync_plan_path = ROOT_PATH / "knowledge-base" / "threat-intelligence" / "sync_plan.yaml"
+    sync_state_path = ROOT_PATH / "knowledge-base" / "threat-intelligence" / "sync_state.json"
+
+    configured_feeds: list[dict[str, Any]] = []
+    sync_state: dict[str, Any] = {}
+
+    try:
+        payload = yaml.safe_load(sync_plan_path.read_text(encoding="utf-8")) or {}
+        raw_feeds = payload.get("feeds", [])
+        if isinstance(raw_feeds, list):
+            configured_feeds = [feed for feed in raw_feeds if isinstance(feed, dict)]
+    except OSError:
+        configured_feeds = []
+
+    try:
+        sync_state = json.loads(sync_state_path.read_text(encoding="utf-8"))
+    except OSError:
+        sync_state = {}
+
+    return build_threat_intel_sync_health_summary(
+        configured_feeds=configured_feeds,
+        sync_state=sync_state,
+    )
+
+
 def build_custom_theming_snapshot(
     settings: Any | None = None,
 ) -> dict[str, Any]:
@@ -3544,6 +3640,7 @@ def get_security_platform_status(
     declared_tool_configs = load_declared_tool_configs(security_tools_profile)
     tool_drift = build_tool_drift_summary(declared_tool_configs, tools)
     failure_summary = load_failure_summary(db_session)
+    threat_intel_sync_health = load_threat_intel_sync_health_summary()
     permission_inheritance = load_permission_inheritance_summary(db_session)
     service_accounts = load_service_account_summary(db_session)
     scim = load_scim_summary(db_session)
@@ -3679,6 +3776,7 @@ def get_security_platform_status(
         tool_audit=tool_audit,
         tool_drift=tool_drift,
         failure_summary=failure_summary,
+        threat_intel_sync_health=threat_intel_sync_health,
         permission_inheritance=permission_inheritance,
         service_accounts=service_accounts,
         scim=scim,

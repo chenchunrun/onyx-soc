@@ -70,7 +70,7 @@ import useAppFocus from "@/hooks/useAppFocus";
 import { useQueryController } from "@/providers/QueryControllerProvider";
 import { usePaidEnterpriseFeaturesEnabled } from "@/components/settings/usePaidEnterpriseFeaturesEnabled";
 import useBrowserInfo from "@/hooks/useBrowserInfo";
-import { APP_SLOGAN } from "@/lib/constants";
+import { APP_HOMEPAGE_URL, APP_SLOGAN } from "@/lib/constants";
 
 /**
  * App Header Component
@@ -467,7 +467,7 @@ function Footer() {
     settings?.enterpriseSettings?.custom_lower_disclaimer_content ||
     `[Onyx ${
       settings?.webVersion || "dev"
-    }](https://www.onyx.app/) - ${APP_SLOGAN}`;
+    }](${APP_HOMEPAGE_URL}) - ${APP_SLOGAN}`;
 
   return (
     <footer
