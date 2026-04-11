@@ -1,0 +1,42 @@
+[
+  {
+    "id": "traffic_report_mode",
+    "name": "汇报模式",
+    "description": "面向管理层的安全态势摘要",
+    "content": "请用汇报模式回复：\n- 安全态势：正常/异常/告警（风险等级）\n- 主要发现：按严重程度列出 Top 3 问题\n- 影响范围：涉及的资产和用户数量\n- 紧急建议：需要立即采取的行动\n- 适合在安全周会上汇报",
+    "category": "quickStart",
+    "agentType": "securityCheck",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "traffic_deep_analysis_mode",
+    "name": "深度分析模式",
+    "description": "面向安全工程师的完整流量分析",
+    "content": "请用深度分析模式回复：\n- 流量概览：协议分布、会话统计、数据量\n- 异常检测：异常协议/端口/时间模式\n- 威胁分析：C2 特征、隧道、数据外传\n- 攻击识别：扫描、爆破、漏洞利用\n- 时间线重建：关键事件按时序排列\n- IOC 提取 + ATT&CK 映射\n- Suricata/Snort 规则建议",
+    "category": "quickStart",
+    "agentType": "securityCheck",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "traffic_anomaly_detect",
+    "name": "异常流量检测",
+    "description": "检测指定时间段的异常通信",
+    "content": "请检测以下异常：\n1. 非工作时间的大量外联\n2. 与已知恶意 IP/域名的通信\n3. 异常端口使用（非标准端口 HTTP/DNS）\n4. 数据外传特征（大文件上传、加密流量）\n5. 横向移动迹象（内网扫描、SMB 异常）\n\n输出：\n- 异常事件列表（按严重程度排序）\n- 每个事件：时间、源/目、协议、异常原因\n- 建议的响应动作",
+    "category": "detection",
+    "agentType": "securityCheck",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "traffic_timeline",
+    "name": "攻击时间线重建",
+    "description": "基于日志还原攻击过程",
+    "content": "请构建攻击时间线：\n\n1. 按时间顺序列出所有关键事件\n2. 每个事件标注：\n   - 时间戳\n   - 事件类型（侦察/入侵/横移/外传）\n   - 涉及资产（IP、主机、用户）\n   - 证据来源（日志类型、原始记录）\n\n3. 识别 Kill Chain 阶段\n4. 标记关键转折点\n\n输出格式：Markdown 时间线表格 + 攻击阶段图示",
+    "category": "investigation",
+    "agentType": "securityCheck",
+    "author": null,
+    "isPreset": true
+  }
+]

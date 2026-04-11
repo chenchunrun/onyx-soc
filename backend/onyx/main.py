@@ -118,6 +118,7 @@ from onyx.server.manage.llm.api import basic_router as llm_router
 from onyx.server.manage.opensearch_migration.api import (
     admin_router as opensearch_migration_admin_router,
 )
+from onyx.server.manage.prompt_presets.api import router as prompt_presets_router
 from onyx.server.manage.search_settings import router as search_settings_router
 from onyx.server.manage.security_platform.api import router as security_platform_router
 from onyx.server.manage.skills.api import router as skills_router
@@ -474,6 +475,7 @@ def get_application(lifespan_override: Lifespan | None = None) -> FastAPI:
     include_router_with_global_prefix_prepended(application, document_set_router)
     include_router_with_global_prefix_prepended(application, hierarchy_router)
     include_router_with_global_prefix_prepended(application, search_settings_router)
+    include_router_with_global_prefix_prepended(application, prompt_presets_router)
     include_router_with_global_prefix_prepended(application, security_platform_router)
     include_router_with_global_prefix_prepended(application, skills_router)
     include_router_with_global_prefix_prepended(

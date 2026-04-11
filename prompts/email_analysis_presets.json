@@ -1,0 +1,42 @@
+[
+  {
+    "id": "email_report_mode",
+    "name": "汇报模式",
+    "description": "面向管理层的简洁钓鱼判定",
+    "content": "请用汇报模式回复：\n- 钓鱼判定：是/否/疑似（附置信度）\n- 攻击手法：一句话描述\n- 影响范围和紧急程度\n- 处置建议：需要采取的行动\n- 格式简洁，适合转发给领导",
+    "category": "quickStart",
+    "agentType": "emailAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "email_deep_analysis_mode",
+    "name": "深度分析模式",
+    "description": "面向安全工程师的完整技术分析",
+    "content": "请用深度分析模式回复：\n- 邮件头完整分析（SPF/DKIM/DMARC）\n- 发件人溯源（真实 IP、邮件网关链路）\n- 附件分析（哈希、类型、恶意特征）\n- 嵌入链接全量提取和风险评估\n- IOC 清单 + ATT&CK 映射\n- 格式适合写入安全事件报告",
+    "category": "quickStart",
+    "agentType": "emailAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "email_header_verify",
+    "name": "发件人验证",
+    "description": "验证邮件发件人真实性",
+    "content": "请验证邮件发件人的真实性：\n\n执行以下验证：\n1. SPF 记录检查：发送 IP 是否在授权范围\n2. DKIM 签名验证：签名是否有效\n3. DMARC 策略：域名的 DMARC 配置\n4. 域名年龄：是否为新注册域名\n5. 历史信誉：该域名的历史发件记录\n\n结论：真实发件人 / 伪造发件人 / 无法确定",
+    "category": "detection",
+    "agentType": "emailAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "email_ioc_extract",
+    "name": "IOC 批量提取",
+    "description": "从邮件中提取所有失陷指标",
+    "content": "请从邮件内容中提取所有 IOC：\n\n提取范围：\n- 发件人邮箱和域名\n- 邮件头中的所有 IP\n- 正文和附件中的 URL\n- 附件哈希（MD5 + SHA256）\n- 提及的域名和主机名\n\n输出格式要求：\n```\n[IP]\n1.2.3.4\n\n[Domain]\nexample.com\n\n[URL]\nhttps://...\n\n[Hash-MD5]\nabc123...\n```\n便于直接导入 SIEM 或威胁情报平台",
+    "category": "detection",
+    "agentType": "emailAnalysis",
+    "author": null,
+    "isPreset": true
+  }
+]

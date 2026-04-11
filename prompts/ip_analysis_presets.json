@@ -1,0 +1,42 @@
+[
+  {
+    "id": "ip_report_mode",
+    "name": "汇报模式",
+    "description": "面向管理层的威胁判定摘要",
+    "content": "请用汇报模式回复：\n- 威胁判定：恶意/可疑/安全（附置信度）\n- 威胁类型：C2/扫描/攻击源/代理\n- 归属：国家、运营商、是否云服务\n- 处置建议：封禁/监控/放行\n- 适合写入安全周报或汇报邮件",
+    "category": "quickStart",
+    "agentType": "ipAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "ip_deep_analysis_mode",
+    "name": "深度分析模式",
+    "description": "面向安全工程师的完整画像分析",
+    "content": "请用深度分析模式回复：\n- 基础画像：GeoIP、ASN、运营商、托管商\n- 端口服务：开放端口、服务指纹、Banner\n- 威胁情报：多源查询结果汇总\n- 历史活动：恶意记录、关联攻击事件\n- 关联分析：同网段资产、关联域名/证书\n- C2/僵尸网络/代理节点判定\n- 完整 IOC 关联图谱",
+    "category": "quickStart",
+    "agentType": "ipAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "ip_single_check",
+    "name": "单 IP 快速研判",
+    "description": "快速查询单个 IP 的威胁等级",
+    "content": "快速研判要点：\n1. 地理位置和 ASN 归属\n2. 威胁情报命中情况\n3. 近期恶意活动记录\n4. 是否为已知代理/VPN/Tor 出口\n\n输出：\n- 威胁等级：高危/中危/低危/安全\n- 建议动作：立即封禁/加入观察/无需处理\n- 依据说明（一句话）",
+    "category": "detection",
+    "agentType": "ipAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "ip_batch_check",
+    "name": "批量 IP 信誉检查",
+    "description": "批量检查多个 IP 并按风险分级",
+    "content": "请对 IP 列表进行批量信誉检查：\n\n输出要求：\n1. 按威胁等级分组（高危/中危/低危/安全）\n2. 每个 IP 标注：威胁类型、置信度、建议动作\n3. 汇总统计：各等级数量和占比\n\n输出格式：Markdown 表格\n| IP | 等级 | 类型 | 建议 |\n|---|---|---|---|\n\n高危 IP 单独列出，便于优先处置",
+    "category": "detection",
+    "agentType": "ipAnalysis",
+    "author": null,
+    "isPreset": true
+  }
+]

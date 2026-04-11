@@ -1,0 +1,42 @@
+[
+  {
+    "id": "intrusion_report_mode",
+    "name": "汇报模式",
+    "description": "面向管理层的入侵检测结果摘要",
+    "content": "请用汇报模式回复：\n- 入侵判定：已入侵/可疑/安全\n- 高危发现：按严重程度列出 Top 3\n- 影响范围：涉及的系统和数据\n- 紧急处置：需要立即采取的行动\n- 适合向领导紧急汇报",
+    "category": "quickStart",
+    "agentType": "intrusionCheck",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "intrusion_deep_analysis_mode",
+    "name": "深度分析模式",
+    "description": "面向应急响应人员的完整检查报告",
+    "content": "请用深度分析模式回复：\n- 系统概览：OS、补丁、开放服务\n- 进程分析：可疑进程、隐藏进程、进程树\n- 网络分析：异常连接、监听端口、DNS 请求\n- 持久化：启动项、服务、计划任务、Cron\n- 用户分析：异常用户、SSH 密钥、sudo 权限\n- 文件分析：最近修改、可疑文件、Webshell\n- 日志分析：认证日志、命令历史、安全事件\n- IOC 清单 + ATT&CK 映射",
+    "category": "quickStart",
+    "agentType": "intrusionCheck",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "intrusion_process_check",
+    "name": "可疑进程检查",
+    "description": "检查指定进程是否为恶意程序",
+    "content": "请分析以下方面：\n1. 进程路径是否正常（系统目录 vs 临时目录）\n2. 父进程是否合理（进程树分析）\n3. 命令行参数是否可疑\n4. 网络连接（外联地址、端口）\n5. 打开的文件和句柄\n6. 内存特征（注入、hollow）\n7. 数字签名验证\n\n输出：\n- 判定：恶意/可疑/正常\n- 发现的异常点\n- 处置建议（终止/隔离/继续监控）",
+    "category": "detection",
+    "agentType": "intrusionCheck",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "intrusion_persistence_scan",
+    "name": "持久化机制扫描",
+    "description": "全面检查系统持久化后门",
+    "content": "请扫描系统中的所有持久化机制：\n\n检查范围：\n1. 启动项（注册表 Run 键、启动文件夹）\n2. 系统服务（新增服务、服务劫持）\n3. 计划任务（Windows Task / Cron）\n4. WMI 事件订阅\n5. DLL 劫持（PATH 顺序、KnownDLLs）\n6. 浏览器扩展和 Office 加载项\n7. SSH authorized_keys\n8. Systemd 服务和 Timer\n\n输出格式：\n| 位置 | 项目 | 创建时间 | 风险等级 | 说明 |\n\n标记所有近期新增或修改的项目",
+    "category": "detection",
+    "agentType": "intrusionCheck",
+    "author": null,
+    "isPreset": true
+  }
+]

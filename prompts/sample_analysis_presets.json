@@ -1,0 +1,42 @@
+[
+  {
+    "id": "sample_report_mode",
+    "name": "汇报模式",
+    "description": "面向管理层的威胁判定摘要",
+    "content": "请用汇报模式回复：\n- 恶意判定：恶意/可疑/安全（附置信度）\n- 威胁类型：木马/勒索/挖矿/后门等\n- 风险评估：数据泄露、横向移动可能性\n- 处置建议：隔离/删除/深入分析\n- 适合发送给非技术人员",
+    "category": "quickStart",
+    "agentType": "sampleAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "sample_deep_analysis_mode",
+    "name": "深度分析模式",
+    "description": "面向逆向工程师的完整技术分析",
+    "content": "请用深度分析模式回复：\n- 文件信息：哈希、大小、类型、签名、加壳\n- 静态分析：导入表、字符串、资源段\n- 行为分析：进程、文件、注册表、网络\n- C2 通信：协议、地址、加密方式\n- 持久化：启动项、服务、计划任务\n- IOC + ATT&CK + YARA 规则建议",
+    "category": "quickStart",
+    "agentType": "sampleAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "sample_hash_lookup",
+    "name": "哈希情报查询",
+    "description": "根据文件哈希查询威胁情报",
+    "content": "请查询文件哈希的威胁情报：\n\n查询以下情报源：\n1. VirusTotal 检测率和家族标签\n2. 已知恶意软件家族匹配\n3. 首次发现时间和传播范围\n4. 关联的 C2 地址和域名\n5. 相似样本（ssdeep/imphash）\n\n如果是已知恶意样本，提供：\n- 威胁等级和处置优先级\n- 防护建议和检测规则",
+    "category": "investigation",
+    "agentType": "sampleAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "sample_yara_gen",
+    "name": "YARA 规则生成",
+    "description": "基于样本特征生成检测规则",
+    "content": "请基于样本分析结果生成 YARA 规则：\n\n规则要求：\n1. 提取 3-5 个独特字符串特征\n2. 识别特征字节序列（如加密密钥、magic bytes）\n3. 考虑文件结构特征（PE 头、节特征）\n4. 条件组合：确保检出率且避免误报\n5. 包含完整元数据（author、description、reference）\n\n输出格式：可直接使用的 .yar 文件内容",
+    "category": "report",
+    "agentType": "sampleAnalysis",
+    "author": null,
+    "isPreset": true
+  }
+]

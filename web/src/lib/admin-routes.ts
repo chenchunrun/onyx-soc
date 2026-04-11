@@ -90,6 +90,12 @@ export const ADMIN_ROUTES = {
     title: "Skills",
     sidebarLabel: "Skills",
   },
+  PROMPT_PRESETS: {
+    path: "/admin/prompt-presets",
+    icon: SvgBubbleText,
+    title: "Prompt Presets",
+    sidebarLabel: "Prompt Presets",
+  },
   SECURITY_PLATFORM: {
     path: "/admin/security-platform",
     icon: SvgOnyxOctagon,

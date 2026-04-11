@@ -1,0 +1,42 @@
+[
+  {
+    "id": "report_mode",
+    "name": "汇报模式",
+    "description": "面向管理层的简洁输出格式",
+    "content": "请用汇报模式回复：\n- 输出简洁（3-5 条要点）\n- 避免技术术语，用业务语言\n- 重点说明：威胁等级、影响范围、处置建议\n- 格式适合复制到邮件或工单",
+    "category": "quickStart",
+    "agentType": "urlAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "deep_analysis_mode",
+    "name": "深度分析模式",
+    "description": "面向安全工程师的详细技术分析",
+    "content": "请用深度分析模式回复：\n- 输出详细技术分析\n- 包含：IOC 清单、检测规则建议、攻击链分析\n- 包含：关联威胁情报、溯源线索\n- 格式适合技术报告",
+    "category": "quickStart",
+    "agentType": "urlAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "url_phishing_check",
+    "name": "钓鱼检测",
+    "description": "检测 URL 的钓鱼特征",
+    "content": "请检测以下钓鱼特征：\n1. 域名仿冒（typosquatting、homograph 攻击）\n2. 可疑路径和参数（base64 编码、重定向链）\n3. 页面内容（登录表单、品牌仿冒）\n4. SSL 证书（自签名、近期签发）\n\n输出格式：\n- 钓鱼概率：高/中/低\n- 检测到的特征列表\n- 处置建议",
+    "category": "detection",
+    "agentType": "urlAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "url_redirect_trace",
+    "name": "重定向链追踪",
+    "description": "追踪短链接的完整重定向路径",
+    "content": "请追踪 URL 的重定向链：\n\n分析要求：\n1. 展开所有重定向（最多 10 层）\n2. 记录每一跳的：URL、状态码、响应头\n3. 识别可疑的中间跳转（广告、追踪器）\n4. 分析最终落地页\n\n输出：完整重定向链 + 最终目标风险评估",
+    "category": "investigation",
+    "agentType": "urlAnalysis",
+    "author": null,
+    "isPreset": true
+  }
+]

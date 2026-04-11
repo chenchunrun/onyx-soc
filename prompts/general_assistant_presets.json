@@ -1,0 +1,42 @@
+[
+  {
+    "id": "general_concise_mode",
+    "name": "简洁模式",
+    "description": "快速获得简明扼要的回答",
+    "content": "请用简洁模式回复：\n- 直接给出答案或解决方案\n- 使用要点列表，不要长段落\n- 代码只给关键部分\n- 总字数控制在 200 字以内\n- 不需要解释原理，只要结果",
+    "category": "quickStart",
+    "agentType": "generalAssistant",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "general_detailed_mode",
+    "name": "详细模式",
+    "description": "获得完整详细的分析和解答",
+    "content": "请用详细模式回复：\n- 提供完整的分析和推理过程\n- 解释原理和背景知识\n- 给出完整可运行的代码示例\n- 列出注意事项和最佳实践\n- 提供延伸阅读或参考资料",
+    "category": "quickStart",
+    "agentType": "generalAssistant",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "general_code_explain",
+    "name": "代码解释",
+    "description": "解释代码的功能和逻辑",
+    "content": "请解释代码：\n\n解释要求：\n1. 整体功能：这段代码是做什么的\n2. 逐行/逐块解释关键逻辑\n3. 涉及的技术点和算法\n4. 潜在问题或改进建议\n5. 使用场景举例",
+    "category": "analysis",
+    "agentType": "generalAssistant",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "general_code_review",
+    "name": "安全代码审查",
+    "description": "审查代码的安全性问题",
+    "content": "请对代码进行安全审查：\n\n审查维度：\n1. 注入漏洞（SQL/命令/XSS）\n2. 认证授权问题\n3. 敏感数据处理\n4. 加密实现缺陷\n5. 逻辑漏洞\n6. 依赖安全性\n\n输出格式：\n| 行号 | 严重程度 | 漏洞类型 | 问题描述 | 修复建议 |\n\n按严重程度（高/中/低）排序",
+    "category": "analysis",
+    "agentType": "generalAssistant",
+    "author": null,
+    "isPreset": true
+  }
+]

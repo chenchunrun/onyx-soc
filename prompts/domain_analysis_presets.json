@@ -1,0 +1,42 @@
+[
+  {
+    "id": "domain_report_mode",
+    "name": "汇报模式",
+    "description": "面向管理层的威胁判定摘要",
+    "content": "请用汇报模式回复：\n- 威胁判定：恶意/可疑/安全（附置信度）\n- 威胁类型：钓鱼/C2/恶意下载/DGA\n- 关键信息：注册时间、是否新域名\n- 处置建议：封禁/监控/放行\n- 适合发送给非技术决策者",
+    "category": "quickStart",
+    "agentType": "domainAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "domain_deep_analysis_mode",
+    "name": "深度分析模式",
+    "description": "面向安全工程师的完整域名画像",
+    "content": "请用深度分析模式回复：\n- WHOIS：注册商、注册人、时间、隐私保护\n- DNS 全量记录：A/AAAA/MX/NS/TXT/CNAME\n- 历史解析：被动 DNS 时间线\n- 证书信息：颁发机构、有效期、指纹\n- 子域名枚举结果\n- 关联分析：同 IP/同证书/同注册人\n- 威胁情报命中 + DGA 特征检测",
+    "category": "quickStart",
+    "agentType": "domainAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "domain_whois_lookup",
+    "name": "WHOIS 信息查询",
+    "description": "查询域名注册信息用于溯源",
+    "content": "请提取以下 WHOIS 信息：\n1. 注册商和注册时间\n2. 注册人/组织（如有）\n3. 注册邮箱（如有）\n4. NS 服务器\n5. 域名状态（clientHold 等）\n6. 到期时间\n\n分析要点：\n- 是否使用隐私保护服务\n- 注册时间是否可疑（近期注册）\n- 注册商是否为高风险服务商\n\n输出：结构化 WHOIS 信息 + 风险评估",
+    "category": "investigation",
+    "agentType": "domainAnalysis",
+    "author": null,
+    "isPreset": true
+  },
+  {
+    "id": "domain_dga_detect",
+    "name": "DGA 域名检测",
+    "description": "检测是否为算法生成的恶意域名",
+    "content": "请分析域名是否为 DGA（域名生成算法）生成：\n\n检测维度：\n1. 字符熵值（随机性评估）\n2. 辅音/元音比例\n3. N-gram 语言学特征\n4. 与已知 DGA 家族的相似度\n5. 域名长度和结构特征\n6. 注册模式（批量注册特征）\n\n输出：\n- DGA 概率评分：0-100%\n- 可能的 DGA 家族：Conficker/Necurs/...\n- 判定依据说明",
+    "category": "detection",
+    "agentType": "domainAnalysis",
+    "author": null,
+    "isPreset": true
+  }
+]
