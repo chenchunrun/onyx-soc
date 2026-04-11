@@ -27,9 +27,12 @@ from onyx.db.enums import AccountType
 from onyx.db.enums import GrantSource
 from onyx.db.enums import Permission
 from onyx.db.enums import TaskStatus
+from sqlalchemy import cast
 from sqlalchemy import case
+from sqlalchemy import exists
 from sqlalchemy import func
 from sqlalchemy import select
+from sqlalchemy import String
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm import Session
 import yaml
@@ -2478,7 +2481,7 @@ def load_persona_usage_summary(
             .join(Persona, Persona.id == ChatSession.persona_id)
             .where(
                 Persona.name.in_(SECURITY_PERSONA_NAMES),
-                ToolCall.time_sent >= lookback_start,
+                ChatSession.time_created >= lookback_start,
             )
         )
         or 0
@@ -2512,7 +2515,6 @@ def load_persona_usage_summary(
             ToolCall,
             (
                 (ToolCall.chat_session_id == ChatSession.id)
-                & (ToolCall.time_sent >= lookback_start)
             ),
         )
         .where(Persona.name.in_(SECURITY_PERSONA_NAMES))
