@@ -16,6 +16,7 @@
 .venv
 .mypy_cache
 .idea
+**/__pycache__/
 
 # testing
 /web/test-results/
@@ -56,6 +57,9 @@ node_modules
 
 # MCP configs
 .playwright-mcp
+.agents/
+tmp/
+web/tmp/
 
 # plans
 plans/
