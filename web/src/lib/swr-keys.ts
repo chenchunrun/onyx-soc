@@ -22,6 +22,7 @@ export const SWR_KEYS = {
   // ── Agents / Personas ─────────────────────────────────────────────────────
   personas: "/api/persona",
   persona: (id: number) => `/api/persona/${id}`,
+  personaRuntimeProfile: (id: number) => `/api/persona/${id}/runtime-profile`,
   agentPreferences: "/api/user/assistant/preferences",
   defaultAssistantConfig: "/api/admin/default-assistant/configuration",
   personaLabels: "/api/persona/labels",

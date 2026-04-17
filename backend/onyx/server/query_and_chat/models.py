@@ -109,6 +109,9 @@ class SendMessageRequest(BaseModel):
 
     allowed_tool_ids: list[int] | None = None
     forced_tool_id: int | None = None
+    active_skill_keys: list[str] | None = None
+    skill_targets: list[str] | None = None
+    skill_approval_reference: str | None = None
 
     file_descriptors: list[FileDescriptor] = []
 

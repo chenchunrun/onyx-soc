@@ -1,5 +1,6 @@
 "use client";
 
+import useSWR from "swr";
 import React, {
   useCallback,
   useContext,
@@ -9,7 +10,10 @@ import React, {
   useState,
 } from "react";
 import LineItem from "@/refresh-components/buttons/LineItem";
-import { MinimalPersonaSnapshot } from "@/app/admin/agents/interfaces";
+import {
+  AgentRuntimeProfile,
+  MinimalPersonaSnapshot,
+} from "@/app/admin/agents/interfaces";
 import LLMPopover from "@/refresh-components/popovers/LLMPopover";
 import { InputPrompt } from "@/app/app/interfaces";
 import { FilterManager, LlmManager, useFederatedConnectors } from "@/lib/hooks";
@@ -61,6 +65,10 @@ import MicrophoneButton from "@/sections/input/MicrophoneButton";
 import Waveform from "@/components/voice/Waveform";
 import { useVoiceMode } from "@/providers/VoiceModeProvider";
 import { useVoiceStatus } from "@/hooks/useVoiceStatus";
+import { errorHandlingFetcher } from "@/lib/fetcher";
+import { SWR_KEYS } from "@/lib/swr-keys";
+import RuntimeSkillActivationPanel from "@/sections/input/RuntimeSkillActivationPanel";
+import { AppInputBarSubmitPayload } from "@/sections/input/types";
 
 const MIN_INPUT_HEIGHT = 44;
 const MAX_INPUT_HEIGHT = 200;
@@ -73,7 +81,7 @@ export interface AppInputBarHandle {
 export interface AppInputBarProps {
   initialMessage?: string;
   stopGenerating: () => void;
-  onSubmit: (message: string) => void;
+  onSubmit: (payload: AppInputBarSubmitPayload) => void;
   llmManager: LlmManager;
   chatState: ChatState;
   currentSessionFileTokenCount: number;
@@ -93,6 +101,120 @@ export interface AppInputBarProps {
   tabReadingEnabled?: boolean;
   currentTabUrl?: string | null;
   onToggleTabReading?: () => void;
+}
+
+interface RuntimeSkillValidationErrors {
+  selection?: string | null;
+  targets?: string | null;
+  approvalReference?: string | null;
+}
+
+function detectRuntimeTargetType(target: string): string | null {
+  const trimmed = target.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (/^https?:\/\/\S+$/i.test(trimmed)) {
+    return "url";
+  }
+  if (/^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(trimmed)) {
+    return "cidr";
+  }
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(trimmed)) {
+    return "ip";
+  }
+  if (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(trimmed)) {
+    return "domain";
+  }
+  return null;
+}
+
+function validateRuntimeSkillActivation(
+  runtimeProfile: AgentRuntimeProfile | undefined,
+  selectedSkillKeys: string[],
+  skillTargetsText: string,
+  skillApprovalReference: string
+): RuntimeSkillValidationErrors {
+  if (!runtimeProfile) {
+    return {};
+  }
+
+  const selectedSkills = runtimeProfile.bound_skills.filter((skill) =>
+    selectedSkillKeys.includes(skill.key)
+  );
+  if (!selectedSkills.length) {
+    return {};
+  }
+
+  const errors: RuntimeSkillValidationErrors = {};
+  const selectedExecutionScopes = Array.from(
+    new Set(selectedSkills.map((skill) => skill.execution_scope))
+  );
+  const authorizedScanSkills = selectedSkills.filter(
+    (skill) => skill.execution_scope === "authorized_scan"
+  );
+  const commonAuthorizedTargetTypes =
+    authorizedScanSkills.length <= 1
+      ? authorizedScanSkills[0]?.allowed_target_types ?? []
+      : authorizedScanSkills.reduce<string[]>(
+          (intersection, skill, index) =>
+            index === 0
+              ? [...skill.allowed_target_types]
+              : intersection.filter((targetType) =>
+                  skill.allowed_target_types.includes(targetType)
+                ),
+          []
+        );
+
+  if (selectedExecutionScopes.length > 1) {
+    errors.selection =
+      "Selected runtime skills use different execution scopes and cannot be activated together.";
+    return errors;
+  }
+
+  if (
+    authorizedScanSkills.length > 1 &&
+    commonAuthorizedTargetTypes.length === 0
+  ) {
+    errors.selection =
+      "Selected authorized-scan skills do not share a compatible target type.";
+    return errors;
+  }
+
+  const requiresTargets = selectedSkills.some(
+    (skill) => skill.execution_scope === "authorized_scan"
+  );
+  const requiresApproval = selectedSkills.some((skill) => skill.requires_approval);
+  const targetLines = skillTargetsText
+    .split("\n")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (requiresTargets && !targetLines.length) {
+    errors.targets = "At least one authorized target is required.";
+  } else if (targetLines.length) {
+    const allowedTargetTypes = new Set(
+      selectedSkills.flatMap((skill) => skill.allowed_target_types ?? [])
+    );
+    const hasInvalidTarget = targetLines.some((target) => {
+      const detectedType = detectRuntimeTargetType(target);
+      if (!detectedType) {
+        return true;
+      }
+      return allowedTargetTypes.size > 0 && !allowedTargetTypes.has(detectedType);
+    });
+    if (hasInvalidTarget) {
+      errors.targets =
+        "Targets must match one of the allowed types: " +
+        Array.from(allowedTargetTypes).join(", ");
+    }
+  }
+
+  if (requiresApproval && !skillApprovalReference.trim()) {
+    errors.approvalReference = "Approval reference is required.";
+  }
+
+  return errors;
 }
 
 const AppInputBar = React.memo(
@@ -158,6 +280,59 @@ const AppInputBar = React.memo(
     const appMode = state.phase === "idle" ? state.appMode : undefined;
     const isSearchMode =
       (isNewSession && appMode === "search") || isSearchActive;
+    const [selectedRuntimeSkillKeys, setSelectedRuntimeSkillKeys] = useState<
+      string[]
+    >([]);
+    const [runtimeSkillTargetsText, setRuntimeSkillTargetsText] = useState("");
+    const [runtimeSkillApprovalReference, setRuntimeSkillApprovalReference] =
+      useState("");
+    const [runtimeSkillValidationErrors, setRuntimeSkillValidationErrors] =
+      useState<RuntimeSkillValidationErrors>({});
+    const selectedRuntimeSkillKeysRef = useRef<string[]>([]);
+    const runtimeSkillTargetsTextRef = useRef("");
+    const runtimeSkillApprovalReferenceRef = useRef("");
+    const { data: runtimeProfile } = useSWR<AgentRuntimeProfile>(
+      selectedAgent?.id
+        ? SWR_KEYS.personaRuntimeProfile(selectedAgent.id)
+        : null,
+      errorHandlingFetcher,
+      {
+        revalidateOnFocus: false,
+        revalidateIfStale: false,
+        dedupingInterval: 60000,
+      }
+    );
+
+    const updateSelectedRuntimeSkillKeys = useCallback((skillKeys: string[]) => {
+      selectedRuntimeSkillKeysRef.current = skillKeys;
+      setSelectedRuntimeSkillKeys(skillKeys);
+      setRuntimeSkillValidationErrors((prev) => ({
+        ...prev,
+        selection: null,
+        targets: null,
+        approvalReference: null,
+      }));
+    }, []);
+
+    const updateRuntimeSkillTargetsText = useCallback((value: string) => {
+      runtimeSkillTargetsTextRef.current = value;
+      setRuntimeSkillTargetsText(value);
+      setRuntimeSkillValidationErrors((prev) => ({
+        ...prev,
+        selection: null,
+        targets: null,
+      }));
+    }, []);
+
+    const updateRuntimeSkillApprovalReference = useCallback((value: string) => {
+      runtimeSkillApprovalReferenceRef.current = value;
+      setRuntimeSkillApprovalReference(value);
+      setRuntimeSkillValidationErrors((prev) => ({
+        ...prev,
+        selection: null,
+        approvalReference: null,
+      }));
+    }, []);
 
     const handleRecordingChange = useCallback((nextIsRecording: boolean) => {
       setIsRecording((prevIsRecording) => {
@@ -172,9 +347,33 @@ const AppInputBar = React.memo(
     const handleSubmit = useCallback(
       (text: string) => {
         stopTTS();
-        onSubmit(text);
+        const nextValidationErrors = validateRuntimeSkillActivation(
+          runtimeProfile,
+          selectedRuntimeSkillKeysRef.current,
+          runtimeSkillTargetsTextRef.current,
+          runtimeSkillApprovalReferenceRef.current
+        );
+        if (
+          nextValidationErrors.selection ||
+          nextValidationErrors.targets ||
+          nextValidationErrors.approvalReference
+        ) {
+          setRuntimeSkillValidationErrors(nextValidationErrors);
+          return;
+        }
+        setRuntimeSkillValidationErrors({});
+        onSubmit({
+          message: text,
+          activeSkillKeys: selectedRuntimeSkillKeysRef.current,
+          skillTargets: runtimeSkillTargetsTextRef.current
+            .split("\n")
+            .map((value) => value.trim())
+            .filter(Boolean),
+          skillApprovalReference:
+            runtimeSkillApprovalReferenceRef.current.trim() || null,
+        });
       },
-      [stopTTS, onSubmit]
+      [onSubmit, runtimeProfile, stopTTS]
     );
     const submitMessage = useCallback(
       (text: string) => {
@@ -214,6 +413,31 @@ const AppInputBar = React.memo(
         setMessage("");
       }
     }, [isNewSession, initialMessage]);
+
+    useEffect(() => {
+      const activationRequired =
+        runtimeProfile?.activation_required_skill_keys ?? [];
+      updateSelectedRuntimeSkillKeys(
+        selectedRuntimeSkillKeysRef.current.filter((key) =>
+          activationRequired.includes(key)
+        )
+      );
+    }, [
+      runtimeProfile?.activation_required_skill_keys,
+      updateSelectedRuntimeSkillKeys,
+    ]);
+
+    useEffect(() => {
+      updateSelectedRuntimeSkillKeys([]);
+      updateRuntimeSkillTargetsText("");
+      updateRuntimeSkillApprovalReference("");
+      setRuntimeSkillValidationErrors({});
+    }, [
+      selectedAgent?.id,
+      updateRuntimeSkillApprovalReference,
+      updateRuntimeSkillTargetsText,
+      updateSelectedRuntimeSkillKeys,
+    ]);
 
     const { forcedToolIds, setForcedToolIds } = useForcedTools();
     const { currentMessageFiles, setCurrentMessageFiles, currentProjectId } =
@@ -879,6 +1103,22 @@ const AppInputBar = React.memo(
           </div>
 
           {chatControls}
+
+          {runtimeProfile && (
+            <RuntimeSkillActivationPanel
+              runtimeProfile={runtimeProfile}
+              selectedSkillKeys={selectedRuntimeSkillKeys}
+              onSelectedSkillKeysChange={updateSelectedRuntimeSkillKeys}
+              skillTargetsText={runtimeSkillTargetsText}
+              onSkillTargetsTextChange={updateRuntimeSkillTargetsText}
+              skillApprovalReference={runtimeSkillApprovalReference}
+              onSkillApprovalReferenceChange={
+                updateRuntimeSkillApprovalReference
+              }
+              validationErrors={runtimeSkillValidationErrors}
+              disabled={disabled || chatState !== "input"}
+            />
+          )}
 
           {/* First recording cycle waveform below input */}
           {shouldShowRecordingWaveformBelow && (

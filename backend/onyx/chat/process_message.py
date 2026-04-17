@@ -28,6 +28,7 @@ from onyx.chat.chat_utils import convert_chat_history
 from onyx.chat.chat_utils import create_chat_history_chain
 from onyx.chat.chat_utils import create_chat_session_from_request
 from onyx.chat.chat_utils import get_custom_agent_prompt
+from onyx.chat.chat_utils import get_persona_runtime_instruction_block
 from onyx.chat.chat_utils import is_last_assistant_message_clarification
 from onyx.chat.chat_utils import load_all_chat_files
 from onyx.chat.compression import calculate_total_history_tokens
@@ -111,6 +112,7 @@ from onyx.server.query_and_chat.streaming_models import AgentResponseStart
 from onyx.server.query_and_chat.streaming_models import CitationInfo
 from onyx.server.query_and_chat.streaming_models import OverallStop
 from onyx.server.query_and_chat.streaming_models import Packet
+from onyx.server.manage.skills.registry import resolve_bound_skill_runtime_state
 from onyx.server.usage_limits import check_llm_cost_limit_for_provider
 from onyx.tools.constants import FILE_READER_TOOL_ID
 from onyx.tools.constants import SEARCH_TOOL_ID
@@ -725,10 +727,60 @@ def build_chat_turn(
 
     user_memory_context = get_memories(user, db_session)
 
+    bound_skill_keys = persona.skill_keys or []
+    if new_msg_req.active_skill_keys is not None:
+        invalid_requested_skill_keys = sorted(
+            set(new_msg_req.active_skill_keys) - set(bound_skill_keys)
+        )
+        if invalid_requested_skill_keys:
+            raise OnyxError(
+                OnyxErrorCode.INVALID_INPUT,
+                "Requested runtime skills are not bound to the selected agent: "
+                + ", ".join(invalid_requested_skill_keys),
+            )
+
+    runtime_skill_resolution = resolve_bound_skill_runtime_state(
+        bound_skill_keys=bound_skill_keys,
+        user=user,
+        db_session=db_session,
+        requested_skill_keys=new_msg_req.active_skill_keys,
+        targets=new_msg_req.skill_targets,
+        approval_reference=new_msg_req.skill_approval_reference,
+    )
+
+    if new_msg_req.active_skill_keys:
+        denied_requested_skills = [
+            skill_key
+            for skill_key in new_msg_req.active_skill_keys
+            if skill_key not in set(runtime_skill_resolution.active_skill_keys)
+        ]
+        if denied_requested_skills:
+            blocked_details = []
+            for skill_key in denied_requested_skills:
+                reasons = runtime_skill_resolution.blocked_skill_reasons.get(
+                    skill_key, ["Skill could not be activated"]
+                )
+                blocked_details.append(
+                    f"{skill_key} ({'; '.join(reasons)})"
+                )
+            raise OnyxError(
+                OnyxErrorCode.INVALID_INPUT,
+                "Requested runtime skills could not be activated: "
+                + ", ".join(blocked_details),
+            )
+
     # This prompt may come from the Agent or Project. Fetched here (before run_llm_loop)
     # because the inner loop shouldn't need to access the DB-form chat history, but we
     # need it early for token reservation.
-    custom_agent_prompt = get_custom_agent_prompt(persona, chat_session)
+    custom_agent_prompt = get_custom_agent_prompt(
+        persona,
+        chat_session,
+        active_skill_keys=runtime_skill_resolution.active_skill_keys,
+    )
+    runtime_instruction_block = get_persona_runtime_instruction_block(
+        persona,
+        active_skill_keys=runtime_skill_resolution.active_skill_keys,
+    )
 
     # When use_memories is disabled, strip memories from the prompt context but keep
     # user info/preferences. The full context is still passed to the LLM loop for
@@ -740,8 +792,10 @@ def build_chat_turn(
     )
 
     # ── Token reservation ────────────────────────────────────────────────────
-    max_reserved_system_prompt_tokens_str = (persona.system_prompt or "") + (
-        custom_agent_prompt or ""
+    max_reserved_system_prompt_tokens_str = (custom_agent_prompt or "") + (
+        ((persona.system_prompt or "") + (runtime_instruction_block or ""))
+        if persona.replace_base_system_prompt
+        else (persona.system_prompt or "")
     )
     reserved_token_count = calculate_reserved_tokens(
         db_session=db_session,
@@ -922,6 +976,7 @@ def build_chat_turn(
         files=files,
         chat_files_for_tools=chat_files_for_tools,
         custom_agent_prompt=custom_agent_prompt,
+        runtime_instruction_block=runtime_instruction_block,
         user_memory_context=user_memory_context,
         skip_clarification=skip_clarification,
         check_is_connected=check_is_connected,
@@ -1078,6 +1133,7 @@ def _run_models(
                         simple_chat_history=list(setup.simple_chat_history),
                         tools=model_tools,
                         custom_agent_prompt=setup.custom_agent_prompt,
+                        runtime_instruction_block=setup.runtime_instruction_block,
                         context_files=setup.extracted_context_files,
                         persona=setup.persona,
                         user_memory_context=setup.user_memory_context,

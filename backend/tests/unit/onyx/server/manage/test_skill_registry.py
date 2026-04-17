@@ -11,8 +11,11 @@ from onyx.server.manage.skills.registry import build_authorized_scan_policy_summ
 from onyx.server.manage.skills.registry import AuthorizedScanAuthorizationRequest
 from onyx.server.manage.skills.registry import AuthorizedScanTarget
 from onyx.server.manage.skills.registry import AuthorizedTargetType
+from onyx.server.manage.skills.registry import BoundSkillRuntimeResolution
 from onyx.server.manage.skills.registry import SkillExecutionScope
 from onyx.server.manage.skills.registry import SkillRegistryImportRequest
+from onyx.server.manage.skills.registry import build_skill_runtime_profile
+from onyx.server.manage.skills.registry import resolve_bound_skill_runtime_state
 
 
 def _write_skill(skill_dir: Path, description: str) -> None:
@@ -121,6 +124,42 @@ def test_get_allowed_skill_names_for_user_respects_scope_and_enabled(
     assert registry.get_allowed_skill_names_for_user(security_user) == {
         "all-users-skill",
         "security-only-skill",
+    }
+
+
+def test_get_allowed_skill_names_for_user_accepts_security_group_membership(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        registry,
+        "list_managed_skills",
+        lambda: [
+            ManagedSkill(
+                key="security-only-skill",
+                name="security-only-skill",
+                description="",
+                path="skills/security-only-skill",
+                risk_level=SkillRiskLevel.MEDIUM,
+                access_scope=SkillAccessScope.SECURITY_TEAM,
+                enabled=True,
+                builtin=False,
+                has_scripts=False,
+                has_references=False,
+                has_tools=False,
+                has_requirements=False,
+                notes=None,
+            )
+        ],
+    )
+
+    grouped_user = SimpleNamespace(
+        role=UserRole.BASIC,
+        email="user@example.com",
+        skill_group_names=["Security Team"],
+    )
+
+    assert registry.get_allowed_skill_names_for_user(grouped_user) == {
+        "security-only-skill"
     }
 
 
@@ -440,3 +479,199 @@ def test_build_authorized_scan_policy_summary(monkeypatch) -> None:
     assert summary.authorized_scan_skill_count == 1
     assert summary.approval_required_skill_count == 1
     assert summary.gateway_enforced_skill_count == 1
+
+
+def test_build_skill_runtime_profile_only_includes_accessible_policy_skills(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        registry,
+        "list_managed_skills",
+        lambda *args, **kwargs: [
+            ManagedSkill(
+                key="code-audit",
+                name="code-audit",
+                description="",
+                path="skills/code-audit",
+                risk_level=SkillRiskLevel.LOW,
+                access_scope=SkillAccessScope.ALL_USERS,
+                enabled=True,
+                builtin=False,
+                has_scripts=False,
+                has_references=False,
+                has_tools=False,
+                has_requirements=False,
+                notes=None,
+            ),
+            ManagedSkill(
+                key="asset-discovery",
+                name="asset-discovery",
+                description="",
+                path="skills/asset-discovery",
+                risk_level=SkillRiskLevel.HIGH,
+                access_scope=SkillAccessScope.SECURITY_TEAM,
+                enabled=True,
+                builtin=False,
+                has_scripts=True,
+                has_references=True,
+                has_tools=False,
+                has_requirements=False,
+                execution_scope=SkillExecutionScope.AUTHORIZED_SCAN,
+                requires_approval=True,
+                requires_network_gateway=True,
+                allowed_target_types=[AuthorizedTargetType.DOMAIN],
+                notes="Only for approved corp scopes",
+            ),
+        ],
+    )
+
+    security_user = SimpleNamespace(
+        role=UserRole.BASIC,
+        email="user@example.com",
+        skill_group_names=["Security Team"],
+    )
+
+    profile = build_skill_runtime_profile(security_user)
+
+    assert profile.allowed_skill_names == ["asset-discovery", "code-audit"]
+    assert len(profile.policy_entries) == 1
+    assert profile.policy_entries[0].key == "asset-discovery"
+    assert "gateway=required" in profile.policy_markdown
+
+
+def test_resolve_bound_skill_runtime_state_auto_activates_standard_skills(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        registry,
+        "list_managed_skills",
+        lambda *args, **kwargs: [
+            ManagedSkill(
+                key="code-audit",
+                name="code-audit",
+                description="",
+                path="skills/code-audit",
+                risk_level=SkillRiskLevel.LOW,
+                access_scope=SkillAccessScope.ALL_USERS,
+                enabled=True,
+                builtin=False,
+                has_scripts=False,
+                has_references=False,
+                has_tools=False,
+                has_requirements=False,
+                notes=None,
+            )
+        ],
+    )
+
+    user = SimpleNamespace(role=UserRole.BASIC, email="user@example.com")
+    resolution = resolve_bound_skill_runtime_state(
+        bound_skill_keys=["code-audit"],
+        user=user,
+    )
+
+    assert isinstance(resolution, BoundSkillRuntimeResolution)
+    assert resolution.active_skill_keys == ["code-audit"]
+    assert resolution.inactive_skill_keys == []
+    assert resolution.activation_required_skill_keys == []
+    assert resolution.blocked_skill_reasons == {}
+
+
+def test_resolve_bound_skill_runtime_state_requires_explicit_activation_for_restricted_skills(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        registry,
+        "list_managed_skills",
+        lambda *args, **kwargs: [
+            ManagedSkill(
+                key="asset-discovery",
+                name="asset-discovery",
+                description="",
+                path="skills/asset-discovery",
+                risk_level=SkillRiskLevel.HIGH,
+                access_scope=SkillAccessScope.SECURITY_TEAM,
+                enabled=True,
+                builtin=False,
+                has_scripts=True,
+                has_references=True,
+                has_tools=False,
+                has_requirements=False,
+                execution_scope=SkillExecutionScope.AUTHORIZED_SCAN,
+                requires_approval=True,
+                requires_network_gateway=True,
+                allowed_target_types=[AuthorizedTargetType.DOMAIN],
+                notes=None,
+            )
+        ],
+    )
+
+    user = SimpleNamespace(
+        role=UserRole.BASIC,
+        email="user@example.com",
+        skill_group_names=["Security Team"],
+    )
+    resolution = resolve_bound_skill_runtime_state(
+        bound_skill_keys=["asset-discovery"],
+        user=user,
+    )
+
+    assert resolution.active_skill_keys == []
+    assert resolution.inactive_skill_keys == ["asset-discovery"]
+    assert resolution.activation_required_skill_keys == ["asset-discovery"]
+    assert resolution.blocked_skill_reasons["asset-discovery"] == [
+        "Explicit runtime activation is required"
+    ]
+
+
+def test_resolve_bound_skill_runtime_state_activates_authorized_scan_when_approved(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        registry,
+        "list_managed_skills",
+        lambda *args, **kwargs: [
+            ManagedSkill(
+                key="asset-discovery",
+                name="asset-discovery",
+                description="",
+                path="skills/asset-discovery",
+                risk_level=SkillRiskLevel.HIGH,
+                access_scope=SkillAccessScope.ADMIN_ONLY,
+                enabled=True,
+                builtin=False,
+                has_scripts=True,
+                has_references=True,
+                has_tools=False,
+                has_requirements=False,
+                execution_scope=SkillExecutionScope.AUTHORIZED_SCAN,
+                requires_approval=True,
+                requires_network_gateway=True,
+                allowed_target_types=[AuthorizedTargetType.DOMAIN],
+                notes=None,
+            )
+        ],
+    )
+    monkeypatch.setattr(registry, "is_skill_gateway_configured", lambda: True)
+    monkeypatch.setattr(
+        registry,
+        "authorize_skill_scan_execution",
+        lambda request, user: SimpleNamespace(
+            allowed=True,
+            reasons=[],
+        ),
+    )
+
+    user = SimpleNamespace(role=UserRole.ADMIN, email="admin@example.com")
+    resolution = resolve_bound_skill_runtime_state(
+        bound_skill_keys=["asset-discovery"],
+        user=user,
+        requested_skill_keys=["asset-discovery"],
+        targets=["example.com"],
+        approval_reference="CHG-1001",
+    )
+
+    assert resolution.active_skill_keys == ["asset-discovery"]
+    assert resolution.inactive_skill_keys == []
+    assert resolution.activation_required_skill_keys == ["asset-discovery"]
+    assert resolution.blocked_skill_reasons == {}

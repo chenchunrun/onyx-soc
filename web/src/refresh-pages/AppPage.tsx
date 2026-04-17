@@ -71,6 +71,7 @@ import useAppFocus from "@/hooks/useAppFocus";
 import { useQueryController } from "@/providers/QueryControllerProvider";
 import WelcomeMessage from "@/app/app/components/WelcomeMessage";
 import ChatUI from "@/sections/chat/ChatUI";
+import { AppInputBarSubmitPayload } from "@/sections/input/types";
 import { eeGated } from "@/ce";
 import EESearchUI from "@/ee/sections/SearchUI";
 const SearchUI = eeGated(EESearchUI);
@@ -464,11 +465,17 @@ export default function AppPage({ firstMessage }: ChatPageProps) {
   }
 
   const onChat = useCallback(
-    (message: string) => {
+    (
+      message: string,
+      runtimeSkillPayload?: Omit<AppInputBarSubmitPayload, "message">
+    ) => {
       onSubmit({
         message,
         currentMessageFiles,
         deepResearch: deepResearchEnabledForCurrentWorkflow,
+        activeSkillKeys: runtimeSkillPayload?.activeSkillKeys,
+        skillTargets: runtimeSkillPayload?.skillTargets,
+        skillApprovalReference: runtimeSkillPayload?.skillApprovalReference,
       });
       if (showOnboarding || !onboardingDismissed) {
         finishOnboarding();
@@ -507,7 +514,12 @@ export default function AppPage({ firstMessage }: ChatPageProps) {
   );
 
   const handleAppInputBarSubmit = useCallback(
-    async (message: string) => {
+    async ({
+      message,
+      activeSkillKeys,
+      skillTargets,
+      skillApprovalReference,
+    }: AppInputBarSubmitPayload) => {
       // If we're in an existing chat session, always use chat mode
       // (appMode only applies to new sessions)
       if (currentChatSessionId) {
@@ -515,6 +527,9 @@ export default function AppPage({ firstMessage }: ChatPageProps) {
           message,
           currentMessageFiles,
           deepResearch: deepResearchEnabledForCurrentWorkflow,
+          activeSkillKeys,
+          skillTargets,
+          skillApprovalReference,
         });
         if (showOnboarding || !onboardingDismissed) {
           finishOnboarding();
@@ -526,7 +541,14 @@ export default function AppPage({ firstMessage }: ChatPageProps) {
       // resetInputBar is called inside useChatController.onSubmit for chat-routed queries.
       // For search-routed queries, the input bar is intentionally kept
       // so the user can see and refine their search query.
-      await submitQuery(message, onChat);
+      const onChatWithRuntimeSkills = (chatMessage: string) => {
+        onChat(chatMessage, {
+          activeSkillKeys,
+          skillTargets,
+          skillApprovalReference,
+        });
+      };
+      await submitQuery(message, onChatWithRuntimeSkills);
     },
     [
       currentChatSessionId,

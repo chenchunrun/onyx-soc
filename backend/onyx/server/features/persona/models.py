@@ -137,6 +137,8 @@ class PersonaUpsertRequest(BaseModel):
     replace_base_system_prompt: bool = False
     task_prompt: str
     datetime_aware: bool
+    skill_keys: list[str] = Field(default_factory=list)
+    prompt_preset_id: str | None = None
 
 
 class MinimalPersonaSnapshot(BaseModel):
@@ -169,6 +171,8 @@ class MinimalPersonaSnapshot(BaseModel):
     display_priority: int | None
     is_featured: bool
     builtin_persona: bool
+    skill_keys: list[str] = Field(default_factory=list)
+    prompt_preset_id: str | None = None
 
     # Used for filtering
     labels: list["PersonaLabelSnapshot"]
@@ -222,6 +226,8 @@ class MinimalPersonaSnapshot(BaseModel):
             display_priority=persona.display_priority,
             is_featured=persona.is_featured,
             builtin_persona=persona.builtin_persona,
+            skill_keys=persona.skill_keys,
+            prompt_preset_id=persona.prompt_preset_id,
             labels=[PersonaLabelSnapshot.from_model(label) for label in persona.labels],
             owner=(
                 MinimalUserSnapshot(id=persona.user.id, email=persona.user.email)
@@ -263,6 +269,8 @@ class PersonaSnapshot(BaseModel):
     replace_base_system_prompt: bool = False
     task_prompt: str | None = None
     datetime_aware: bool = True
+    skill_keys: list[str] = Field(default_factory=list)
+    prompt_preset_id: str | None = None
 
     @classmethod
     def from_model(cls, persona: Persona) -> "PersonaSnapshot":
@@ -313,6 +321,8 @@ class PersonaSnapshot(BaseModel):
             replace_base_system_prompt=persona.replace_base_system_prompt,
             task_prompt=persona.task_prompt,
             datetime_aware=persona.datetime_aware,
+            skill_keys=persona.skill_keys,
+            prompt_preset_id=persona.prompt_preset_id,
         )
 
 
@@ -380,6 +390,8 @@ class FullPersonaSnapshot(PersonaSnapshot):
             replace_base_system_prompt=persona.replace_base_system_prompt,
             task_prompt=persona.task_prompt,
             datetime_aware=persona.datetime_aware,
+            skill_keys=persona.skill_keys,
+            prompt_preset_id=persona.prompt_preset_id,
         )
 
 

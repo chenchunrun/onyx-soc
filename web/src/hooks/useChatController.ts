@@ -94,6 +94,9 @@ export interface OnSubmitProps {
   regenerationRequest?: RegenerationRequest | null;
   // Additional context injected into the LLM call but not stored/shown in chat.
   additionalContext?: string;
+  activeSkillKeys?: string[];
+  skillTargets?: string[];
+  skillApprovalReference?: string | null;
 }
 
 interface RegenerationRequest {
@@ -370,6 +373,9 @@ export default function useChatController({
       modelOverride,
       regenerationRequest,
       additionalContext,
+      activeSkillKeys,
+      skillTargets,
+      skillApprovalReference,
     }: OnSubmitProps) => {
       const projectId = params(SEARCH_PARAM_NAMES.PROJECT_ID);
       {
@@ -728,6 +734,9 @@ export default function useChatController({
           forcedToolId: effectiveForcedToolId,
           origin: messageOrigin,
           additionalContext,
+          activeSkillKeys,
+          skillTargets,
+          skillApprovalReference,
         });
 
         const delay = (ms: number) => {

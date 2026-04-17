@@ -630,6 +630,7 @@ def run_llm_loop(
     simple_chat_history: list[ChatMessageSimple],
     tools: list[Tool],
     custom_agent_prompt: str | None,
+    runtime_instruction_block: str | None,
     context_files: ExtractedContextFiles,
     persona: Persona | None,
     user_memory_context: UserMemoryContext | None,
@@ -741,13 +742,24 @@ def run_llm_loop(
             # now that project files are loaded in.
             if persona and persona.replace_base_system_prompt:
                 # Handles the case where user has checked off the "Replace base system prompt" checkbox
+                full_persona_system_prompt = (
+                    "\n\n".join(
+                        section
+                        for section in [
+                            persona.system_prompt,
+                            runtime_instruction_block,
+                        ]
+                        if section
+                    )
+                    or None
+                )
                 system_prompt = (
                     ChatMessageSimple(
-                        message=persona.system_prompt,
-                        token_count=token_counter(persona.system_prompt),
+                        message=full_persona_system_prompt,
+                        token_count=token_counter(full_persona_system_prompt),
                         message_type=MessageType.SYSTEM,
                     )
-                    if persona.system_prompt
+                    if full_persona_system_prompt
                     else None
                 )
                 custom_agent_prompt_msg = None

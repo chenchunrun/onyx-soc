@@ -55,6 +55,8 @@ export interface MinimalPersonaSnapshot {
   display_priority: number | null;
   is_featured: boolean;
   builtin_persona: boolean;
+  skill_keys?: string[];
+  prompt_preset_id?: string | null;
 
   labels?: PersonaLabel[];
   owner: MinimalUserSnapshot | null;
@@ -78,6 +80,56 @@ export interface Persona extends MinimalPersonaSnapshot {
 
 export interface FullPersona extends Persona {
   search_start_date: string | null;
+}
+
+export interface PromptPresetRuntimeBinding {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+  category: string;
+  agent_type: string;
+  source_file: string;
+}
+
+export interface AgentSkillRuntimeBinding {
+  key: string;
+  name: string;
+  description: string;
+  risk_level: string;
+  access_scope: string;
+  execution_scope: string;
+  requires_approval: boolean;
+  gateway_required: boolean;
+  allowed_target_types: string[];
+  notes: string | null;
+  enabled: boolean;
+  accessible: boolean;
+}
+
+export interface AuthorizedTargetSuggestion {
+  target: string;
+  target_type: string;
+  owner: string;
+  approval_reference: string;
+  notes: string | null;
+}
+
+export interface AgentRuntimeProfile {
+  persona_id: number;
+  persona_name: string;
+  prompt_preset: PromptPresetRuntimeBinding | null;
+  bound_skills: AgentSkillRuntimeBinding[];
+  accessible_skill_keys: string[];
+  inaccessible_skill_keys: string[];
+  active_skill_keys: string[];
+  inactive_skill_keys: string[];
+  activation_required_skill_keys: string[];
+  blocked_skill_reasons: Record<string, string[]>;
+  authorized_target_suggestions: AuthorizedTargetSuggestion[];
+  approval_reference_suggestions: string[];
+  runtime_instruction_block: string | null;
+  policy_markdown: string;
 }
 
 export interface PersonaLabel {

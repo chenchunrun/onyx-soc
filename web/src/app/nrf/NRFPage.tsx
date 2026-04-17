@@ -6,6 +6,7 @@ import { useUser } from "@/providers/UserProvider";
 import { toast } from "@/hooks/useToast";
 import { AuthType } from "@/lib/constants";
 import AppInputBar, { AppInputBarHandle } from "@/sections/input/AppInputBar";
+import { AppInputBarSubmitPayload } from "@/sections/input/types";
 import { Button } from "@opal/components";
 import Modal from "@/refresh-components/Modal";
 import { useFilters, useLlmManager } from "@/lib/hooks";
@@ -285,7 +286,12 @@ export default function NRFPage({ isSidePanel = false }: NRFPageProps) {
 
   // Handle submit from AppInputBar - routes through query controller for search/chat classification
   const handleChatInputSubmit = useCallback(
-    async (submittedMessage: string) => {
+    async ({
+      message: submittedMessage,
+      activeSkillKeys,
+      skillTargets,
+      skillApprovalReference,
+    }: AppInputBarSubmitPayload) => {
       if (!submittedMessage.trim()) return;
 
       const additionalContext =
@@ -301,6 +307,9 @@ export default function NRFPage({ isSidePanel = false }: NRFPageProps) {
           currentMessageFiles: currentMessageFiles,
           deepResearch: deepResearchEnabled,
           additionalContext,
+          activeSkillKeys,
+          skillTargets,
+          skillApprovalReference,
         });
         return;
       }
@@ -312,6 +321,9 @@ export default function NRFPage({ isSidePanel = false }: NRFPageProps) {
           currentMessageFiles: currentMessageFiles,
           deepResearch: deepResearchEnabled,
           additionalContext,
+          activeSkillKeys,
+          skillTargets,
+          skillApprovalReference,
         });
       };
 

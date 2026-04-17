@@ -752,7 +752,11 @@ def convert_chat_history(
     )
 
 
-def get_custom_agent_prompt(persona: Persona, chat_session: ChatSession) -> str | None:
+def get_custom_agent_prompt(
+    persona: Persona,
+    chat_session: ChatSession,
+    active_skill_keys: list[str] | None = None,
+) -> str | None:
     """Get the custom agent prompt from persona or project instructions. If it's replacing the base system prompt,
     it does not count as a custom agent prompt (logic exists later also to drop it in this case).
 
@@ -769,18 +773,93 @@ def get_custom_agent_prompt(persona: Persona, chat_session: ChatSession) -> str 
     Returns:
         The prompt to use for the custom Agent part of the prompt.
     """
+    runtime_instruction_block = get_persona_runtime_instruction_block(
+        persona, active_skill_keys=active_skill_keys
+    )
+
     # If using a custom Agent, always respect its prompt, even if in a Project, and even if it's an empty custom prompt.
     if persona.id != DEFAULT_PERSONA_ID:
         # Logic exists later also to drop it in this case but this is strictly correct anyhow.
         if persona.replace_base_system_prompt:
             return None
-        return persona.system_prompt or None
+        base_prompt = persona.system_prompt or None
+        return _join_prompt_sections(base_prompt, runtime_instruction_block)
 
     # If in a project and using the default Agent, respect the project instructions.
     if chat_session.project and chat_session.project.instructions:
-        return chat_session.project.instructions
+        return _join_prompt_sections(
+            chat_session.project.instructions,
+            runtime_instruction_block,
+        )
 
-    return None
+    return runtime_instruction_block
+
+
+def _join_prompt_sections(*sections: str | None) -> str | None:
+    normalized_sections = [section.strip() for section in sections if section and section.strip()]
+    if not normalized_sections:
+        return None
+    return "\n\n".join(normalized_sections)
+
+
+def get_persona_runtime_instruction_block(
+    persona: Persona,
+    active_skill_keys: list[str] | None = None,
+) -> str | None:
+    prompt_sections: list[str] = []
+
+    if persona.prompt_preset_id:
+        from onyx.server.manage.prompt_presets.registry import scan_prompt_presets
+
+        prompt_preset = next(
+            (
+                preset
+                for preset in scan_prompt_presets()
+                if preset.id == persona.prompt_preset_id
+            ),
+            None,
+        )
+        if prompt_preset:
+            prompt_sections.append(
+                "\n".join(
+                    [
+                        "## Bound Prompt Preset",
+                        f"Use the following preset guidance when responding as this agent: {prompt_preset.name}",
+                        prompt_preset.content.strip(),
+                    ]
+                )
+            )
+
+    if persona.skill_keys:
+        from onyx.server.manage.skills.registry import list_managed_skills
+
+        allowed_skill_keys = (
+            set(active_skill_keys) if active_skill_keys is not None else set(persona.skill_keys)
+        )
+        managed_skills = {
+            skill.key: skill
+            for skill in list_managed_skills(enabled=True)
+            if skill.key in persona.skill_keys and skill.key in allowed_skill_keys
+        }
+        if managed_skills:
+            skill_lines = [
+                "## Bound Skills",
+                "Treat the following reviewed skills as this agent's approved skill pack.",
+                "Prefer these skills when they fit the request. Do not claim to use skills outside this list unless the runtime explicitly provides them.",
+            ]
+            for skill_key in persona.skill_keys:
+                if skill_key not in allowed_skill_keys:
+                    continue
+                skill = managed_skills.get(skill_key)
+                if not skill:
+                    continue
+                skill_lines.append(
+                    f"- {skill.name} ({skill.key}): {skill.description}"
+                )
+            if len(skill_lines) > 3:
+                prompt_sections.append("\n".join(skill_lines))
+
+    return _join_prompt_sections(*prompt_sections)
 
 
 def is_last_assistant_message_clarification(chat_history: list[ChatMessage]) -> bool:

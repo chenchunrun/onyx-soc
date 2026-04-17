@@ -49,6 +49,8 @@ from onyx.server.features.persona.models import PersonaLabelCreate
 from onyx.server.features.persona.models import PersonaLabelResponse
 from onyx.server.features.persona.models import PersonaSnapshot
 from onyx.server.features.persona.models import PersonaUpsertRequest
+from onyx.server.features.persona.runtime_profile import AgentRuntimeProfile
+from onyx.server.features.persona.runtime_profile import build_persona_runtime_profile
 from onyx.server.manage.llm.api import get_valid_model_names_for_persona
 from onyx.server.models import DisplayPriorityRequest
 from onyx.server.settings.store import load_settings
@@ -537,3 +539,22 @@ def get_persona(
             db_session.commit()
 
     return FullPersonaSnapshot.from_model(persona)
+
+
+@basic_router.get("/{persona_id}/runtime-profile", tags=PUBLIC_API_TAGS)
+def get_persona_runtime_profile(
+    persona_id: int,
+    user: User = Depends(current_limited_user),
+    db_session: Session = Depends(get_session),
+) -> AgentRuntimeProfile:
+    persona = get_persona_by_id(
+        persona_id=persona_id,
+        user=user,
+        db_session=db_session,
+        is_for_edit=False,
+    )
+    return build_persona_runtime_profile(
+        persona=persona,
+        user=user,
+        db_session=db_session,
+    )

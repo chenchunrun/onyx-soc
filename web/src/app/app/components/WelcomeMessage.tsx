@@ -11,6 +11,7 @@ import { MinimalPersonaSnapshot } from "@/app/admin/agents/interfaces";
 import { useState, useEffect } from "react";
 import { useSettingsContext } from "@/providers/SettingsProvider";
 import FrostedDiv from "@/refresh-components/FrostedDiv";
+import AgentRuntimeBindings from "@/app/app/components/AgentRuntimeBindings";
 
 export interface WelcomeMessageProps {
   agent?: MinimalPersonaSnapshot;
@@ -58,6 +59,7 @@ export default function WelcomeMessage({
             {agent.name}
           </Text>
         </div>
+        <AgentRuntimeBindings agent={agent} />
       </>
     );
   }

@@ -3,6 +3,7 @@ from __future__ import annotations
 from enum import Enum
 import ipaddress
 import json
+import os
 from datetime import datetime
 from datetime import timezone
 from pathlib import Path
@@ -11,11 +12,15 @@ from typing import Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 import yaml
 
 from onyx.auth.users import is_user_admin
 from onyx.auth.schemas import UserRole
 from onyx.db.models import User
+from onyx.db.models import User__UserGroup
+from onyx.db.models import UserGroup
 from onyx.server.features.build.sandbox.util.agent_instructions import (
     extract_skill_description,
 )
@@ -51,6 +56,13 @@ SECURITY_TEAM_EMAILS = {
     "hunter@security.local",
     "malware@security.local",
     "detection@security.local",
+}
+SECURITY_TEAM_GROUP_NAMES = {
+    "security team",
+    "security operations",
+    "security engineering",
+    "secops",
+    "soc",
 }
 
 
@@ -193,6 +205,28 @@ class AuthorizedScanAuthorizationResult(BaseModel):
     allowed_targets: list[str]
     denied_targets: list[str]
     reasons: list[str]
+
+
+class SkillRuntimePolicyEntry(BaseModel):
+    key: str
+    execution_scope: SkillExecutionScope
+    requires_approval: bool
+    gateway_required: bool
+    allowed_target_types: list[AuthorizedTargetType]
+    notes: str | None = None
+
+
+class SkillRuntimeProfile(BaseModel):
+    allowed_skill_names: list[str]
+    policy_markdown: str
+    policy_entries: list[SkillRuntimePolicyEntry]
+
+
+class BoundSkillRuntimeResolution(BaseModel):
+    active_skill_keys: list[str]
+    inactive_skill_keys: list[str]
+    activation_required_skill_keys: list[str]
+    blocked_skill_reasons: dict[str, list[str]]
 
 
 def _load_registry_payload() -> dict[str, Any]:
@@ -533,13 +567,52 @@ def update_skill_registry_entry(
     return None
 
 
-def is_security_team_user(user: User) -> bool:
+def _normalize_group_name(name: str) -> str:
+    return " ".join(name.strip().lower().replace("-", " ").replace("_", " ").split())
+
+
+def _extract_user_group_names(user: User) -> set[str]:
+    explicit_names = getattr(user, "skill_group_names", None)
+    if explicit_names:
+        return {_normalize_group_name(name) for name in explicit_names if name}
+
+    groups = getattr(user, "groups", None)
+    if groups:
+        return {
+            _normalize_group_name(group.name)
+            for group in groups
+            if getattr(group, "name", None)
+        }
+
+    return set()
+
+
+def _load_user_group_names(user: User, db_session: Session | None = None) -> set[str]:
+    group_names = _extract_user_group_names(user)
+    if group_names or db_session is None or getattr(user, "id", None) is None:
+        return group_names
+
+    rows = db_session.execute(
+        select(UserGroup.name)
+        .select_from(UserGroup)
+        .join(User__UserGroup, User__UserGroup.user_group_id == UserGroup.id)
+        .where(User__UserGroup.user_id == user.id)
+    ).all()
+    return {_normalize_group_name(row[0]) for row in rows if row[0]}
+
+
+def is_security_team_user(user: User, db_session: Session | None = None) -> bool:
     if user.role == UserRole.ADMIN:
+        return True
+    user_group_names = _load_user_group_names(user, db_session)
+    if user_group_names & SECURITY_TEAM_GROUP_NAMES:
         return True
     return bool(user.email and user.email.lower() in SECURITY_TEAM_EMAILS)
 
 
-def user_can_access_skill(skill: ManagedSkill, user: User) -> bool:
+def user_can_access_skill(
+    skill: ManagedSkill, user: User, db_session: Session | None = None
+) -> bool:
     if not skill.enabled:
         return False
 
@@ -548,16 +621,164 @@ def user_can_access_skill(skill: ManagedSkill, user: User) -> bool:
     if skill.access_scope == SkillAccessScope.ADMIN_ONLY:
         return user.role == UserRole.ADMIN
     if skill.access_scope == SkillAccessScope.SECURITY_TEAM:
-        return is_security_team_user(user)
+        return is_security_team_user(user, db_session)
     return False
 
 
-def get_allowed_skill_names_for_user(user: User) -> set[str]:
+def get_allowed_skill_names_for_user(
+    user: User, db_session: Session | None = None
+) -> set[str]:
     return {
         skill.key
         for skill in list_managed_skills()
-        if user_can_access_skill(skill, user)
+        if user_can_access_skill(skill, user, db_session)
     }
+
+
+def build_skill_runtime_profile(
+    user: User, db_session: Session | None = None
+) -> SkillRuntimeProfile:
+    allowed_skills = [
+        skill
+        for skill in list_managed_skills()
+        if user_can_access_skill(skill, user, db_session)
+    ]
+    policy_entries = [
+        SkillRuntimePolicyEntry(
+            key=skill.key,
+            execution_scope=skill.execution_scope,
+            requires_approval=skill.requires_approval,
+            gateway_required=skill.requires_network_gateway,
+            allowed_target_types=skill.allowed_target_types,
+            notes=skill.notes,
+        )
+        for skill in allowed_skills
+        if skill.execution_scope == SkillExecutionScope.AUTHORIZED_SCAN
+        or skill.requires_approval
+        or skill.requires_network_gateway
+    ]
+
+    if not policy_entries:
+        policy_markdown = "No additional runtime skill restrictions are configured."
+    else:
+        lines = [
+            "Runtime restrictions apply to the following skills. Do not use them outside the stated policy:",
+        ]
+        for entry in policy_entries:
+            constraint_parts = [
+                f"scope={entry.execution_scope.value}",
+                f"approval={'required' if entry.requires_approval else 'not-required'}",
+                f"gateway={'required' if entry.gateway_required else 'not-required'}",
+            ]
+            if entry.allowed_target_types:
+                constraint_parts.append(
+                    "targets="
+                    + ",".join(target_type.value for target_type in entry.allowed_target_types)
+                )
+            lines.append(f"- `{entry.key}`: " + "; ".join(constraint_parts))
+            if entry.notes:
+                lines.append(f"  Notes: {entry.notes}")
+        policy_markdown = "\n".join(lines)
+
+    return SkillRuntimeProfile(
+        allowed_skill_names=sorted(skill.key for skill in allowed_skills),
+        policy_markdown=policy_markdown,
+        policy_entries=policy_entries,
+    )
+
+
+def skill_requires_explicit_runtime_activation(skill: ManagedSkill) -> bool:
+    return (
+        skill.execution_scope == SkillExecutionScope.AUTHORIZED_SCAN
+        or skill.requires_approval
+        or skill.requires_network_gateway
+    )
+
+
+def is_skill_gateway_configured() -> bool:
+    return bool(str(os.environ.get("SECURITY_TOOLS_GATEWAY_URL", "")).strip())
+
+
+def resolve_bound_skill_runtime_state(
+    *,
+    bound_skill_keys: list[str],
+    user: User,
+    db_session: Session | None = None,
+    requested_skill_keys: list[str] | None = None,
+    targets: list[str] | None = None,
+    approval_reference: str | None = None,
+) -> BoundSkillRuntimeResolution:
+    skills_by_key = {skill.key: skill for skill in list_managed_skills()}
+    requested_key_set = set(requested_skill_keys or [])
+    targets = targets or []
+
+    active_skill_keys: list[str] = []
+    activation_required_skill_keys: list[str] = []
+    blocked_skill_reasons: dict[str, list[str]] = {}
+
+    for skill_key in bound_skill_keys:
+        skill = skills_by_key.get(skill_key)
+        reasons: list[str] = []
+        explicit_activation_required = False
+
+        if skill is None:
+            reasons.append("Skill is not registered")
+        else:
+            explicit_activation_required = skill_requires_explicit_runtime_activation(
+                skill
+            )
+            if explicit_activation_required:
+                activation_required_skill_keys.append(skill.key)
+
+            if not skill.enabled:
+                reasons.append("Skill is disabled")
+            elif not user_can_access_skill(skill, user, db_session):
+                reasons.append("Skill is not accessible to the current user")
+            elif explicit_activation_required:
+                if skill.key not in requested_key_set:
+                    reasons.append("Explicit runtime activation is required")
+                else:
+                    if skill.requires_network_gateway and not is_skill_gateway_configured():
+                        reasons.append("Security tools gateway is not configured")
+                    if (
+                        skill.requires_approval
+                        and skill.execution_scope != SkillExecutionScope.AUTHORIZED_SCAN
+                        and not approval_reference
+                    ):
+                        reasons.append("Approval reference is required")
+                    if skill.execution_scope == SkillExecutionScope.AUTHORIZED_SCAN:
+                        if not targets:
+                            reasons.append("Authorized scan targets are required")
+                        else:
+                            authorization_result = authorize_skill_scan_execution(
+                                AuthorizedScanAuthorizationRequest(
+                                    skill_key=skill.key,
+                                    targets=targets,
+                                    approval_reference=approval_reference,
+                                ),
+                                user,
+                            )
+                            if not authorization_result.allowed:
+                                reasons.extend(authorization_result.reasons)
+            elif requested_skill_keys is None or skill.key in requested_key_set:
+                active_skill_keys.append(skill.key)
+
+        if reasons:
+            blocked_skill_reasons[skill_key] = list(dict.fromkeys(reasons))
+            continue
+
+        if skill is not None and skill.key not in active_skill_keys:
+            active_skill_keys.append(skill.key)
+
+    active_key_set = set(active_skill_keys)
+    inactive_skill_keys = [skill_key for skill_key in bound_skill_keys if skill_key not in active_key_set]
+
+    return BoundSkillRuntimeResolution(
+        active_skill_keys=active_skill_keys,
+        inactive_skill_keys=inactive_skill_keys,
+        activation_required_skill_keys=sorted(set(activation_required_skill_keys)),
+        blocked_skill_reasons=blocked_skill_reasons,
+    )
 
 
 def build_skill_registry_summary(

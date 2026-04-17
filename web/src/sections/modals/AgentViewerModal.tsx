@@ -32,6 +32,7 @@ import Switch from "@/refresh-components/inputs/Switch";
 import { Button } from "@opal/components";
 import { SEARCH_PARAM_NAMES } from "@/app/app/services/searchParams";
 import AppInputBar from "@/sections/input/AppInputBar";
+import { AppInputBarSubmitPayload } from "@/sections/input/types";
 import { useFilters, useLlmManager } from "@/lib/hooks";
 import { formatMmDdYyyy } from "@/lib/dateUtils";
 import { useProjectsContext } from "@/providers/ProjectsContext";
@@ -130,7 +131,7 @@ function AgentChatInput({ agent, onSubmit }: AgentChatInputProps) {
 
   return (
     <AppInputBar
-      onSubmit={onSubmit}
+      onSubmit={(payload: AppInputBarSubmitPayload) => onSubmit(payload.message)}
       llmManager={llmManager}
       chatState="input"
       filterManager={filterManager}
