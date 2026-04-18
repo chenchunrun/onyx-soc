@@ -21,6 +21,9 @@ Parameters:
   TaskDesiredCount:
     Type: Number
     Default: 1
+  BackendImage:
+    Type: String
+    Default: onyxdotapp/onyx-backend:latest
 
 Resources:
 
@@ -117,7 +120,7 @@ Resources:
         OperatingSystemFamily: LINUX
       ContainerDefinitions:
         - Name: onyx-backend
-          Image: onyxdotapp/onyx-backend:latest
+          Image: !Ref BackendImage
           Cpu: 0
           Essential: true
           Command:

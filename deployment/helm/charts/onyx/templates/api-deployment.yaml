@@ -61,7 +61,7 @@ spec:
         - name: api-server
           securityContext:
             {{- toYaml .Values.api.securityContext | nindent 12 }}
-          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag | default .Values.global.version }}"
+          image: "{{ include "onyx.imageRepository" (dict "ctx" . "repository" .Values.api.image.repository "defaultRepository" .Values.global.images.backendRepository) }}:{{ .Values.api.image.tag | default .Values.global.version }}"
           imagePullPolicy: {{ .Values.global.pullPolicy }}
           command:
             - "/bin/sh"

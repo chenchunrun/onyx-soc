@@ -21,6 +21,9 @@ Parameters:
   TaskDesiredCount:
     Type: Number
     Default: 1
+  ModelServerImage:
+    Type: String
+    Default: onyxdotapp/onyx-model-server:latest
 
 Resources:
 
@@ -117,7 +120,7 @@ Resources:
         OperatingSystemFamily: LINUX
       ContainerDefinitions:
         - Name: onyx-model-server-indexing
-          Image: onyxdotapp/onyx-model-server:latest
+          Image: !Ref ModelServerImage
           Cpu: 0
           Essential: true
           Command:

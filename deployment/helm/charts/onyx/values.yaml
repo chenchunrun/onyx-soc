@@ -9,6 +9,13 @@ global:
   pullPolicy: "IfNotPresent"
   # Host for all Onyx components
   host: "0.0.0.0"
+  # Optional registry prefix applied to all default Onyx images.
+  # Example: registry.example.com
+  imageRegistry: ""
+  images:
+    backendRepository: "onyxdotapp/onyx-backend"
+    webRepository: "onyxdotapp/onyx-web-server"
+    modelRepository: "onyxdotapp/onyx-model-server"
 
 postgresql:
   enabled: true
@@ -149,7 +156,8 @@ inferenceCapability:
     - key: app
       value: inference-model-server
   image:
-    repository: onyxdotapp/onyx-model-server
+    # Optional override. Defaults to global.images.modelRepository.
+    repository: ""
     # Overrides the image tag whose default is the chart appVersion.
     tag: ""
   containerPorts:
@@ -208,7 +216,8 @@ indexCapability:
   containerPorts:
     server: 9000
   image:
-    repository: onyxdotapp/onyx-model-server
+    # Optional override. Defaults to global.images.modelRepository.
+    repository: ""
     # Overrides the image tag whose default is the chart appVersion.
     tag: ""
   limitConcurrency: 10
@@ -296,7 +305,7 @@ nginx:
     # The ingress-nginx subchart doesn't auto-detect our custom ConfigMap changes.
     # Workaround: Helm upgrade will restart if the following annotation value changes.
     podAnnotations:
-      onyx.app/nginx-config-version: "3"
+      deployment.local/nginx-config-version: "3"
 
     # Propagate DOMAIN into nginx so server_name continues to use the same env var
     extraEnvs:
@@ -331,7 +340,8 @@ nginx:
 webserver:
   replicaCount: 1
   image:
-    repository: onyxdotapp/onyx-web-server
+    # Optional override. Defaults to global.images.webRepository.
+    repository: ""
     # Overrides the image tag whose default is the chart appVersion.
     tag: ""
   deploymentLabels:
@@ -418,7 +428,8 @@ webserver:
 api:
   replicaCount: 1
   image:
-    repository: onyxdotapp/onyx-backend
+    # Optional override. Defaults to global.images.backendRepository.
+    repository: ""
     # Overrides the image tag whose default is the chart appVersion.
     tag: ""
   deploymentLabels:
@@ -513,7 +524,8 @@ api:
 
 celery_shared:
   image:
-    repository: onyxdotapp/onyx-backend
+    # Optional override. Defaults to global.images.backendRepository.
+    repository: ""
     tag: ""  # Overrides the image tag whose default is the chart appVersion.
   startupProbe:
     # startupProbe fails after 2m
@@ -778,7 +790,8 @@ discordbot:
   # Command prefix for bot commands (default: "!")
   invokeChar: "!"
   image:
-    repository: onyxdotapp/onyx-backend
+    # Optional override. Defaults to global.images.backendRepository.
+    repository: ""
     tag: ""  # Overrides the image tag whose default is the chart appVersion.
   podAnnotations: {}
   podLabels:
@@ -806,7 +819,8 @@ slackbot:
   enabled: true
   replicaCount: 1
   image:
-    repository: onyxdotapp/onyx-backend
+    # Optional override. Defaults to global.images.backendRepository.
+    repository: ""
     tag: ""  # Overrides the image tag whose default is the chart appVersion.
   podAnnotations: {}
   podLabels:
@@ -834,7 +848,8 @@ mcpServer:
   enabled: false  # Disabled by default
   replicaCount: 1
   image:
-    repository: onyxdotapp/onyx-backend
+    # Optional override. Defaults to global.images.backendRepository.
+    repository: ""
     tag: ""  # Overrides the image tag whose default is the chart appVersion.
   # CORS origins for MCP clients (comma-separated)
   # Example: "https://claude.ai,https://app.cursor.sh"
@@ -1228,7 +1243,7 @@ configMap:
   OIDC_PKCE_ENABLED: ""
   # 1 Day Default
   SESSION_EXPIRE_TIME_SECONDS: "86400"
-  # Can be something like onyx.app, as an extra double-check
+  # Can be something like search.example.com, as an extra double-check
   VALID_EMAIL_DOMAINS: ""
   # For sending verification emails, true or false
   REQUIRE_EMAIL_VERIFICATION: ""

@@ -155,3 +155,16 @@ Return the configured autoscaling engine; defaults to HPA when unset.
 {{- $engine := default "hpa" .Values.autoscaling.engine -}}
 {{- $engine | lower -}}
 {{- end }}
+
+{{/*
+Build a component image repository with optional global registry override.
+*/}}
+{{- define "onyx.imageRepository" -}}
+{{- $selectedRepository := default .defaultRepository .repository -}}
+{{- $registry := default "" .ctx.Values.global.imageRegistry -}}
+{{- if $registry -}}
+{{- printf "%s/%s" (trimSuffix "/" $registry) (trimPrefix "/" $selectedRepository) -}}
+{{- else -}}
+{{- $selectedRepository -}}
+{{- end -}}
+{{- end }}

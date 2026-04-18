@@ -13,7 +13,7 @@ Parameters:
       Default: ''
   DomainName:
       Type: String
-      Default: demo.danswer.ai
+      Default: search.example.com
   Environment:
     Type: String
   ServiceName:
@@ -39,12 +39,12 @@ Parameters:
     Default: 1
   GitHubConfigUrl:
     Type: String
-    Default: "https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/data/nginx/app.conf.template"
-    Description: "URL to the nginx configuration file on GitHub"
+    Default: "https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/data/nginx/app.conf.template"
+    Description: "URL to the nginx configuration file on the configured remote source"
   GitHubRunScriptUrl:
     Type: String
-    Default: "https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/data/nginx/run-nginx.sh"
-    Description: "URL to the nginx run script on GitHub"
+    Default: "https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/data/nginx/run-nginx.sh"
+    Description: "URL to the nginx run script on the configured remote source"
 
 Conditions:
   CreateRoute53: !Not 

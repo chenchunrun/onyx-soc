@@ -70,6 +70,42 @@ bash deployment/scripts/run_security_platform_threat_intel_sync.sh
 Provide `ONYX_URL`, `ONYX_EMAIL`, `ONYX_PASSWORD`, and optional
 `THREAT_INTEL_SYNC_LIMIT` / `THREAT_INTEL_SOURCE_PROFILE` via environment variables before invoking it.
 
+## Custom image registry
+The chart now supports a global image registry override for all Onyx-owned images.
+This lets you keep using the upstream chart while pulling backend, web, and model images
+from your own registry.
+
+Example:
+
+```yaml
+global:
+  imageRegistry: registry.example.com
+  images:
+    backendRepository: platform/onyx-backend
+    webRepository: platform/onyx-web-server
+    modelRepository: platform/onyx-model-server
+```
+
+Apply it with:
+
+```bash
+cd charts/onyx
+helm upgrade --install onyx . -n onyx --create-namespace \
+  -f values.yaml \
+  -f my-registry-overrides.yaml
+```
+
+If you need per-component exceptions, set `image.repository` for the specific component in your override file.
+
+### Dependency mirror note
+This chart still depends on several external chart repositories. Two of them are Onyx-maintained:
+- `https://onyx-dot-app.github.io/vespa-helm-charts`
+- `https://onyx-dot-app.github.io/python-sandbox/`
+
+If you want a fully self-managed Helm supply chain, you need to mirror those chart repositories yourself
+and then update both `Chart.yaml` and `Chart.lock` to point at your mirrored endpoints before running
+`helm dependency update`.
+
 ## Run as non-root user
 By default, some onyx containers run as root. If you'd like to explicitly run the onyx containers as a non-root user, update the values.yaml file for the following components:
   * `celery_shared`, `api`, `webserver`, `indexCapability`, `inferenceCapability`
@@ -91,7 +127,7 @@ By default, some onyx containers run as root. If you'd like to explicitly run th
 In the helm charts, we have resource suggestions for all Onyx-owned components. 
 These are simply initial suggestions, and may need to be tuned for your specific use case.
 
-Please talk to us in Slack if you have any questions!
+If you have questions about these values, route them through your local platform owner or repository issue tracker.
 
 ## Autoscaling options
 The chart renders Kubernetes HorizontalPodAutoscalers by default. To keep this behavior, leave

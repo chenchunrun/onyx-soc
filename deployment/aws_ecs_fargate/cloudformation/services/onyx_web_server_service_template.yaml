@@ -21,6 +21,9 @@ Parameters:
   TaskDesiredCount:
     Type: Number
     Default: 1
+  WebServerImage:
+    Type: String
+    Default: onyxdotapp/onyx-web-server:latest
 
 Resources:
 
@@ -117,7 +120,7 @@ Resources:
         OperatingSystemFamily: LINUX
       ContainerDefinitions:
         - Name: onyx-webserver
-          Image: onyxdotapp/onyx-web-server:latest
+          Image: !Ref WebServerImage
           Cpu: 0
           Essential: true
           PortMappings:
