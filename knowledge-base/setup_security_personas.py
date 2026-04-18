@@ -41,6 +41,8 @@ SECURITY_PERSONAS = [
         ),
         "document_set_name": "安全知识库",
         "tool_names": ["Internal Search", "Web Search", "Open URL"],
+        "skill_keys": ["auth-log-analysis", "email-osint", "url-analysis"],
+        "prompt_preset_id": "report_mode",
         "is_public": False,
         "display_priority": 20,
     },
@@ -57,6 +59,8 @@ SECURITY_PERSONAS = [
         ),
         "document_set_name": "安全知识库",
         "tool_names": ["Internal Search", "Web Search", "Open URL", "Code Interpreter"],
+        "skill_keys": ["asset-monitor", "ttp-extractor"],
+        "prompt_preset_id": "intrusion_report_mode",
         "is_public": False,
         "display_priority": 10,
     },
@@ -73,6 +77,8 @@ SECURITY_PERSONAS = [
         ),
         "document_set_name": "安全知识库",
         "tool_names": ["Internal Search", "Web Search", "Open URL", "Code Interpreter"],
+        "skill_keys": ["researching-vulnerabilities", "sca-analyzer", "asset-discovery"],
+        "prompt_preset_id": "deep_analysis_mode",
         "is_public": False,
         "display_priority": 30,
     },
@@ -89,6 +95,8 @@ SECURITY_PERSONAS = [
         ),
         "document_set_name": "安全知识库",
         "tool_names": ["Internal Search", "Web Search", "Open URL"],
+        "skill_keys": ["rga-knowledge-search", "data-desensitize"],
+        "prompt_preset_id": "report_mode",
         "is_public": False,
         "display_priority": 40,
     },
@@ -105,6 +113,8 @@ SECURITY_PERSONAS = [
         ),
         "document_set_name": "安全知识库",
         "tool_names": ["Internal Search", "Web Search", "Open URL", "Code Interpreter"],
+        "skill_keys": ["asset-monitor", "ttp-extractor", "dns-cache-detection"],
+        "prompt_preset_id": "intrusion_deep_analysis_mode",
         "is_public": False,
         "display_priority": 25,
     },
@@ -121,6 +131,8 @@ SECURITY_PERSONAS = [
         ),
         "document_set_name": "安全知识库",
         "tool_names": ["Internal Search", "Web Search", "Open URL", "Code Interpreter"],
+        "skill_keys": ["office-malware-analyzer", "pdf-analysis", "binary-reverse-engineering"],
+        "prompt_preset_id": "deep_analysis_mode",
         "is_public": False,
         "display_priority": 35,
     },
@@ -137,6 +149,8 @@ SECURITY_PERSONAS = [
         ),
         "document_set_name": "安全知识库",
         "tool_names": ["Internal Search", "Web Search", "Open URL", "Code Interpreter"],
+        "skill_keys": ["ttp-extractor", "auth-log-analysis", "prompt-injection-detect"],
+        "prompt_preset_id": "deep_analysis_mode",
         "is_public": False,
         "display_priority": 45,
     },
@@ -216,6 +230,18 @@ def is_builtin_tool(tool: dict[str, Any] | None) -> bool:
 def get_persona(base_url: str, cookie: str, persona_id: int) -> dict[str, Any]:
     response = requests.get(
         f"{base_url}/persona/{persona_id}",
+        cookies={"fastapiusersauth": cookie},
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def get_persona_runtime_profile(
+    base_url: str, cookie: str, persona_id: int
+) -> dict[str, Any]:
+    response = requests.get(
+        f"{base_url}/persona/{persona_id}/runtime-profile",
         cookies={"fastapiusersauth": cookie},
         timeout=20,
     )
@@ -396,6 +422,8 @@ def build_persona_payload(
         "replace_base_system_prompt": False,
         "task_prompt": persona_config["task_prompt"],
         "datetime_aware": True,
+        "skill_keys": persona_config.get("skill_keys", []),
+        "prompt_preset_id": persona_config.get("prompt_preset_id"),
     }
 
 
@@ -502,15 +530,47 @@ def update_persona(
 
 def verify_personas(base_url: str, cookie: str) -> int:
     personas = list_personas(base_url, cookie)
-    persona_names = {persona["name"] for persona in personas}
-    missing = [config["name"] for config in SECURITY_PERSONAS if config["name"] not in persona_names]
+    persona_by_name = {persona["name"]: persona for persona in personas}
+    missing = [config["name"] for config in SECURITY_PERSONAS if config["name"] not in persona_by_name]
+    drift_count = 0
 
     print(f"Configured personas found: {len(SECURITY_PERSONAS) - len(missing)}/{len(SECURITY_PERSONAS)}")
     for config in SECURITY_PERSONAS:
-        status = "OK" if config["name"] in persona_names else "MISSING"
-        print(f"  - {config['name']}: {status}")
+        persona = persona_by_name.get(config["name"])
+        if not persona:
+            print(f"  - {config['name']}: MISSING")
+            drift_count += 1
+            continue
 
-    return 1 if missing else 0
+        runtime_profile = get_persona_runtime_profile(base_url, cookie, persona["id"])
+        skill_keys = sorted(persona.get("skill_keys") or [])
+        prompt_preset_id = persona.get("prompt_preset_id")
+        expected_skills = sorted(config.get("skill_keys", []))
+        expected_prompt_preset_id = config.get("prompt_preset_id")
+        runtime_bound_skills = sorted(
+            entry.get("key")
+            for entry in runtime_profile.get("bound_skills", [])
+            if entry.get("key")
+        )
+        runtime_prompt_preset_id = (
+            runtime_profile.get("prompt_preset", {}) or {}
+        ).get("id")
+        matches = (
+            skill_keys == expected_skills
+            and prompt_preset_id == expected_prompt_preset_id
+            and runtime_bound_skills == expected_skills
+            and runtime_prompt_preset_id == expected_prompt_preset_id
+        )
+        status = "OK" if matches else "DRIFT"
+        if not matches:
+            drift_count += 1
+        print(
+            f"  - {config['name']}: {status} "
+            f"skills={skill_keys} prompt={prompt_preset_id} "
+            f"runtime_skills={runtime_bound_skills} runtime_prompt={runtime_prompt_preset_id}"
+        )
+
+    return 1 if missing or drift_count else 0
 
 
 def apply_personas(
