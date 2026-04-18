@@ -58,7 +58,7 @@ while [[ $# -gt 0 ]]; do
             echo "Options:"
             echo "  --include-craft  Enable Onyx Craft (AI-powered web app building)"
             echo "  --lite           Deploy Onyx Lite (no Vespa, Redis, or model servers)"
-            echo "  --local          Use existing config files instead of downloading from GitHub"
+            echo "  --local          Use existing config files instead of downloading from the configured remote source"
             echo "  --shutdown       Stop (pause) Onyx containers"
             echo "  --delete-data    Remove all Onyx data (containers, volumes, and files)"
             echo "  --no-prompt      Run non-interactively with defaults (for CI/automation)"
@@ -514,8 +514,9 @@ else
     echo ""
 fi
 
-# GitHub repo base URL - using main branch
-GITHUB_RAW_URL="https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/docker_compose"
+# Remote asset base URL - defaults to this fork and can be overridden for custom mirrors
+GITHUB_RAW_URL="${ONYX_DEPLOYMENT_ASSET_BASE:-https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/docker_compose}"
+SUPPORT_CONTACT_URL="${ONYX_SUPPORT_CONTACT_URL:-https://github.com/chenchunrun/onyx/issues}"
 
 # Check system requirements
 print_step "Verifying Docker installation"
@@ -711,13 +712,13 @@ mkdir -p "${INSTALL_ROOT}/data/nginx/local"
 print_success "Directory structure created"
 
 # Ensure all required configuration files are present
-NGINX_BASE_URL="https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/data/nginx"
+NGINX_BASE_URL="${ONYX_NGINX_ASSET_BASE:-https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/data/nginx}"
 
 if [[ "$USE_LOCAL_FILES" = true ]]; then
     print_step "Verifying existing configuration files"
 else
     print_step "Downloading Onyx configuration files"
-    print_info "This step downloads all necessary configuration files from GitHub..."
+    print_info "This step downloads all necessary configuration files from the configured remote source..."
 fi
 
 ensure_file "${INSTALL_ROOT}/deployment/docker-compose.yml" \
@@ -1119,7 +1120,7 @@ fi
 # For pinned version tags, re-download config files from that tag so the
 # compose file matches the images being pulled (the initial download used main).
 if [[ "$USE_LATEST" = false ]] && [[ "$USE_LOCAL_FILES" = false ]]; then
-    PINNED_BASE="https://raw.githubusercontent.com/onyx-dot-app/onyx/${CURRENT_IMAGE_TAG}/deployment"
+    PINNED_BASE="${ONYX_PINNED_DEPLOYMENT_BASE:-https://raw.githubusercontent.com/chenchunrun/onyx/${CURRENT_IMAGE_TAG}/deployment}"
     print_info "Fetching config files matching tag ${CURRENT_IMAGE_TAG}..."
     if download_file "${PINNED_BASE}/docker_compose/docker-compose.yml" "${INSTALL_ROOT}/deployment/docker-compose.yml" 2>/dev/null; then
         download_file "${PINNED_BASE}/data/nginx/app.conf.template" "${INSTALL_ROOT}/data/nginx/app.conf.template" 2>/dev/null || true
@@ -1131,7 +1132,7 @@ if [[ "$USE_LATEST" = false ]] && [[ "$USE_LOCAL_FILES" = false ]]; then
         fi
         print_success "Config files updated to match ${CURRENT_IMAGE_TAG}"
     else
-        print_warning "Tag ${CURRENT_IMAGE_TAG} not found on GitHub — using main branch configs"
+        print_warning "Tag ${CURRENT_IMAGE_TAG} not found in the configured remote source — using default branch configs"
     fi
 fi
 
@@ -1210,8 +1211,9 @@ if [ "$RESTART_ISSUES" = true ]; then
     echo "  (cd \"${INSTALL_ROOT}/deployment\" && $COMPOSE_CMD $(compose_file_args) logs)"
 
     echo ""
-    print_info "If the issue persists, please contact: founders@onyx.app"
-    echo "Include the output of the logs command in your message."
+    print_info "If the issue persists, contact your local deployment administrator or open an issue:"
+    echo "  ${SUPPORT_CONTACT_URL}"
+    echo "Include the output of the logs command in your report."
     exit 1
 fi
 
@@ -1301,5 +1303,6 @@ fi
 echo ""
 print_info "Refer to the README in the ${INSTALL_ROOT} directory for more information."
 echo ""
-print_info "For help or issues, contact: founders@onyx.app"
+print_info "For help or issues, contact your local deployment administrator or open an issue:"
+echo "  ${SUPPORT_CONTACT_URL}"
 echo ""

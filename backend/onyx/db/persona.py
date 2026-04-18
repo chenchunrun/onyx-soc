@@ -304,6 +304,8 @@ def create_update_persona(
             task_prompt=create_persona_request.task_prompt,
             datetime_aware=create_persona_request.datetime_aware,
             replace_base_system_prompt=create_persona_request.replace_base_system_prompt,
+            skill_keys=create_persona_request.skill_keys,
+            prompt_preset_id=create_persona_request.prompt_preset_id,
             uploaded_image_id=create_persona_request.uploaded_image_id,
             icon_name=create_persona_request.icon_name,
             display_priority=create_persona_request.display_priority,
@@ -930,6 +932,8 @@ def upsert_persona(
     hierarchy_node_ids: list[int] | None = None,
     document_ids: list[str] | None = None,
     replace_base_system_prompt: bool = False,
+    skill_keys: list[str] | None = None,
+    prompt_preset_id: str | None = None,
 ) -> Persona:
     """
     NOTE: This operation cannot update persona configuration options that
@@ -961,6 +965,29 @@ def upsert_persona(
             user=user,
             get_editable=True,
         )
+
+    normalized_skill_keys: list[str] | None = None
+    if skill_keys is not None:
+        from onyx.server.manage.skills.registry import list_managed_skills
+
+        managed_skill_keys = {skill.key for skill in list_managed_skills()}
+        normalized_skill_keys = sorted(set(skill_keys))
+        unknown_skill_keys = sorted(
+            skill_key
+            for skill_key in normalized_skill_keys
+            if skill_key not in managed_skill_keys
+        )
+        if unknown_skill_keys:
+            raise ValueError(
+                "Unknown skill keys: " + ", ".join(unknown_skill_keys)
+            )
+
+    if prompt_preset_id is not None:
+        from onyx.server.manage.prompt_presets.registry import scan_prompt_presets
+
+        valid_prompt_preset_ids = {preset.id for preset in scan_prompt_presets()}
+        if prompt_preset_id not in valid_prompt_preset_ids:
+            raise ValueError(f"Unknown prompt preset id: {prompt_preset_id}")
 
     # Fetch and attach tools by IDs
     tools = None
@@ -1063,6 +1090,9 @@ def upsert_persona(
         if datetime_aware is not None:
             existing_persona.datetime_aware = datetime_aware
         existing_persona.replace_base_system_prompt = replace_base_system_prompt
+        if skill_keys is not None:
+            existing_persona.skill_keys = normalized_skill_keys or []
+        existing_persona.prompt_preset_id = prompt_preset_id
 
         # Do not delete any associations manually added unless
         # a new updated list is provided
@@ -1111,6 +1141,8 @@ def upsert_persona(
             task_prompt=task_prompt or "",
             datetime_aware=(datetime_aware if datetime_aware is not None else True),
             replace_base_system_prompt=replace_base_system_prompt,
+            skill_keys=normalized_skill_keys or [],
+            prompt_preset_id=prompt_preset_id,
             document_sets=document_sets or [],
             llm_model_provider_override=llm_model_provider_override,
             llm_model_version_override=llm_model_version_override,

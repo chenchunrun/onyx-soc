@@ -14,7 +14,10 @@
  * - /api/license/upload - Upload license key manually (air-gapped deployments)
  */
 
-import { NEXT_PUBLIC_CLOUD_ENABLED } from "@/lib/constants";
+import {
+  NEXT_PUBLIC_CLOUD_ENABLED,
+  NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED,
+} from "@/lib/constants";
 import {
   CreateCheckoutSessionRequest,
   CreateCheckoutSessionResponse,
@@ -29,6 +32,15 @@ function getBillingBaseUrl(): string {
 }
 
 async function billingPost<T>(endpoint: string, body?: unknown): Promise<T> {
+  if (
+    !NEXT_PUBLIC_CLOUD_ENABLED &&
+    !NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED
+  ) {
+    throw new Error(
+      "Online billing is disabled for this deployment. Use a local access key instead."
+    );
+  }
+
   const response = await fetch(`${getBillingBaseUrl()}${endpoint}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -37,7 +49,7 @@ async function billingPost<T>(endpoint: string, body?: unknown): Promise<T> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || "Billing request failed");
+    throw new Error(error.detail || "Plan management request failed");
   }
 
   return response.json();
@@ -62,7 +74,7 @@ export const updateSeatCount = (request: SeatUpdateRequest) =>
 
 /**
  * Reset the Stripe connection circuit breaker (self-hosted only).
- * Called when user clicks "Connect to Stripe" to retry after a previous failure.
+ * Called when the user retries online billing connectivity after a previous failure.
  */
 export const resetStripeConnection = () =>
   billingPost<{ success: boolean; message: string }>("/reset-connection");
@@ -79,7 +91,7 @@ async function selfHostedPost<T>(endpoint: string): Promise<T> {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || "License request failed");
+    throw new Error(error.detail || "Deployment access request failed");
   }
 
   return response.json();
@@ -89,8 +101,8 @@ async function selfHostedPost<T>(endpoint: string): Promise<T> {
  * Claim a license from the control plane (self-hosted only).
  *
  * Two modes:
- * - With sessionId: After Stripe checkout, exchange session_id for license
- * - Without sessionId: Re-claim using existing license for auth
+ * - With sessionId: After plan checkout, exchange session_id for deployment access
+ * - Without sessionId: Re-claim using existing access for auth
  */
 export const claimLicense = (sessionId?: string) =>
   selfHostedPost<{ success: boolean; license?: unknown }>(
@@ -99,20 +111,20 @@ export const claimLicense = (sessionId?: string) =>
 
 /**
  * Refresh the cached license data (self-hosted only).
- * Forces a re-read of the license and updates the cache.
+ * Forces a re-read of deployment access state and updates the cache.
  */
 export const refreshLicenseCache = () =>
   selfHostedPost<{ success: boolean; message?: string }>("/refresh");
 
 /**
  * Upload a license key string (self-hosted only).
- * Used for air-gapped deployments where users paste license keys manually.
+ * Used for air-gapped deployments where users paste access keys manually.
  */
 export async function uploadLicense(
   licenseKey: string
 ): Promise<{ success: boolean; message?: string }> {
   if (NEXT_PUBLIC_CLOUD_ENABLED) {
-    throw new Error("License upload is only available for self-hosted");
+    throw new Error("Access key upload is only available for self-hosted");
   }
 
   // Create a file from the license key string
@@ -127,7 +139,7 @@ export async function uploadLicense(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.detail || "License upload failed");
+    throw new Error(error.detail || "Access key upload failed");
   }
 
   return response.json();

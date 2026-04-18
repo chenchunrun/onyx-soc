@@ -143,12 +143,12 @@ export default function CheckoutView({ onAdjustPlan }: CheckoutViewProps) {
       if (response.stripe_checkout_url) {
         window.location.href = response.stripe_checkout_url;
       } else {
-        throw new Error("Invalid response from checkout session");
+        throw new Error("Invalid response from plan checkout");
       }
     } catch (err) {
-      console.error("Error creating checkout session:", err);
+      console.error("Error creating plan checkout:", err);
       setError(
-        err instanceof Error ? err.message : "Failed to create checkout session"
+        err instanceof Error ? err.message : "Failed to start plan checkout"
       );
     } finally {
       setIsSubmitting(false);
@@ -253,11 +253,11 @@ export default function CheckoutView({ onAdjustPlan }: CheckoutViewProps) {
           </Text>
         ) : !annualPriceSelected ? (
           <Text secondaryBody text03>
-            You will be billed on{" "}
+            Your plan will start on{" "}
             <Text secondaryBody text04>
               {trialEndDate}
             </Text>{" "}
-            After your 1-month free trial ends.
+            after your 1-month free trial ends.
           </Text>
         ) : (
           // Empty div to maintain space-between alignment
@@ -265,7 +265,7 @@ export default function CheckoutView({ onAdjustPlan }: CheckoutViewProps) {
         )}
         <Disabled disabled={isSubmitting}>
           <Button onClick={handleSubmit}>
-            {isSubmitting ? "Loading..." : "Continue to Payment"}
+            {isSubmitting ? "Loading..." : "Continue"}
           </Button>
         </Disabled>
       </Section>

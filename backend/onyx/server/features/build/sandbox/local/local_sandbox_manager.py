@@ -386,6 +386,8 @@ class LocalSandboxManager(SandboxManager):
         llm_config: LLMProviderConfig,
         nextjs_port: int,
         allowed_skill_names: set[str] | None = None,
+        skill_policy_section: str | None = None,
+        skill_policy_payload: dict[str, object] | None = None,
         file_system_path: str | None = None,
         snapshot_path: str | None = None,  # noqa: ARG002
         user_name: str | None = None,
@@ -498,6 +500,12 @@ class LocalSandboxManager(SandboxManager):
             )
             logger.debug("Skills ready")
 
+            logger.debug("Writing skill runtime policy")
+            self._directory_manager.setup_skill_policy_file(
+                session_path, policy_payload=skill_policy_payload
+            )
+            logger.debug("Skill runtime policy ready")
+
             # Setup attachments directory
             logger.debug("Setting up attachments directory")
             self._directory_manager.setup_attachments_directory(session_path)
@@ -544,6 +552,7 @@ class LocalSandboxManager(SandboxManager):
                 model_name=llm_config.model_name,
                 nextjs_port=nextjs_port,
                 disabled_tools=OPENCODE_DISABLED_TOOLS,
+                skill_policy_section=skill_policy_section,
                 user_name=user_name,
                 user_role=user_role,
                 use_demo_data=use_demo_data,

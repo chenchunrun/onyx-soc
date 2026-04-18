@@ -49,7 +49,7 @@ export default function LicenseActivationCard({
 
   const handleActivate = async () => {
     if (!licenseKey.trim()) {
-      setError("Please enter a license key");
+      setError("Please enter an access key");
       return;
     }
 
@@ -64,9 +64,9 @@ export default function LicenseActivationCard({
         handleClose();
       }, 1000);
     } catch (err) {
-      console.error("Error activating license:", err);
+      console.error("Error activating access key:", err);
       setError(
-        err instanceof Error ? err.message : "Failed to activate license"
+        err instanceof Error ? err.message : "Failed to activate access key"
       );
     } finally {
       setIsActivating(false);
@@ -107,10 +107,10 @@ export default function LicenseActivationCard({
             )}
             <Text secondaryBody text03>
               {isExpired ? (
-                <>License key expired</>
+                <>Access key expired</>
               ) : (
                 <>
-                  License key active until{" "}
+                  Access key active until{" "}
                   <Text secondaryBody text04>
                     {expirationDate}
                   </Text>
@@ -120,7 +120,7 @@ export default function LicenseActivationCard({
           </Section>
           <Section flexDirection="row" gap={0.5} height="auto" width="auto">
             <Button prominence="secondary" onClick={() => setShowInput(true)}>
-              Update Key
+              Update Access Key
             </Button>
             {!hideClose && (
               <Button prominence="tertiary" onClick={handleClose}>
@@ -144,7 +144,7 @@ export default function LicenseActivationCard({
           alignItems="center"
         >
           <Text headingH3>
-            {hasLicense ? "Update License Key" : "Activate License Key"}
+            {hasLicense ? "Update Access Key" : "Add Access Key"}
           </Text>
           <Disabled disabled={isActivating}>
             <Button prominence="secondary" onClick={handleClose}>
@@ -153,7 +153,7 @@ export default function LicenseActivationCard({
           </Disabled>
         </Section>
         <Text secondaryBody text03>
-          Manually add and activate a license for this Onyx instance.
+          Manually add an access key for this Onyx deployment.
         </Text>
       </Section>
 
@@ -168,17 +168,17 @@ export default function LicenseActivationCard({
           {success && (
             <div className="billing-success-message">
               <Text secondaryBody>
-                License {hasLicense ? "updated" : "activated"} successfully!
+                Access key {hasLicense ? "updated" : "activated"} successfully!
               </Text>
             </div>
           )}
 
           <InputLayouts.Vertical
-            title="License Key"
+            title="Access Key"
             subDescription={
               error
                 ? undefined
-                : "Paste or attach your license key file you received from Onyx."
+                : "Paste or attach the access key file issued for this deployment."
             }
           >
             <InputFile
@@ -209,7 +209,7 @@ export default function LicenseActivationCard({
                     rel="noopener noreferrer"
                     className="billing-help-link"
                   >
-                    Billing Help
+                    Deployment Help
                   </a>
                 </Text>
               </Section>
@@ -225,8 +225,8 @@ export default function LicenseActivationCard({
             {isActivating
               ? "Activating..."
               : hasLicense
-                ? "Update License"
-                : "Activate License"}
+                ? "Update Access Key"
+                : "Activate Access Key"}
           </Button>
         </Disabled>
       </Section>

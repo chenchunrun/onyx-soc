@@ -120,6 +120,9 @@ services:
     # Optional, only for debugging purposes
     volumes:
       - api_server_logs:/var/log/onyx
+      - ../../skills:/app/skills:ro
+      - ../../prompts:/app/prompts:ro
+      - ../../notifications:/app/notifications:ro
       # Shared volume for persistent document storage (Craft file-system mode)
       - file-system:/app/file-system
 
@@ -189,6 +192,9 @@ services:
     # Optional, only for debugging purposes
     volumes:
       - background_logs:/var/log/onyx
+      - ../../skills:/app/skills:ro
+      - ../../prompts:/app/prompts:ro
+      - ../../notifications:/app/notifications:ro
       # Shared volume for persistent document storage (Craft file-system mode)
       - file-system:/app/file-system
     logging:

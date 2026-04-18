@@ -448,6 +448,7 @@ def generate_agent_instructions(
     model_name: str | None = None,
     nextjs_port: int | None = None,
     disabled_tools: list[str] | None = None,
+    skill_policy_section: str | None = None,
     user_name: str | None = None,
     user_role: str | None = None,
     use_demo_data: bool = False,
@@ -491,6 +492,11 @@ def generate_agent_instructions(
 
     # Build available skills section
     available_skills_section = build_skills_section(skills_path, allowed_skill_names)
+    resolved_skill_policy_section = (
+        skill_policy_section
+        if skill_policy_section is not None
+        else "No additional runtime skill restrictions are configured."
+    )
 
     # Build org info section (only included when demo data is enabled)
     org_info_section = build_org_info_section(include_org_info)
@@ -505,6 +511,9 @@ def generate_agent_instructions(
     )
     content = content.replace("{{DISABLED_TOOLS_SECTION}}", disabled_tools_section)
     content = content.replace("{{AVAILABLE_SKILLS_SECTION}}", available_skills_section)
+    content = content.replace(
+        "{{SKILL_POLICY_SECTION}}", resolved_skill_policy_section
+    )
     content = content.replace("{{ORG_INFO_SECTION}}", org_info_section)
 
     # Only replace file-related placeholders if files_path is provided.

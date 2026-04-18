@@ -82,6 +82,13 @@ export const GTM_ENABLED =
 export const NEXT_PUBLIC_CLOUD_ENABLED =
   process.env.NEXT_PUBLIC_CLOUD_ENABLED?.toLowerCase() === "true";
 
+export const NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED =
+  process.env.NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED?.toLowerCase() ===
+  "true";
+
+export const ONLINE_BILLING_ENABLED =
+  NEXT_PUBLIC_CLOUD_ENABLED || NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED;
+
 export const REGISTRATION_URL =
   process.env.INTERNAL_URL || "http://127.0.0.1:3001";
 

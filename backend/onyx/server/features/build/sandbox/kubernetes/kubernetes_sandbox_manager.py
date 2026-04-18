@@ -47,6 +47,7 @@ import threading
 import time
 from collections.abc import Generator
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 from uuid import uuid4
 
@@ -391,6 +392,7 @@ class KubernetesSandboxManager(SandboxManager):
         model_name: str | None = None,
         nextjs_port: int | None = None,
         disabled_tools: list[str] | None = None,
+        skill_policy_section: str | None = None,
         user_name: str | None = None,
         user_role: str | None = None,
         use_demo_data: bool = False,
@@ -427,6 +429,7 @@ class KubernetesSandboxManager(SandboxManager):
             model_name=model_name,
             nextjs_port=nextjs_port,
             disabled_tools=disabled_tools,
+            skill_policy_section=skill_policy_section,
             user_name=user_name,
             user_role=user_role,
             use_demo_data=use_demo_data,
@@ -1175,6 +1178,8 @@ done
         llm_config: LLMProviderConfig,
         nextjs_port: int,
         allowed_skill_names: set[str] | None = None,
+        skill_policy_section: str | None = None,
+        skill_policy_payload: dict[str, Any] | None = None,  # noqa: ARG002
         file_system_path: str | None = None,  # noqa: ARG002
         snapshot_path: str | None = None,
         user_name: str | None = None,
@@ -1241,6 +1246,7 @@ done
             model_name=llm_config.model_name,
             nextjs_port=nextjs_port,
             disabled_tools=OPENCODE_DISABLED_TOOLS,
+            skill_policy_section=skill_policy_section,
             user_name=user_name,
             user_role=user_role,
             use_demo_data=use_demo_data,

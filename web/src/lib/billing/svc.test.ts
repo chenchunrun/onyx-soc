@@ -13,6 +13,7 @@ import {
 // Mock NEXT_PUBLIC_CLOUD_ENABLED
 jest.mock("@/lib/constants", () => ({
   NEXT_PUBLIC_CLOUD_ENABLED: false,
+  NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED: true,
 }));
 
 describe("billing actions", () => {
@@ -75,7 +76,7 @@ describe("billing actions", () => {
       } as Response);
 
       await expect(createCheckoutSession()).rejects.toThrow(
-        "Billing request failed"
+        "Plan management request failed"
       );
     });
   });
@@ -193,6 +194,28 @@ describe("billing actions", () => {
   });
 });
 
+describe("billing actions (self-hosted offline mode)", () => {
+  beforeEach(() => {
+    jest.resetModules();
+    jest.doMock("@/lib/constants", () => ({
+      NEXT_PUBLIC_CLOUD_ENABLED: false,
+      NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED: false,
+    }));
+  });
+
+  afterEach(() => {
+    jest.resetModules();
+  });
+
+  test("blocks online checkout when self-hosted billing is disabled", async () => {
+    const { createCheckoutSession: offlineCheckout } = await import("./svc");
+
+    await expect(offlineCheckout()).rejects.toThrow(
+      "Online billing is disabled for this deployment"
+    );
+  });
+});
+
 describe("billing actions (cloud mode)", () => {
   let fetchSpy: jest.SpyInstance;
 
@@ -202,6 +225,7 @@ describe("billing actions (cloud mode)", () => {
     jest.resetModules();
     jest.doMock("@/lib/constants", () => ({
       NEXT_PUBLIC_CLOUD_ENABLED: true,
+      NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED: false,
     }));
   });
 

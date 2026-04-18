@@ -6,15 +6,25 @@ To set up Onyx there are several options, Onyx supports the following for deploy
   - Note, it is recommended to copy over the env.template file to .env and edit the necessary values
 3. For large scale deployments leveraging Kubernetes, there are two options, Helm or Terraform.
 
-This README focuses on the easiest guided deployment which is via install.sh.
+This README focuses on the easiest guided deployment which is via the local
+`install.sh` script in this repository.
 
 For local deployments in this repository, use the compose files in this directory
 and the in-repo deployment notes under `knowledge-base/` and `deployment/`.
 
 ## install.sh script
 
+From this repository checkout:
+
+```bash
+cd deployment/docker_compose
+bash install.sh
 ```
-curl -fsSL https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/docker_compose/install.sh > install.sh && chmod +x install.sh && ./install.sh
+
+If you need a remote bootstrap, use the raw asset path from this fork:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/docker_compose/install.sh > install.sh && chmod +x install.sh && ./install.sh
 ```
 
 This provides a guided installation of Onyx via Docker Compose. It will deploy the latest version of Onyx
@@ -41,9 +51,10 @@ commands directly from the directory with the docker-compose.yml file. First ver
 (if using `latest` tag, be sure to run `docker compose pull`) and run `docker compose up` to restart the services on the latest version
 
 ### Environment variables
-The Docker Compose files try to look for a .env file in the same directory. The `install.sh` script sets it up from a file called env.template which is
-downloaded during the initial setup. Feel free to edit the .env file to customize your deployment. The most important / common changed values are
-located near the top of the file.
+The Docker Compose files try to look for a `.env` file in the same directory.
+The `install.sh` script sets it up from `env.template` during initial setup.
+Feel free to edit the `.env` file to customize your deployment. The most common
+values are near the top of the file.
 
 IMAGE_TAG is the version of Onyx to run. It is recommended to leave it as latest to get all updates with each redeployment.
 

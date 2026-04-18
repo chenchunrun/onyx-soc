@@ -160,7 +160,7 @@ function SubscriptionCard({
 }) {
   const [isReconnecting, setIsReconnecting] = useState(false);
 
-  const planName = isManualLicenseOnly ? "Enterprise Plan" : "Business Plan";
+  const planName = isManualLicenseOnly ? "Custom Managed Plan" : "Business Plan";
   const PlanIcon = isManualLicenseOnly ? SvgOrganization : SvgUsers;
   const expirationDate = billing?.current_period_end ?? license?.expires_at;
   const formattedDate = formatDateShort(expirationDate);
@@ -236,13 +236,13 @@ function SubscriptionCard({
         >
           {isManualLicenseOnly ? (
             <Text secondaryBody text03 className="text-right">
-              Your plan is managed through sales.
+              Your plan is managed outside this deployment.
               <br />
               <a
                 href={`mailto:${SUPPORT_EMAIL}?subject=Billing%20change%20request`}
                 className="underline"
               >
-                Contact billing
+                Contact support
               </a>{" "}
               to make changes.
             </Text>
@@ -253,7 +253,7 @@ function SubscriptionCard({
                 onClick={handleReconnect}
                 rightIcon={SvgArrowRight}
               >
-                {isReconnecting ? "Connecting..." : "Connect to Stripe"}
+                {isReconnecting ? "Reconnecting..." : "Reconnect Billing"}
               </OpalButton>
             </Disabled>
           ) : (
@@ -374,7 +374,7 @@ function SeatsCard({
         >
           <Content
             title="Update Seats"
-            description="Add or remove seats to reflect your team size."
+            description="Add or remove seats to match your current team size."
             sizePreset="main-content"
             variant="section"
           />
@@ -442,11 +442,11 @@ function SeatsCard({
         >
           {isAdding ? (
             <Text secondaryBody text03>
-              You will be billed for the{" "}
+              Your plan will be updated for the{" "}
               <Text secondaryBody text04>
                 {seatCount}
               </Text>{" "}
-              additional {seatWord} at a pro-rated amount.
+              additional {seatWord}.
             </Text>
           ) : isRemoving ? (
             <Text secondaryBody text03>
@@ -461,7 +461,7 @@ function SeatsCard({
             </Text>
           ) : (
             <Text secondaryBody text03>
-              No changes to your billing.
+              No plan changes.
             </Text>
           )}
           <Disabled
@@ -644,8 +644,8 @@ export default function BillingDetailsView({
         <Message
           static
           warning
-          text="Unable to connect to Stripe payment portal."
-          description="Check your internet connection or manually provide a license."
+          text="Unable to reach the online billing management service."
+          description="Check network connectivity or use a manually provided access key."
           close={false}
           className="w-full"
         />
@@ -657,7 +657,7 @@ export default function BillingDetailsView({
           static
           info
           text="Air-gapped deployment"
-          description="Online billing management is disabled. Contact support to update your subscription."
+          description="Online billing management is disabled. Contact support to update deployment access."
           close={false}
           className="w-full"
         />
@@ -672,16 +672,16 @@ export default function BillingDetailsView({
           text={
             expirationState.variant === "error"
               ? expirationState.daysUntilDeletion
-                ? `Your subscription has expired. Data will be deleted in ${expirationState.daysUntilDeletion} days.`
-                : "Your subscription has expired."
-              : `Your subscription is expiring in ${expirationState.daysRemaining} days.`
+                ? `Your paid access has expired. Data will be deleted in ${expirationState.daysUntilDeletion} days.`
+                : "Your paid access has expired."
+              : `Your paid access expires in ${expirationState.daysRemaining} days.`
           }
           description={
             expirationState.variant === "error"
               ? expirationState.expirationDate
-                ? `Renew your subscription by ${expirationState.expirationDate} to restore access.`
-                : "Renew your subscription to restore access to paid features."
-              : `Renew your subscription by ${expirationState.expirationDate} to avoid disruption.`
+                ? `Refresh deployment access by ${expirationState.expirationDate} to restore availability.`
+                : "Refresh deployment access to restore paid features."
+              : `Refresh deployment access by ${expirationState.expirationDate} to avoid disruption.`
           }
           close={false}
           className="w-full"

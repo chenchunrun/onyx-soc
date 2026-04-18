@@ -15,7 +15,11 @@ import {
   hasActiveSubscription,
   claimLicense,
 } from "@/lib/billing";
-import { NEXT_PUBLIC_CLOUD_ENABLED, SUPPORT_EMAIL } from "@/lib/constants";
+import {
+  NEXT_PUBLIC_CLOUD_ENABLED,
+  NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED,
+  SUPPORT_EMAIL,
+} from "@/lib/constants";
 import { useUser } from "@/providers/UserProvider";
 import Message from "@/refresh-components/messages/Message";
 
@@ -55,8 +59,8 @@ function FooterLinks({
 }) {
   const { user } = useUser();
   const licenseText = hasSubscription
-    ? "Update License Key"
-    : "Activate License Key";
+    ? "Update Access Key"
+    : "Activate Access Key";
   const billingHelpHref = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
     `[Billing] support for ${user?.email ?? "unknown"}`
   )}`;
@@ -66,7 +70,7 @@ function FooterLinks({
       {onActivateLicense && !hideLicenseLink && (
         <>
           <Text secondaryBody text03>
-            Have a license key?
+            Have an access key?
           </Text>
           {/* TODO(@raunakab): migrate to opal Button once className/iconClassName is resolved */}
           <Button action tertiary onClick={onActivateLicense}>
@@ -84,7 +88,7 @@ function FooterLinks({
         className="billing-text-link"
       >
         <Text secondaryBody text03 className="underline">
-          Billing Help
+          Deployment Help
         </Text>
       </Button>
     </Section>
@@ -125,6 +129,8 @@ export default function BillingPage() {
   const hasSubscription = billingData && hasActiveSubscription(billingData);
   const billing = hasSubscription ? (billingData as BillingInformation) : null;
   const isSelfHosted = !NEXT_PUBLIC_CLOUD_ENABLED;
+  const onlineBillingEnabled =
+    NEXT_PUBLIC_CLOUD_ENABLED || NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED;
 
   const hasManualLicense = licenseData?.source === "manual_upload";
 
@@ -189,7 +195,7 @@ export default function BillingPage() {
     let cancelled = false;
 
     const handleBillingReturn = async () => {
-      if (!NEXT_PUBLIC_CLOUD_ENABLED) {
+      if (!NEXT_PUBLIC_CLOUD_ENABLED && onlineBillingEnabled) {
         // Retry up to 3 times with 2s backoff. The license may not be available
         // immediately if the Stripe webhook hasn't finished processing yet
         // (redirect and webhook fire nearly simultaneously).
@@ -217,7 +223,7 @@ export default function BillingPage() {
         if (cancelled) return;
         if (lastError) {
           console.error(
-            "Failed to sync license after billing return:",
+            "Failed to sync deployment access after billing return:",
             lastError
           );
           // Show an activating banner on the plans view and keep retrying in the background.
@@ -229,7 +235,7 @@ export default function BillingPage() {
           changeView("plans");
         }
       }
-      if (!cancelled) refreshBilling();
+      if (!cancelled && onlineBillingEnabled) refreshBilling();
     };
     handleBillingReturn();
 
@@ -238,7 +244,7 @@ export default function BillingPage() {
     };
     // changeView intentionally omitted: it only calls stable state setters and the
     // effect runs at most once (when session_id/portal_return params are present).
-  }, [searchParams, router, refreshBilling, refreshLicense]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams, router, refreshBilling, refreshLicense, onlineBillingEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Poll every 15s while activating, up to 2 minutes, to detect when the license arrives.
   useEffect(() => {
@@ -279,7 +285,7 @@ export default function BillingPage() {
 
   const handleRefresh = async () => {
     await Promise.all([
-      refreshBilling(),
+      onlineBillingEnabled ? refreshBilling() : Promise.resolve(),
       isSelfHosted ? refreshLicense() : Promise.resolve(),
     ]);
   };
@@ -309,7 +315,9 @@ export default function BillingPage() {
 
   const handleLicenseActivated = () => {
     refreshLicense();
-    refreshBilling();
+    if (onlineBillingEnabled) {
+      refreshBilling();
+    }
     // Refresh the page to update settings (including ee_features_enabled)
     router.refresh();
     // Navigate to billing details now that the license is active
@@ -329,13 +337,13 @@ export default function BillingPage() {
       case "checkout":
         return {
           icon: SvgArrowUpCircle,
-          title: "Upgrade Plan",
+          title: "Plan Checkout",
           showBackButton: false,
         };
       case "plans":
         return {
           icon: hasSubscription ? SvgWallet : SvgArrowUpCircle,
-          title: hasSubscription ? "View Plans" : "Upgrade Plan",
+          title: hasSubscription ? "Plan Options" : "Plans & Billing",
           showBackButton: !!(
             hasSubscription ||
             (isSelfHosted && licenseData?.has_license)
@@ -394,6 +402,7 @@ export default function BillingPage() {
           hasLicense={!!licenseData?.has_license}
           onCheckout={() => changeView("checkout")}
           hideFeatures={showLicenseActivationInput}
+          onlineBillingEnabled={onlineBillingEnabled}
         />
       ),
       details: (
@@ -472,13 +481,23 @@ export default function BillingPage() {
       />
       <SettingsLayouts.Body>
         <div className="flex flex-col items-center gap-6">
+          {isSelfHosted && !onlineBillingEnabled && (
+            <Message
+              static
+              icon
+              large
+              text="Online billing is disabled for this deployment"
+              description="This local deployment uses access keys and deployment-side provisioning. Enable NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED and SELF_HOSTED_ONLINE_BILLING_ENABLED only if you intend to connect billing to an external control plane."
+              className="w-full"
+            />
+          )}
           {isActivating && (
             <Message
               static
               warning
               large
-              text="Your license is still activating"
-              description="Your license is being processed. You'll be taken to billing details automatically once confirmed."
+              text="Deployment access is still activating"
+              description="Your access update is being processed. You'll be taken to billing details automatically once confirmed."
               icon
               close
               onClose={() => {

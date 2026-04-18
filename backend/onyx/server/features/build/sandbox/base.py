@@ -119,6 +119,8 @@ class SandboxManager(ABC):
         llm_config: LLMProviderConfig,
         nextjs_port: int,
         allowed_skill_names: set[str] | None = None,
+        skill_policy_section: str | None = None,
+        skill_policy_payload: dict[str, Any] | None = None,
         file_system_path: str | None = None,
         snapshot_path: str | None = None,
         user_name: str | None = None,

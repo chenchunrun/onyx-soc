@@ -10,7 +10,7 @@
   "SubnetIDs": "YOUR_SUBNET_ID1,YOUR_SUBNET_ID2",
 
   // Domain and ACM Stuff
-  "DomainName": "YOUR_DOMAIN e.g ecs.onyx.app",
+  "DomainName": "YOUR_DOMAIN e.g search.example.com",
   "ValidationMethod": "DNS",
   "HostedZoneId": ""  // Only specify if using Route 53 for DNS
 } 

@@ -141,3 +141,10 @@ LICENSE_ENFORCEMENT_ENABLED = (
 CLOUD_DATA_PLANE_URL = os.environ.get(
     "CLOUD_DATA_PLANE_URL", "https://cloud.onyx.app/api"
 )
+
+# Self-hosted online billing switch.
+# Default is False so local/self-hosted deployments do not talk to cloud billing
+# unless explicitly enabled by the operator.
+SELF_HOSTED_ONLINE_BILLING_ENABLED = (
+    os.environ.get("SELF_HOSTED_ONLINE_BILLING_ENABLED", "false").lower() == "true"
+)

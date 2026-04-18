@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
 import * as SettingsLayouts from "@/layouts/settings-layouts";
 import * as GeneralLayouts from "@/layouts/general-layouts";
 import Button from "@/refresh-components/buttons/Button";
@@ -97,9 +98,205 @@ import { useVectorDbEnabled } from "@/providers/SettingsProvider";
 import { useUser } from "@/providers/UserProvider";
 import SimpleLoader from "@/refresh-components/loaders/SimpleLoader";
 import { usePaidEnterpriseFeaturesEnabled } from "@/components/settings/usePaidEnterpriseFeaturesEnabled";
+import { errorHandlingFetcher } from "@/lib/fetcher";
+import { UserRole } from "@/lib/types";
 
 interface AgentIconEditorProps {
   existingAgent?: FullPersona | null;
+}
+
+interface ManagedSkillOption {
+  key: string;
+  name: string;
+  description: string;
+  risk_level: "low" | "medium" | "high" | "critical";
+  access_scope: "all_users" | "security_team" | "admin_only" | "quarantined";
+  execution_scope: string;
+  requires_approval: boolean;
+  requires_network_gateway: boolean;
+  allowed_target_types: string[];
+  enabled: boolean;
+}
+
+interface ManagedPromptPresetOption {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+  category: string;
+  agent_type: string;
+  imported: boolean;
+  active: boolean;
+}
+
+function AgentRuntimePolicySummary({
+  selectedPromptPreset,
+  selectedSkills,
+}: {
+  selectedPromptPreset: ManagedPromptPresetOption | null;
+  selectedSkills: ManagedSkillOption[];
+}) {
+  const explicitActivationSkills = selectedSkills.filter(
+    (skill) =>
+      skill.execution_scope === "authorized_scan" ||
+      skill.requires_approval ||
+      skill.requires_network_gateway
+  );
+  const defaultActivationSkills = selectedSkills.filter(
+    (skill) => !explicitActivationSkills.some((entry) => entry.key === skill.key)
+  );
+  const allowedTargetTypes = Array.from(
+    new Set(selectedSkills.flatMap((skill) => skill.allowed_target_types ?? []))
+  ).sort();
+  const approvalRequired = selectedSkills.some((skill) => skill.requires_approval);
+  const gatewayRequired = selectedSkills.some(
+    (skill) => skill.requires_network_gateway
+  );
+  const executionScopes = Array.from(
+    new Set(selectedSkills.map((skill) => skill.execution_scope))
+  ).sort();
+  const highRiskSkillCount = selectedSkills.filter(
+    (skill) => skill.risk_level === "high" || skill.risk_level === "critical"
+  ).length;
+  const conflictingPolicySignals = [
+    executionScopes.length > 1 ? "mixed execution scopes" : null,
+    approvalRequired && !gatewayRequired && explicitActivationSkills.length > 1
+      ? "approval-gated skills without a shared gateway requirement"
+      : null,
+    allowedTargetTypes.length === 0 && explicitActivationSkills.length > 0
+      ? "explicitly activated skills do not expose target type constraints"
+      : null,
+  ].filter(Boolean) as string[];
+  const hasPolicyRisk = conflictingPolicySignals.length > 0;
+
+  return (
+    <Card>
+      <GeneralLayouts.Section gap={0.75}>
+        <div>
+          <div className="text-sm font-medium">Runtime Policy Summary</div>
+          <Text text03 secondaryBody>
+            Preview of the prompt and runtime controls this agent will carry into
+            chat.
+          </Text>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-3">
+          <div className="rounded-lg border border-border px-3 py-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-text-03">
+              Bound Skills
+            </div>
+            <div className="text-lg font-medium">{selectedSkills.length}</div>
+            <Text text03 secondaryBody>
+              {defaultActivationSkills.length} default ·{" "}
+              {explicitActivationSkills.length} explicit
+            </Text>
+          </div>
+          <div className="rounded-lg border border-border px-3 py-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-text-03">
+              High Risk Skills
+            </div>
+            <div className="text-lg font-medium">{highRiskSkillCount}</div>
+            <Text text03 secondaryBody>
+              High or critical runtime skills bound to this agent.
+            </Text>
+          </div>
+          <div className="rounded-lg border border-border px-3 py-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-text-03">
+              Policy Risk
+            </div>
+            <div className="text-lg font-medium">
+              {hasPolicyRisk ? "Review" : "Clear"}
+            </div>
+            <Text text03 secondaryBody>
+              {hasPolicyRisk
+                ? conflictingPolicySignals.join("; ")
+                : "No obvious policy conflicts detected."}
+            </Text>
+          </div>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-2">
+          <div className="rounded-lg border border-border px-3 py-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-text-03">
+              Prompt Preset
+            </div>
+            <Text text03 secondaryBody>
+              {selectedPromptPreset
+                ? `${selectedPromptPreset.name} · ${selectedPromptPreset.agent_type}`
+                : "No prompt preset bound."}
+            </Text>
+          </div>
+          <div className="rounded-lg border border-border px-3 py-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-text-03">
+              Execution Policy
+            </div>
+            <Text text03 secondaryBody>
+              {executionScopes.length > 0
+                ? executionScopes.join(", ")
+                : "No bound skills."}
+            </Text>
+            <Text text03 secondaryBody>
+              Approval {approvalRequired ? "required" : "optional"} · Gateway{" "}
+              {gatewayRequired ? "required" : "optional"}
+            </Text>
+            <Text text03 secondaryBody>
+              Allowed target types:{" "}
+              {allowedTargetTypes.length > 0
+                ? allowedTargetTypes.join(", ")
+                : "none"}
+            </Text>
+            {executionScopes.length > 1 && (
+              <Text className="mt-1 text-xs text-status-warning-05">
+                This agent mixes multiple execution scopes. Runtime activation
+                paths may differ by skill.
+              </Text>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-2 md:grid-cols-2">
+          <div className="rounded-lg border border-border px-3 py-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-text-03">
+              Default Active Skills
+            </div>
+            {defaultActivationSkills.length > 0 ? (
+              <div className="mt-1 flex flex-col gap-1">
+                {defaultActivationSkills.map((skill) => (
+                  <Text key={`default:${skill.key}`} text03 secondaryBody>
+                    {skill.name} · {skill.risk_level}
+                  </Text>
+                ))}
+              </div>
+            ) : (
+              <Text text03 secondaryBody>
+                No default-active skills selected.
+              </Text>
+            )}
+          </div>
+          <div className="rounded-lg border border-border px-3 py-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-text-03">
+              Explicit Activation Required
+            </div>
+            {explicitActivationSkills.length > 0 ? (
+              <div className="mt-1 flex flex-col gap-1">
+                {explicitActivationSkills.map((skill) => (
+                  <Text key={`explicit:${skill.key}`} text03 secondaryBody>
+                    {skill.name} · {skill.execution_scope}
+                    {skill.requires_approval ? " · approval" : ""}
+                    {skill.requires_network_gateway ? " · gateway" : ""}
+                  </Text>
+                ))}
+              </div>
+            ) : (
+              <Text text03 secondaryBody>
+                No explicit runtime activation required.
+              </Text>
+            )}
+          </div>
+        </div>
+      </GeneralLayouts.Section>
+    </Card>
+  );
 }
 
 function FormWarningsEffect() {
@@ -461,6 +658,20 @@ export default function AgentEditorPage({
   const deleteAgentModal = useCreateModal();
   const { isAdmin, isCurator } = useUser();
   const canUpdateFeaturedStatus = isAdmin || isCurator;
+  const managedSkillsApi = isAdmin
+    ? "/api/manage/admin/skills?enabled=true"
+    : null;
+  const promptPresetsApi = isAdmin
+    ? "/api/manage/admin/prompt-presets?imported=true&active=true"
+    : null;
+  const { data: managedSkills } = useSWR<ManagedSkillOption[]>(
+    managedSkillsApi,
+    errorHandlingFetcher
+  );
+  const { data: managedPromptPresets } = useSWR<ManagedPromptPresetOption[]>(
+    promptPresetsApi,
+    errorHandlingFetcher
+  );
   const vectorDbEnabled = useVectorDbEnabled();
   const isPaidEnterpriseFeaturesEnabled = usePaidEnterpriseFeaturesEnabled();
 
@@ -599,6 +810,8 @@ export default function AgentEditorPage({
     replace_base_system_prompt:
       existingAgent?.replace_base_system_prompt ?? false,
     reminders: existingAgent?.task_prompt ?? "",
+    skill_keys: existingAgent?.skill_keys ?? [],
+    prompt_preset_id: existingAgent?.prompt_preset_id ?? null,
     // For new agents, default to false for optional tools to avoid
     // "Tool not available" errors when the tool isn't configured.
     // For existing agents, preserve the current tool configuration.
@@ -713,6 +926,8 @@ export default function AgentEditorPage({
       ),
     replace_base_system_prompt: Yup.boolean(),
     reminders: Yup.string().optional(),
+    skill_keys: Yup.array().of(Yup.string()).required(),
+    prompt_preset_id: Yup.string().nullable().optional(),
 
     // MCP servers - dynamically add validation for each server with nested tool validation
     ...Object.fromEntries(
@@ -825,6 +1040,8 @@ export default function AgentEditorPage({
           ? values.hierarchy_node_ids
           : [],
         document_ids: values.enable_knowledge ? values.document_ids : [],
+        skill_keys: values.skill_keys,
+        prompt_preset_id: values.prompt_preset_id,
 
         system_prompt: values.instructions,
         replace_base_system_prompt: values.replace_base_system_prompt,
@@ -1011,6 +1228,13 @@ export default function AgentEditorPage({
               values.is_public ||
               values.shared_user_ids.length > 0 ||
               values.shared_group_ids.length > 0;
+            const selectedPromptPreset =
+              managedPromptPresets?.find(
+                (preset) => preset.id === values.prompt_preset_id
+              ) ?? null;
+            const selectedManagedSkills = (managedSkills ?? []).filter((skill) =>
+              values.skill_keys.includes(skill.key)
+            );
 
             return (
               <>
@@ -1313,6 +1537,130 @@ export default function AgentEditorPage({
                         >
                           <StarterMessages />
                         </InputLayouts.Vertical>
+
+                        {isAdmin && (
+                          <SimpleCollapsible>
+                            <SimpleCollapsible.Header
+                              title="Skill Bindings And Prompt Template"
+                              description="Bind reviewed skills to this agent and optionally apply a prompt preset into reminders."
+                            />
+                            <SimpleCollapsible.Content>
+                              <GeneralLayouts.Section gap={0.75}>
+                                <Card>
+                                  <InputLayouts.Vertical
+                                    name="prompt_preset_id"
+                                    title="Prompt Preset"
+                                    suffix="optional"
+                                    description="Choose a preset from prompts/ and optionally apply it to the reminders field."
+                                  >
+                                    <select
+                                      name="prompt_preset_id"
+                                      value={values.prompt_preset_id ?? ""}
+                                      onChange={(event) =>
+                                        setFieldValue(
+                                          "prompt_preset_id",
+                                          event.target.value || null
+                                        )
+                                      }
+                                      className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none"
+                                    >
+                                      <option value="">No preset</option>
+                                      {(managedPromptPresets ?? []).map((preset) => (
+                                        <option key={preset.id} value={preset.id}>
+                                          {preset.name} · {preset.agent_type}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </InputLayouts.Vertical>
+                                  {selectedPromptPreset && (
+                                    <GeneralLayouts.Section gap={0.5}>
+                                      <Text text03 secondaryBody>
+                                        {selectedPromptPreset.description}
+                                      </Text>
+                                      <div className="rounded-md border border-border p-3 text-xs whitespace-pre-wrap">
+                                        {selectedPromptPreset.content}
+                                      </div>
+                                      <div className="flex justify-end">
+                                        <OpalButton
+                                          prominence="secondary"
+                                          onClick={() =>
+                                            setFieldValue(
+                                              "reminders",
+                                              selectedPromptPreset.content
+                                            )
+                                          }
+                                        >
+                                          Apply To Reminders
+                                        </OpalButton>
+                                      </div>
+                                    </GeneralLayouts.Section>
+                                  )}
+                                </Card>
+
+                                <Card>
+                                  <InputLayouts.Vertical
+                                    name="skill_keys"
+                                    title="Bound Skills"
+                                    suffix="optional"
+                                    description="These skills are recorded on the agent for governance and future runtime routing. Only enabled reviewed skills are listed."
+                                  >
+                                    <div className="grid gap-2">
+                                      {(managedSkills ?? []).map((skill) => {
+                                        const selected = values.skill_keys.includes(
+                                          skill.key
+                                        );
+                                        return (
+                                          <label
+                                            key={skill.key}
+                                            className="flex items-start gap-3 rounded-lg border border-border px-3 py-2"
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={selected}
+                                              onChange={(event) => {
+                                                const next = event.target.checked
+                                                  ? [...values.skill_keys, skill.key]
+                                                  : values.skill_keys.filter(
+                                                      (key: string) =>
+                                                        key !== skill.key
+                                                    );
+                                                setFieldValue(
+                                                  "skill_keys",
+                                                  Array.from(new Set(next))
+                                                );
+                                              }}
+                                            />
+                                            <div className="min-w-0">
+                                              <div className="text-sm font-medium">
+                                                {skill.name}
+                                              </div>
+                                              <Text text03 secondaryBody>
+                                                {skill.description}
+                                              </Text>
+                                              <Text text03 secondaryBody>
+                                                {skill.risk_level} · {skill.access_scope}
+                                              </Text>
+                                            </div>
+                                          </label>
+                                        );
+                                      })}
+                                      {(managedSkills ?? []).length === 0 && (
+                                        <Text text03 secondaryBody>
+                                          No managed skills available.
+                                        </Text>
+                                      )}
+                                    </div>
+                                  </InputLayouts.Vertical>
+                                </Card>
+
+                                <AgentRuntimePolicySummary
+                                  selectedPromptPreset={selectedPromptPreset}
+                                  selectedSkills={selectedManagedSkills}
+                                />
+                              </GeneralLayouts.Section>
+                            </SimpleCollapsible.Content>
+                          </SimpleCollapsible>
+                        )}
                       </GeneralLayouts.Section>
 
                       <Separator noPadding />

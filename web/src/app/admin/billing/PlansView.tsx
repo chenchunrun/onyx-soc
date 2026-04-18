@@ -233,6 +233,7 @@ interface PlansViewProps {
   hasLicense?: boolean;
   onCheckout: () => void;
   hideFeatures?: boolean;
+  onlineBillingEnabled?: boolean;
 }
 
 export default function PlansView({
@@ -240,6 +241,7 @@ export default function PlansView({
   hasLicense,
   onCheckout,
   hideFeatures,
+  onlineBillingEnabled = true,
 }: PlansViewProps) {
   const plans: PlanConfig[] = [
     {
@@ -248,11 +250,16 @@ export default function PlansView({
       pricing: "$20",
       description:
         "per seat/month billed annually\nor $25 per seat if billed monthly",
-      buttonLabel: "Get Business Plan",
+      buttonLabel: onlineBillingEnabled
+        ? "Start Business Checkout"
+        : "Local Deployment",
       buttonVariant: "primary",
-      onClick: hasLicense ? undefined : onCheckout,
+      onClick:
+        onlineBillingEnabled && !hasLicense ? onCheckout : undefined,
       features: BUSINESS_FEATURES,
-      featuresPrefix: "Get more work done with AI for your team.",
+      featuresPrefix: onlineBillingEnabled
+        ? "Get more work done with AI for your team."
+        : "This deployment uses local access keys instead of online checkout.",
       isCurrentPlan: !!hasSubscription,
     },
     {
@@ -260,11 +267,15 @@ export default function PlansView({
       title: "Enterprise",
       description:
         "Flexible pricing & deployment options\nfor large organizations",
-      buttonLabel: "Contact Sales",
+      buttonLabel: onlineBillingEnabled
+        ? "Request Enterprise Setup"
+        : "Deployment Help",
       buttonVariant: "secondary",
       href: CONTACT_SALES_URL,
       features: ENTERPRISE_FEATURES,
-      featuresPrefix: "Everything in Business Plan, plus:",
+      featuresPrefix: onlineBillingEnabled
+        ? "Everything in Business Plan, plus:"
+        : "Use deployment help for custom rollout, support, and access-key workflows.",
       isCurrentPlan: !!hasLicense && !hasSubscription,
     },
   ];

@@ -58,7 +58,7 @@ export default function AccessRestricted() {
       used_seats != null && seat_count != null
         ? ` (${used_seats} users / ${seat_count} seats)`
         : "";
-    return `Your organization has exceeded its licensed seat count${counts}. Access is restricted until the number of users is reduced or your license is upgraded.`;
+    return `Your organization has exceeded its configured seat count${counts}. Access is restricted until the number of users is reduced or your plan settings are updated.`;
   }
 
   const initialModalMessage = isSeatLimitExceeded
@@ -66,8 +66,8 @@ export default function AccessRestricted() {
     : showRenewalMessage
       ? NEXT_PUBLIC_CLOUD_ENABLED
         ? "Your access to Onyx has been temporarily suspended due to a lapse in your subscription."
-        : "Your access to Onyx has been temporarily suspended due to a lapse in your license."
-      : "An Enterprise license is required to use Onyx. Your data is protected and will be available once a license is activated.";
+        : "Your access to Onyx has been temporarily suspended because this deployment no longer has active paid access configured."
+      : "Additional paid access is required to use this Onyx deployment. Your data remains protected and will be available once access is enabled.";
 
   const handleResubscribe = async () => {
     setIsLoading(true);
@@ -106,9 +106,9 @@ export default function AccessRestricted() {
             <Link className={linkClassName} href="/admin/users">
               User Management
             </Link>{" "}
-            page or upgrade your license on the{" "}
+            page or update plan settings on the{" "}
             <Link className={linkClassName} href="/admin/billing">
-              Admin Billing
+              Plans & Billing
             </Link>{" "}
             page.
           </Text>
@@ -160,21 +160,21 @@ export default function AccessRestricted() {
         <>
           <Text text03>
             {hadPreviousLicense
-              ? "To reinstate your access and continue using Onyx, please contact your system administrator to renew your license."
-              : "To get started, please contact your system administrator to obtain an Enterprise license."}
+              ? "To reinstate your access and continue using Onyx, please contact your system administrator to refresh this deployment's paid access."
+              : "To get started, please contact your system administrator to enable paid access for this deployment."}
           </Text>
 
           <Text text03>
             If you are the administrator, please visit the{" "}
             <Link className={linkClassName} href="/admin/billing">
-              Admin Billing
+              Plans & Billing
             </Link>{" "}
-            page to {hadPreviousLicense ? "renew" : "activate"} your license,
-            sign up through Stripe or reach out to{" "}
+            page to {hadPreviousLicense ? "refresh" : "enable"} access, or
+            reach out to{" "}
             <a className={linkClassName} href={`mailto:${SUPPORT_EMAIL}`}>
               {SUPPORT_EMAIL}
             </a>{" "}
-            for billing assistance.
+            for deployment assistance.
           </Text>
 
           <div className="flex flex-row gap-2">

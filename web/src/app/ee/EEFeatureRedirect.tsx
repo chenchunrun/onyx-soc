@@ -9,7 +9,7 @@ export default function EEFeatureRedirect() {
 
   useEffect(() => {
     toast.error(
-      "This feature requires a license. Please upgrade your plan to access."
+      "This feature is not enabled for the current deployment or access level."
     );
     router.replace("/app");
   }, [router]);

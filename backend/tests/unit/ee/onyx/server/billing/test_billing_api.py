@@ -109,6 +109,21 @@ class TestCreateCheckoutSession:
         assert exc_info.value.error_code is OnyxErrorCode.BAD_GATEWAY
         assert exc_info.value.detail == "Stripe error"
 
+    @pytest.mark.asyncio
+    @patch("ee.onyx.server.billing.api.MULTI_TENANT", False)
+    @patch("ee.onyx.server.billing.api.SELF_HOSTED_ONLINE_BILLING_ENABLED", False)
+    async def test_rejects_when_self_hosted_online_billing_disabled(self) -> None:
+        """Should reject checkout when self-hosted online billing is disabled."""
+        from ee.onyx.server.billing.api import create_checkout_session
+
+        with pytest.raises(OnyxError) as exc_info:
+            await create_checkout_session(
+                request=None, _=MagicMock(), db_session=MagicMock()
+            )
+
+        assert exc_info.value.error_code is OnyxErrorCode.VALIDATION_ERROR
+        assert "Online billing is disabled" in exc_info.value.detail
+
 
 class TestCreateCustomerPortalSession:
     """Tests for create_customer_portal_session endpoint."""
@@ -215,6 +230,20 @@ class TestGetBillingInformation:
         assert result.tenant_id == "tenant_123"
         assert result.status == "active"
         assert result.seats == 10
+
+    @pytest.mark.asyncio
+    @patch("ee.onyx.server.billing.api.MULTI_TENANT", False)
+    @patch("ee.onyx.server.billing.api.SELF_HOSTED_ONLINE_BILLING_ENABLED", False)
+    async def test_returns_not_subscribed_when_self_hosted_online_billing_disabled(
+        self,
+    ) -> None:
+        """Should avoid external billing lookup when local billing is disabled."""
+        from ee.onyx.server.billing.api import get_billing_information
+
+        result = await get_billing_information(_=MagicMock(), db_session=MagicMock())
+
+        assert isinstance(result, SubscriptionStatusResponse)
+        assert result.subscribed is False
 
 
 class TestUpdateSeats:
@@ -514,6 +543,24 @@ class TestResetConnection:
 
         assert result.success is True
         assert "not applicable" in result.message.lower()
+        mock_close_circuit.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("ee.onyx.server.billing.api.MULTI_TENANT", False)
+    @patch("ee.onyx.server.billing.api.SELF_HOSTED_ONLINE_BILLING_ENABLED", False)
+    @patch("ee.onyx.server.billing.api._close_billing_circuit")
+    async def test_rejects_reset_when_self_hosted_online_billing_disabled(
+        self,
+        mock_close_circuit: MagicMock,
+    ) -> None:
+        """Should reject circuit reset when local billing mode is enforced."""
+        from ee.onyx.server.billing.api import reset_stripe_connection
+
+        with pytest.raises(OnyxError) as exc_info:
+            await reset_stripe_connection(_=MagicMock())
+
+        assert exc_info.value.error_code is OnyxErrorCode.VALIDATION_ERROR
+        assert "Online billing is disabled" in exc_info.value.detail
         mock_close_circuit.assert_not_called()
 
 

@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from ee.onyx.auth.users import current_admin_user
 from ee.onyx.db.license import get_license
 from ee.onyx.db.license import get_used_seats
+from ee.onyx.configs.app_configs import SELF_HOSTED_ONLINE_BILLING_ENABLED
 from ee.onyx.server.billing.models import BillingInformationResponse
 from ee.onyx.server.billing.models import CreateCheckoutSessionRequest
 from ee.onyx.server.billing.models import CreateCheckoutSessionResponse
@@ -76,6 +77,17 @@ _stripe_key_lock = asyncio.Lock()
 BILLING_CIRCUIT_BREAKER_KEY = "billing_circuit_open"
 # Circuit breaker auto-expires after 1 hour (user can manually retry sooner)
 BILLING_CIRCUIT_BREAKER_TTL_SECONDS = 3600
+
+
+def _self_hosted_online_billing_disabled() -> bool:
+    return not MULTI_TENANT and not SELF_HOSTED_ONLINE_BILLING_ENABLED
+
+
+def _raise_self_hosted_online_billing_disabled() -> None:
+    raise OnyxError(
+        OnyxErrorCode.VALIDATION_ERROR,
+        "Online billing is disabled for this deployment. Use a local access key or enable SELF_HOSTED_ONLINE_BILLING_ENABLED.",
+    )
 
 
 def _is_billing_circuit_open() -> bool:
@@ -159,6 +171,9 @@ async def create_checkout_session(
     - Self-hosted: Use /license/claim to retrieve the license
     - Cloud: Subscription is automatically activated
     """
+    if _self_hosted_online_billing_disabled():
+        _raise_self_hosted_online_billing_disabled()
+
     license_data = _get_license_data(db_session)
     tenant_id = _get_tenant_id()
     billing_period = request.billing_period if request else "monthly"
@@ -198,6 +213,9 @@ async def create_customer_portal_session(
 
     Requires existing license (self-hosted) or active tenant (cloud).
     """
+    if _self_hosted_online_billing_disabled():
+        _raise_self_hosted_online_billing_disabled()
+
     license_data = _get_license_data(db_session)
     tenant_id = _get_tenant_id()
 
@@ -225,6 +243,9 @@ async def get_billing_information(
     For self-hosted: If the circuit breaker is open (previous failure),
     returns a 503 error without making the request.
     """
+    if _self_hosted_online_billing_disabled():
+        return SubscriptionStatusResponse(subscribed=False)
+
     license_data = _get_license_data(db_session)
     tenant_id = _get_tenant_id()
 
@@ -267,6 +288,9 @@ async def update_seats(
     For self-hosted, the frontend should call /license/claim after a short delay
     to fetch the regenerated license.
     """
+    if _self_hosted_online_billing_disabled():
+        _raise_self_hosted_online_billing_disabled()
+
     license_data = _get_license_data(db_session)
     tenant_id = _get_tenant_id()
 
@@ -301,6 +325,9 @@ async def get_stripe_publishable_key() -> StripePublishableKeyResponse:
     This endpoint is public (no auth required) since publishable keys are safe to expose.
     The key is cached in memory to avoid hitting S3 on every request.
     """
+    if _self_hosted_online_billing_disabled():
+        _raise_self_hosted_online_billing_disabled()
+
     global _stripe_publishable_key_cache
 
     # Fast path: return cached value without lock
@@ -377,6 +404,9 @@ async def reset_stripe_connection(
             success=True,
             message="Circuit breaker not applicable for cloud deployments",
         )
+
+    if _self_hosted_online_billing_disabled():
+        _raise_self_hosted_online_billing_disabled()
 
     _close_billing_circuit()
     return ResetConnectionResponse(

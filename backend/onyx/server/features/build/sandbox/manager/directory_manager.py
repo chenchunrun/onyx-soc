@@ -7,6 +7,7 @@ Supports user-shared sandbox model where:
 
 import json
 import shutil
+import json
 from pathlib import Path
 
 from onyx.server.features.build.sandbox.util.agent_instructions import (
@@ -271,6 +272,7 @@ class DirectoryManager:
         model_name: str | None = None,
         nextjs_port: int | None = None,
         disabled_tools: list[str] | None = None,
+        skill_policy_section: str | None = None,
         user_name: str | None = None,
         user_role: str | None = None,
         use_demo_data: bool = False,
@@ -310,6 +312,7 @@ class DirectoryManager:
             model_name=model_name,
             nextjs_port=nextjs_port,
             disabled_tools=disabled_tools,
+            skill_policy_section=skill_policy_section,
             user_name=user_name,
             user_role=user_role,
             use_demo_data=use_demo_data,
@@ -319,6 +322,18 @@ class DirectoryManager:
         # Write the generated content
         agent_md_path.write_text(content)
         logger.debug(f"Generated AGENTS.md at {agent_md_path}")
+
+    def setup_skill_policy_file(
+        self,
+        sandbox_path: Path,
+        policy_payload: dict[str, object] | None,
+    ) -> None:
+        policy_path = sandbox_path / ".opencode" / "skill-policy.json"
+        policy_path.parent.mkdir(parents=True, exist_ok=True)
+        policy_path.write_text(
+            json.dumps(policy_payload or {}, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
     def setup_skills(
         self,

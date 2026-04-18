@@ -3516,6 +3516,10 @@ class Persona(Base):
         String(length=PROMPT_LENGTH), nullable=True
     )
     datetime_aware: Mapped[bool] = mapped_column(Boolean, default=True)
+    skill_keys: Mapped[list[str]] = mapped_column(
+        postgresql.JSONB(), nullable=False, default=list, server_default="[]"
+    )
+    prompt_preset_id: Mapped[str | None] = mapped_column(String, nullable=True)
 
     uploaded_image_id: Mapped[str | None] = mapped_column(String, nullable=True)
     icon_name: Mapped[str | None] = mapped_column(String, nullable=True)

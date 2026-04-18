@@ -33,7 +33,7 @@ from onyx.db.models import BuildMessage
 from onyx.db.models import BuildSession
 from onyx.db.models import User
 from onyx.db.users import fetch_user_by_id
-from onyx.server.manage.skills.registry import get_allowed_skill_names_for_user
+from onyx.server.manage.skills.registry import build_skill_runtime_profile
 from onyx.llm.factory import get_default_llm
 from onyx.llm.models import LanguageModelInput
 from onyx.llm.models import ReasoningEffort
@@ -562,7 +562,14 @@ class SessionManager:
         user = fetch_user_by_id(self._db_session, user_id)
         user_name = user.personal_name if user else None
         user_role = user.personal_role if user else None
-        allowed_skill_names = get_allowed_skill_names_for_user(user) if user else set()
+        skill_runtime_profile = (
+            build_skill_runtime_profile(user, self._db_session) if user else None
+        )
+        allowed_skill_names = (
+            set(skill_runtime_profile.allowed_skill_names)
+            if skill_runtime_profile
+            else set()
+        )
 
         # Get excluded user library paths (files with sync_disabled=True)
         # Only query if not using demo data (user library only applies to user files)
@@ -582,6 +589,12 @@ class SessionManager:
             llm_config=llm_config,
             nextjs_port=nextjs_port,
             allowed_skill_names=allowed_skill_names,
+            skill_policy_section=(
+                skill_runtime_profile.policy_markdown if skill_runtime_profile else None
+            ),
+            skill_policy_payload=(
+                skill_runtime_profile.model_dump() if skill_runtime_profile else None
+            ),
             file_system_path=user_file_system_path,
             snapshot_path=None,  # TODO: Support restoring from snapshot
             user_name=user_name,

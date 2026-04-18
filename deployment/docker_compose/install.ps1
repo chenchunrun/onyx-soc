@@ -1,9 +1,9 @@
 # Onyx Installer for Windows
 # Usage: .\install.ps1 [OPTIONS]
 # Remote (with params):
-#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/docker_compose/install.ps1))) -Lite -NoPrompt
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/docker_compose/install.ps1))) -Lite -NoPrompt
 # Remote (defaults only, configure via interaction during script):
-#   irm https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/docker_compose/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/docker_compose/install.ps1 | iex
 
 param(
     [switch]$Shutdown,
@@ -34,8 +34,9 @@ $script:ExpectedDockerRamGB = 10
 $script:ExpectedDiskGB = 32
 $script:InstallRoot = if ($env:INSTALL_PREFIX) { $env:INSTALL_PREFIX } else { "onyx_data" }
 $script:LiteComposeFile = "docker-compose.onyx-lite.yml"
-$script:GitHubRawUrl = "https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/docker_compose"
-$script:NginxBaseUrl = "https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/data/nginx"
+$script:GitHubRawUrl = if ($env:ONYX_DEPLOYMENT_ASSET_BASE) { $env:ONYX_DEPLOYMENT_ASSET_BASE } else { "https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/docker_compose" }
+$script:NginxBaseUrl = if ($env:ONYX_NGINX_ASSET_BASE) { $env:ONYX_NGINX_ASSET_BASE } else { "https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/data/nginx" }
+$script:SupportContactUrl = if ($env:ONYX_SUPPORT_CONTACT_URL) { $env:ONYX_SUPPORT_CONTACT_URL } else { "https://github.com/chenchunrun/onyx/issues" }
 $script:CurrentStep = 0
 $script:TotalSteps = 10
 $script:ComposeCmdType = $null
@@ -328,7 +329,7 @@ function Show-OnyxHelp {
     $help += "`nOptions:"
     $help += "`n  -IncludeCraft  Enable Onyx Craft (AI-powered web app building)"
     $help += "`n  -Lite          Deploy Onyx Lite (no Vespa, Redis, or model servers)"
-    $help += "`n  -Local         Use existing config files instead of downloading from GitHub"
+        $help += "`n  -Local         Use existing config files instead of downloading from the configured remote source"
     $help += "`n  -Shutdown      Stop (pause) Onyx containers"
     $help += "`n  -DeleteData    Remove all Onyx data (containers, volumes, and files)"
     $help += "`n  -NoPrompt      Run non-interactively with defaults (for CI/automation)"
@@ -1040,7 +1041,7 @@ function Main {
     # For pinned version tags, re-download config files from that tag so the
     # compose file matches the images being pulled (the initial download used main).
     if (-not $useLatest -and -not $Local) {
-        $pinnedBase = "https://raw.githubusercontent.com/onyx-dot-app/onyx/$currentImageTag/deployment"
+        $pinnedBase = if ($env:ONYX_PINNED_DEPLOYMENT_BASE) { $env:ONYX_PINNED_DEPLOYMENT_BASE } else { "https://raw.githubusercontent.com/chenchunrun/onyx/$currentImageTag/deployment" }
         Print-Info "Fetching config files matching tag $currentImageTag..."
         try {
             Download-OnyxFile "$pinnedBase/docker_compose/docker-compose.yml" $composeDest
@@ -1051,7 +1052,7 @@ function Main {
             }
             Print-Success "Config files updated to match $currentImageTag"
         } catch {
-            Print-Warning "Tag $currentImageTag not found on GitHub - using main branch configs"
+            Print-Warning "Tag $currentImageTag not found in the configured remote source - using default branch configs"
         }
     }
 
@@ -1095,7 +1096,7 @@ function Main {
         Print-OnyxError "Some containers are experiencing issues!"
         $cmd = if ($script:ComposeCmdType -eq "plugin") { "docker compose" } else { "docker-compose" }
         Print-Info "Check logs: cd `"$(Join-Path $script:InstallRoot 'deployment')`" && $cmd $((Get-ComposeFileArgs) -join ' ') logs"
-        Print-Info "For help, contact: founders@onyx.app"
+        Print-Info "For help, contact your local deployment administrator or open an issue: $($script:SupportContactUrl)"
         exit 1
     }
 
@@ -1126,7 +1127,7 @@ function Main {
     }
 
     Print-Info "See the README in $($script:InstallRoot) for more information."
-    Print-Info "For help or issues, contact: founders@onyx.app"
+    Print-Info "For help or issues, contact your local deployment administrator or open an issue: $($script:SupportContactUrl)"
 }
 
 Main

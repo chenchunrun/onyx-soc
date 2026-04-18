@@ -1486,7 +1486,7 @@ function AccountsAccessSettings() {
                     Access tokens require an active paid subscription.
                   </Text>
                   <Button prominence="secondary" href="/admin/billing">
-                    Upgrade Plan
+                    Plans & Billing
                   </Button>
                 </Section>
               </Card>

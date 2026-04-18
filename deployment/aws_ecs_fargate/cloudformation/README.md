@@ -15,7 +15,7 @@ Example:
   "AWSRegion": "us-east-2",
   "VpcID": "YOUR_VPC_ID",
   "SubnetIDs": "YOUR_SUBNET_ID1,YOUR_SUBNET_ID2",
-  "DomainName": "YOUR_DOMAIN e.g ecs.onyx.app",
+  "DomainName": "YOUR_DOMAIN e.g search.example.com",
   "ValidationMethod": "DNS",
   "HostedZoneId": ""
 }

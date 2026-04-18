@@ -24,6 +24,10 @@ Install packages: `pip install <pkg>` or `npm install <pkg>` (from `outputs/web`
 
 Read the relevant SKILL.md before starting work that the skill covers.
 
+## Skill Runtime Policy
+
+{{SKILL_POLICY_SECTION}}
+
 ## Recommended Task Approach Methodology
 
 When presented with a task, you typically:

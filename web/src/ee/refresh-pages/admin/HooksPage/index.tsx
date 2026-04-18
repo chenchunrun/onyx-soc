@@ -507,7 +507,9 @@ export default function HooksPage() {
   useEffect(() => {
     if (settingsLoading) return;
     if (!isEE) {
-      toast.info("Hook Extensions require an Enterprise license.");
+      toast.info(
+        "Hook Extensions are not enabled for the current deployment or access level."
+      );
       router.replace("/");
     } else if (!settings.hooks_enabled) {
       toast.info("Hook Extensions are not enabled for this deployment.");

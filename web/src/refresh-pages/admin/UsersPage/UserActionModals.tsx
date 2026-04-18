@@ -142,7 +142,7 @@ export function DeactivateUserModal({
           {email}
         </Text>{" "}
         will immediately lose access to Onyx. Their sessions and agents will be
-        preserved. Their license seat will be freed. You can reactivate this
+        preserved. Their allocated seat will be freed. You can reactivate this
         account later.
       </Text>
     </ConfirmationModalLayout>

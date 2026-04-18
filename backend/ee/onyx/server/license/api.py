@@ -18,6 +18,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from ee.onyx.auth.users import current_admin_user
+from ee.onyx.configs.app_configs import SELF_HOSTED_ONLINE_BILLING_ENABLED
 from ee.onyx.configs.app_configs import CLOUD_DATA_PLANE_URL
 from ee.onyx.db.license import delete_license as db_delete_license
 from ee.onyx.db.license import get_license
@@ -46,6 +47,10 @@ router = APIRouter(prefix="/license")
 # PEM-style delimiters used in license file format
 _PEM_BEGIN = "-----BEGIN ONYX LICENSE-----"
 _PEM_END = "-----END ONYX LICENSE-----"
+
+
+def _self_hosted_online_billing_disabled() -> bool:
+    return not MULTI_TENANT and not SELF_HOSTED_ONLINE_BILLING_ENABLED
 
 
 def _strip_pem_delimiters(content: str) -> str:
@@ -131,6 +136,12 @@ async def claim_license(
         raise OnyxError(
             OnyxErrorCode.VALIDATION_ERROR,
             "License claiming is only available for self-hosted deployments",
+        )
+
+    if _self_hosted_online_billing_disabled():
+        raise OnyxError(
+            OnyxErrorCode.VALIDATION_ERROR,
+            "Online billing is disabled for this deployment. Upload a local access key instead.",
         )
 
     try:

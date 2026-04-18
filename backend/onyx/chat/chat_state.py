@@ -202,6 +202,7 @@ class ChatTurnSetup:
     files: list[ChatLoadedFile]
     chat_files_for_tools: list[ChatFile]
     custom_agent_prompt: str | None
+    runtime_instruction_block: str | None
     user_memory_context: UserMemoryContext
     # For deep research: was the last assistant message a clarification request?
     skip_clarification: bool

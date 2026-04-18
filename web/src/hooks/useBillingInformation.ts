@@ -1,6 +1,9 @@
 import useSWR from "swr";
 
-import { NEXT_PUBLIC_CLOUD_ENABLED } from "@/lib/constants";
+import {
+  NEXT_PUBLIC_CLOUD_ENABLED,
+  NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED,
+} from "@/lib/constants";
 import { errorHandlingFetcher } from "@/lib/fetcher";
 import { SWR_KEYS } from "@/lib/swr-keys";
 import {
@@ -16,9 +19,13 @@ import {
  * - Self-hosted: fetches from /api/admin/billing/billing-information
  */
 export function useBillingInformation() {
+  const isEnabled =
+    NEXT_PUBLIC_CLOUD_ENABLED || NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED;
   const url = NEXT_PUBLIC_CLOUD_ENABLED
     ? SWR_KEYS.billingInformationCloud
-    : SWR_KEYS.billingInformationSelfHosted;
+    : isEnabled
+      ? SWR_KEYS.billingInformationSelfHosted
+      : null;
 
   const { data, error, mutate, isLoading } = useSWR<
     BillingInformation | SubscriptionStatus

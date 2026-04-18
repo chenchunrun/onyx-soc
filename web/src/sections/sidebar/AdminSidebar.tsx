@@ -147,7 +147,7 @@ function buildItems(
     } else {
       items.push({
         section: SECTIONS.ORGANIZATION,
-        name: "Upgrade Plan",
+        name: "Plans & Billing",
         icon: SvgArrowUpCircle,
         link: ADMIN_ROUTES.BILLING.path,
       });
