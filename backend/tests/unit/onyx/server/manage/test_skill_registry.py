@@ -267,6 +267,27 @@ skills:
     assert "security_team" in exported
 
 
+def test_scan_skill_directories_respects_ttl_cache(tmp_path: Path, monkeypatch) -> None:
+    skills_root = tmp_path / "skills"
+    _write_skill(skills_root / "cached-skill", "Cached skill")
+
+    monotonic_values = iter([100.0, 105.0, 111.0])
+    monkeypatch.setattr(registry, "_SCANNED_SKILLS_CACHE", {})
+    monkeypatch.setattr(registry, "monotonic", lambda: next(monotonic_values))
+
+    first_scan = registry.scan_skill_directories(skills_root=skills_root)
+    assert "cached-skill" in first_scan
+
+    # Remove the file from disk; second scan should still hit cache within TTL.
+    (skills_root / "cached-skill" / "SKILL.md").unlink()
+    second_scan = registry.scan_skill_directories(skills_root=skills_root)
+    assert "cached-skill" in second_scan
+
+    # After TTL expiration, cache should refresh from filesystem state.
+    third_scan = registry.scan_skill_directories(skills_root=skills_root)
+    assert "cached-skill" not in third_scan
+
+
 def test_list_managed_skills_supports_query_filters(monkeypatch) -> None:
     skills = [
         ManagedSkill(

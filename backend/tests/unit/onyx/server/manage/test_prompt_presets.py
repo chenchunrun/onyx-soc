@@ -99,3 +99,55 @@ def test_sync_prompt_presets_creates_and_updates_public_prompts(monkeypatch) -> 
     assert fake_session.added[0].prompt == new_preset.shortcut_name
     assert existing_prompt.content == "新内容"
     assert existing_prompt.active is True
+
+
+def test_scan_prompt_presets_respects_ttl_cache(tmp_path, monkeypatch) -> None:
+    prompts_root = tmp_path / "prompts"
+    prompts_root.mkdir(parents=True, exist_ok=True)
+    preset_file = prompts_root / "presets.json"
+    preset_file.write_text(
+        """
+[
+  {
+    "id": "cached_preset",
+    "name": "缓存样板",
+    "description": "缓存命中",
+    "content": "内容A",
+    "category": "quickStart",
+    "agentType": "generalAssistant"
+  }
+]
+""".strip(),
+        encoding="utf-8",
+    )
+
+    monotonic_values = iter([200.0, 205.0, 211.0])
+    monkeypatch.setattr(registry, "_PROMPT_PRESET_CACHE", {})
+    monkeypatch.setattr(registry, "monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr(registry, "ROOT_PATH", tmp_path)
+
+    first_scan = registry.scan_prompt_presets(prompts_root=prompts_root)
+    assert [preset.id for preset in first_scan] == ["cached_preset"]
+
+    # Modify file contents; second scan should still return cached data within TTL.
+    preset_file.write_text(
+        """
+[
+  {
+    "id": "cached_preset_updated",
+    "name": "缓存样板",
+    "description": "缓存未过期",
+    "content": "内容B",
+    "category": "quickStart",
+    "agentType": "generalAssistant"
+  }
+]
+""".strip(),
+        encoding="utf-8",
+    )
+    second_scan = registry.scan_prompt_presets(prompts_root=prompts_root)
+    assert [preset.id for preset in second_scan] == ["cached_preset"]
+
+    # After TTL expiration, cache should refresh and expose latest file contents.
+    third_scan = registry.scan_prompt_presets(prompts_root=prompts_root)
+    assert [preset.id for preset in third_scan] == ["cached_preset_updated"]
