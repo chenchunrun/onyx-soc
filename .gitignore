@@ -63,3 +63,8 @@ web/tmp/
 
 # plans
 plans/
+
+# local auth session artifacts
+/admin_auth.json
+/admin2_auth.json
+/worker*_auth.json
