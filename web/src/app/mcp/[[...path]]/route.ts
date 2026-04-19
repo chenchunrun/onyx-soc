@@ -61,11 +61,51 @@ const isProxyEnabled = (): boolean => {
   return process.env.NODE_ENV === "development";
 };
 
+const MCP_PROXY_FORWARD_AUTHORIZATION =
+  process.env.MCP_PROXY_FORWARD_AUTHORIZATION === "true";
+
+const ALLOWED_FORWARD_HEADER_NAMES = new Set([
+  "accept",
+  "accept-language",
+  "content-type",
+  "origin",
+  "referer",
+  "user-agent",
+  "x-request-id",
+  "x-correlation-id",
+  "x-trace-id",
+]);
+
+const ALLOWED_FORWARD_HEADER_PREFIXES = [
+  "x-onyx-",
+  "x-mcp-",
+  "x-request-",
+  "x-correlation-",
+];
+
+const shouldForwardHeader = (name: string): boolean => {
+  const normalizedName = name.toLowerCase();
+  if (normalizedName === "authorization") {
+    return MCP_PROXY_FORWARD_AUTHORIZATION;
+  }
+  if (normalizedName === "cookie" || normalizedName === "set-cookie") {
+    return false;
+  }
+  if (ALLOWED_FORWARD_HEADER_NAMES.has(normalizedName)) {
+    return true;
+  }
+  return ALLOWED_FORWARD_HEADER_PREFIXES.some((prefix) =>
+    normalizedName.startsWith(prefix)
+  );
+};
+
 const buildForwardHeaders = (requestHeaders: Headers): Headers => {
-  const headers = new Headers(requestHeaders);
-  headers.delete("host");
-  headers.delete("connection");
-  headers.delete("content-length");
+  const headers = new Headers();
+  requestHeaders.forEach((value, name) => {
+    if (shouldForwardHeader(name)) {
+      headers.set(name, value);
+    }
+  });
   return headers;
 };
 

@@ -7,7 +7,6 @@ Supports user-shared sandbox model where:
 
 import json
 import shutil
-import json
 from pathlib import Path
 
 from onyx.server.features.build.sandbox.util.agent_instructions import (

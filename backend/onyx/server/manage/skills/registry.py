@@ -7,6 +7,7 @@ import os
 from datetime import datetime
 from datetime import timezone
 from pathlib import Path
+from time import monotonic
 from typing import Any
 from typing import Literal
 from urllib.parse import urlparse
@@ -47,6 +48,8 @@ AUTHORIZED_SCAN_TARGETS_PATH = (
     Path(__file__).resolve().parent / "authorized_scan_targets.yaml"
 )
 AUTHORIZED_SCAN_AUDIT_PATH = Path(__file__).resolve().parent / "authorized_scan_audit.jsonl"
+SCAN_CACHE_TTL_SECONDS = 10
+_SCANNED_SKILLS_CACHE: dict[str, tuple[float, dict[str, "ManagedSkill"]]] = {}
 
 SECURITY_TEAM_EMAILS = {
     "commander@security.local",
@@ -306,8 +309,18 @@ def scan_skill_directories(
     skills_root: Path | None = None,
 ) -> dict[str, ManagedSkill]:
     skills_root = skills_root or SKILLS_ROOT
+    cache_key = str(skills_root.resolve())
+    now = monotonic()
+    cached_entry = _SCANNED_SKILLS_CACHE.get(cache_key)
+    if cached_entry and now - cached_entry[0] < SCAN_CACHE_TTL_SECONDS:
+        return {
+            skill_key: skill.model_copy(deep=True)
+            for skill_key, skill in cached_entry[1].items()
+        }
+
     scanned: dict[str, ManagedSkill] = {}
     if not skills_root.exists():
+        _SCANNED_SKILLS_CACHE[cache_key] = (now, scanned)
         return scanned
 
     for skill_dir in sorted(skills_root.iterdir()):
@@ -345,6 +358,7 @@ def scan_skill_directories(
             notes=None,
         )
 
+    _SCANNED_SKILLS_CACHE[cache_key] = (now, scanned)
     return scanned
 
 

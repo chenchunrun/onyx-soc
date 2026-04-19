@@ -1,9 +1,9 @@
 # Onyx Installer for Windows
 # Usage: .\install.ps1 [OPTIONS]
 # Remote (with params):
-#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/docker_compose/install.ps1))) -Lite -NoPrompt
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/docker_compose/install.ps1))) -Lite -NoPrompt
 # Remote (defaults only, configure via interaction during script):
-#   irm https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/docker_compose/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/docker_compose/install.ps1 | iex
 
 param(
     [switch]$Shutdown,
@@ -34,9 +34,9 @@ $script:ExpectedDockerRamGB = 10
 $script:ExpectedDiskGB = 32
 $script:InstallRoot = if ($env:INSTALL_PREFIX) { $env:INSTALL_PREFIX } else { "onyx_data" }
 $script:LiteComposeFile = "docker-compose.onyx-lite.yml"
-$script:GitHubRawUrl = if ($env:ONYX_DEPLOYMENT_ASSET_BASE) { $env:ONYX_DEPLOYMENT_ASSET_BASE } else { "https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/docker_compose" }
-$script:NginxBaseUrl = if ($env:ONYX_NGINX_ASSET_BASE) { $env:ONYX_NGINX_ASSET_BASE } else { "https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/data/nginx" }
-$script:SupportContactUrl = if ($env:ONYX_SUPPORT_CONTACT_URL) { $env:ONYX_SUPPORT_CONTACT_URL } else { "https://github.com/chenchunrun/onyx/issues" }
+$script:GitHubRawUrl = if ($env:ONYX_DEPLOYMENT_ASSET_BASE) { $env:ONYX_DEPLOYMENT_ASSET_BASE } else { "https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/docker_compose" }
+$script:NginxBaseUrl = if ($env:ONYX_NGINX_ASSET_BASE) { $env:ONYX_NGINX_ASSET_BASE } else { "https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/data/nginx" }
+$script:SupportContactUrl = if ($env:ONYX_SUPPORT_CONTACT_URL) { $env:ONYX_SUPPORT_CONTACT_URL } else { "https://github.com/onyx-dot-app/onyx/issues" }
 $script:CurrentStep = 0
 $script:TotalSteps = 10
 $script:ComposeCmdType = $null
@@ -1041,7 +1041,7 @@ function Main {
     # For pinned version tags, re-download config files from that tag so the
     # compose file matches the images being pulled (the initial download used main).
     if (-not $useLatest -and -not $Local) {
-        $pinnedBase = if ($env:ONYX_PINNED_DEPLOYMENT_BASE) { $env:ONYX_PINNED_DEPLOYMENT_BASE } else { "https://raw.githubusercontent.com/chenchunrun/onyx/$currentImageTag/deployment" }
+        $pinnedBase = if ($env:ONYX_PINNED_DEPLOYMENT_BASE) { $env:ONYX_PINNED_DEPLOYMENT_BASE } else { "https://raw.githubusercontent.com/onyx-dot-app/onyx/$currentImageTag/deployment" }
         Print-Info "Fetching config files matching tag $currentImageTag..."
         try {
             Download-OnyxFile "$pinnedBase/docker_compose/docker-compose.yml" $composeDest

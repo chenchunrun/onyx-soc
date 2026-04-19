@@ -514,9 +514,9 @@ else
     echo ""
 fi
 
-# Remote asset base URL - defaults to this fork and can be overridden for custom mirrors
-GITHUB_RAW_URL="${ONYX_DEPLOYMENT_ASSET_BASE:-https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/docker_compose}"
-SUPPORT_CONTACT_URL="${ONYX_SUPPORT_CONTACT_URL:-https://github.com/chenchunrun/onyx/issues}"
+# Remote asset base URL - defaults to the official repository and can be overridden for custom mirrors
+GITHUB_RAW_URL="${ONYX_DEPLOYMENT_ASSET_BASE:-https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/docker_compose}"
+SUPPORT_CONTACT_URL="${ONYX_SUPPORT_CONTACT_URL:-https://github.com/onyx-dot-app/onyx/issues}"
 
 # Check system requirements
 print_step "Verifying Docker installation"
@@ -712,7 +712,7 @@ mkdir -p "${INSTALL_ROOT}/data/nginx/local"
 print_success "Directory structure created"
 
 # Ensure all required configuration files are present
-NGINX_BASE_URL="${ONYX_NGINX_ASSET_BASE:-https://raw.githubusercontent.com/chenchunrun/onyx/main/deployment/data/nginx}"
+NGINX_BASE_URL="${ONYX_NGINX_ASSET_BASE:-https://raw.githubusercontent.com/onyx-dot-app/onyx/main/deployment/data/nginx}"
 
 if [[ "$USE_LOCAL_FILES" = true ]]; then
     print_step "Verifying existing configuration files"
@@ -1120,7 +1120,7 @@ fi
 # For pinned version tags, re-download config files from that tag so the
 # compose file matches the images being pulled (the initial download used main).
 if [[ "$USE_LATEST" = false ]] && [[ "$USE_LOCAL_FILES" = false ]]; then
-    PINNED_BASE="${ONYX_PINNED_DEPLOYMENT_BASE:-https://raw.githubusercontent.com/chenchunrun/onyx/${CURRENT_IMAGE_TAG}/deployment}"
+    PINNED_BASE="${ONYX_PINNED_DEPLOYMENT_BASE:-https://raw.githubusercontent.com/onyx-dot-app/onyx/${CURRENT_IMAGE_TAG}/deployment}"
     print_info "Fetching config files matching tag ${CURRENT_IMAGE_TAG}..."
     if download_file "${PINNED_BASE}/docker_compose/docker-compose.yml" "${INSTALL_ROOT}/deployment/docker-compose.yml" 2>/dev/null; then
         download_file "${PINNED_BASE}/data/nginx/app.conf.template" "${INSTALL_ROOT}/data/nginx/app.conf.template" 2>/dev/null || true

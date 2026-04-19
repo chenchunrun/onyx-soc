@@ -4,6 +4,7 @@ import json
 import re
 from collections import Counter
 from pathlib import Path
+from time import monotonic
 
 import yaml
 from pydantic import BaseModel
@@ -23,6 +24,8 @@ def _detect_root_path() -> Path:
 
 ROOT_PATH = _detect_root_path()
 PROMPTS_ROOT = ROOT_PATH / "prompts"
+SCAN_CACHE_TTL_SECONDS = 10
+_PROMPT_PRESET_CACHE: dict[str, tuple[float, list["PromptPreset"]]] = {}
 
 
 def _camel_case_to_label(value: str) -> str:
@@ -92,15 +95,24 @@ def _parse_prompt_preset_file(path: Path) -> list[PromptPreset]:
 
 def scan_prompt_presets(prompts_root: Path | None = None) -> list[PromptPreset]:
     root = prompts_root or PROMPTS_ROOT
+    cache_key = str(root.resolve())
+    now = monotonic()
+    cached_entry = _PROMPT_PRESET_CACHE.get(cache_key)
+    if cached_entry and now - cached_entry[0] < SCAN_CACHE_TTL_SECONDS:
+        return [preset.model_copy(deep=True) for preset in cached_entry[1]]
+
     presets: list[PromptPreset] = []
 
     if not root.exists():
+        _PROMPT_PRESET_CACHE[cache_key] = (now, presets)
         return presets
 
     for json_path in sorted(root.glob("*.json")):
         presets.extend(_parse_prompt_preset_file(json_path))
 
-    return sorted(presets, key=lambda preset: (preset.agent_type, preset.name))
+    sorted_presets = sorted(presets, key=lambda preset: (preset.agent_type, preset.name))
+    _PROMPT_PRESET_CACHE[cache_key] = (now, sorted_presets)
+    return [preset.model_copy(deep=True) for preset in sorted_presets]
 
 
 def _fetch_public_prompt_map(
