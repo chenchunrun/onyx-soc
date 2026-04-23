@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any
 
 from mcp.client.auth import OAuthClientProvider
@@ -26,6 +27,46 @@ logger = setup_logger()
 DENYLISTED_MCP_HEADERS = {
     "host",  # Prevents Host Header Injection attacks
 }
+
+# Request-provided MCP headers are default-deny. Only explicit auth-related
+# headers are forwarded unless expanded via MCP_REQUEST_HEADER_ALLOWLIST.
+DEFAULT_ALLOWED_REQUEST_MCP_HEADERS = {
+    "authorization",
+    "x-api-key",
+    "api-key",
+    "x-auth-token",
+    "x-access-token",
+}
+
+
+def _allowed_request_mcp_headers() -> set[str]:
+    allowed_headers = set(DEFAULT_ALLOWED_REQUEST_MCP_HEADERS)
+    raw_allowlist = os.environ.get("MCP_REQUEST_HEADER_ALLOWLIST", "")
+    for header in raw_allowlist.split(","):
+        normalized = header.strip().lower()
+        if normalized:
+            allowed_headers.add(normalized)
+    return allowed_headers
+
+
+def filter_request_mcp_headers(
+    headers: dict[str, str],
+) -> tuple[dict[str, str], list[str]]:
+    allowed_headers = _allowed_request_mcp_headers()
+    filtered_headers: dict[str, str] = {}
+    blocked_headers: list[str] = []
+
+    for header_key, header_value in headers.items():
+        header_key_lower = header_key.lower()
+        if (
+            header_key_lower in DENYLISTED_MCP_HEADERS
+            or header_key_lower not in allowed_headers
+        ):
+            blocked_headers.append(header_key)
+            continue
+        filtered_headers[header_key] = header_value
+
+    return filtered_headers, blocked_headers
 
 # TODO: for now we're fitting MCP tool responses into the CustomToolCallSummary class
 # In the future we may want custom handling for MCP tool responses
@@ -118,30 +159,24 @@ class MCPTool(Tool[None]):
         """Execute the MCP tool by calling the MCP server"""
         try:
             # Build headers with proper precedence:
-            # 1. Start with additional headers from API request (filled in first, excluding denylisted)
+            # 1. Start with additional headers from API request (filled in first, allowlist only)
             # 2. Override with connection config headers (from DB) - these take precedence
             # 3. Override Authorization header with OAuth token if present
             headers: dict[str, str] = {}
+            request_headers_forwarded: dict[str, str] = {}
 
             # Priority 1: Additional headers from API request (filled in first)
-            # Filter out denylisted headers to prevent security issues (e.g., Host Header Injection)
+            # Request headers are default-deny and require explicit allowlist membership.
             if self._additional_headers:
-                filtered_headers = {
-                    k: v
-                    for k, v in self._additional_headers.items()
-                    if k.lower() not in DENYLISTED_MCP_HEADERS
-                }
-                if filtered_headers:
-                    headers.update(filtered_headers)
-                # Log if any denylisted headers were provided (for security monitoring)
-                denylisted_provided = [
-                    k
-                    for k in self._additional_headers.keys()
-                    if k.lower() in DENYLISTED_MCP_HEADERS
-                ]
-                if denylisted_provided:
+                (
+                    request_headers_forwarded,
+                    blocked_request_headers,
+                ) = filter_request_mcp_headers(self._additional_headers)
+                if request_headers_forwarded:
+                    headers.update(request_headers_forwarded)
+                if blocked_request_headers:
                     logger.warning(
-                        f"MCP tool '{self._name}' received denylisted headers that were filtered: {denylisted_provided}"
+                        f"MCP tool '{self._name}' filtered disallowed request headers: {blocked_request_headers}"
                     )
 
             # Priority 2: Base headers from connection config (DB) - overrides request
@@ -163,7 +198,7 @@ class MCPTool(Tool[None]):
             )
             has_auth_config = (
                 (self.connection_config is not None and bool(headers))
-                or bool(self._additional_headers)
+                or bool(request_headers_forwarded)
             ) or (is_passthrough_oauth and self._user_oauth_token is not None)
 
             if requires_auth and not has_auth_config:
