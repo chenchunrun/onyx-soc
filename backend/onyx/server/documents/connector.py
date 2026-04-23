@@ -4,6 +4,8 @@ import mimetypes
 import os
 import zipfile
 from datetime import datetime
+from datetime import timedelta
+from datetime import timezone
 from io import BytesIO
 from typing import Any
 from typing import cast
@@ -168,6 +170,7 @@ logger = setup_logger()
 _GMAIL_CREDENTIAL_ID_COOKIE_NAME = "gmail_credential_id"
 _GOOGLE_DRIVE_CREDENTIAL_ID_COOKIE_NAME = "google_drive_credential_id"
 _INDEXING_STATUS_PAGE_SIZE = 10
+_INDEXING_STUCK_THRESHOLD_HOURS = 6
 
 SEEN_ZIP_DETAIL = "Only one zip file is allowed per file connector, \
 use the ingestion APIs for multiple files"
@@ -1441,6 +1444,29 @@ def _get_connector_indexing_status_lite(
         and latest_index_attempt.status == IndexingStatus.IN_PROGRESS
     )
 
+    operational_deleting = cc_pair.status == ConnectorCredentialPairStatus.DELETING
+    operational_error = (
+        bool(cc_pair.deletion_failure_message)
+        or cc_pair.in_repeated_error_state
+        or bool(
+            latest_finished_index_attempt
+            and latest_finished_index_attempt.status == IndexingStatus.FAILED
+        )
+    )
+    operational_stuck = bool(
+        in_progress
+        and latest_index_attempt
+        and latest_index_attempt.time_updated
+        < datetime.now(timezone.utc)
+        - timedelta(hours=_INDEXING_STUCK_THRESHOLD_HOURS)
+    )
+    operational_active = (
+        cc_pair.status in ConnectorCredentialPairStatus.active_statuses()
+        and not operational_deleting
+        and not operational_error
+        and not operational_stuck
+    )
+
     return ConnectorIndexingStatusLite(
         cc_pair_id=cc_pair.id,
         name=cc_pair.name,
@@ -1461,6 +1487,10 @@ def _get_connector_indexing_status_lite(
         latest_index_attempt_docs_indexed=(
             latest_index_attempt.total_docs_indexed if latest_index_attempt else None
         ),
+        operational_active=operational_active,
+        operational_deleting=operational_deleting,
+        operational_error=operational_error,
+        operational_stuck=operational_stuck,
     )
 
 

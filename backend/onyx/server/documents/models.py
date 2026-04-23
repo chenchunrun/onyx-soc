@@ -464,6 +464,10 @@ class ConnectorIndexingStatusLite(BaseModel):
     is_editable: bool
     docs_indexed: int
     latest_index_attempt_docs_indexed: int | None
+    operational_active: bool = False
+    operational_deleting: bool = False
+    operational_error: bool = False
+    operational_stuck: bool = False
 
 
 class SourceSummary(BaseModel):

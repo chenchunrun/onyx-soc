@@ -21,11 +21,13 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import Truncated from "@/refresh-components/texts/Truncated";
 import {
+  FiAlertTriangle,
   FiChevronDown,
   FiChevronRight,
   FiLock,
   FiUnlock,
   FiRefreshCw,
+  FiZap,
 } from "react-icons/fi";
 import SimpleTooltip from "@/refresh-components/SimpleTooltip";
 import { SourceIcon } from "@/components/SourceIcon";
@@ -183,6 +185,23 @@ function ConnectorRow({
           inRepeatedErrorState={ccPairsIndexingStatus.in_repeated_error_state}
           lastIndexAttemptStatus={ccPairsIndexingStatus.last_status}
         />
+        <div className="mt-2">
+          {ccPairsIndexingStatus.operational_stuck ? (
+            <Badge variant="secondary" icon={FiZap}>
+              Ops: Stuck
+            </Badge>
+          ) : ccPairsIndexingStatus.operational_error ? (
+            <Badge variant="destructive" icon={FiAlertTriangle}>
+              Ops: Error
+            </Badge>
+          ) : ccPairsIndexingStatus.operational_deleting ? (
+            <Badge variant="secondary">Ops: Deleting</Badge>
+          ) : ccPairsIndexingStatus.operational_active ? (
+            <Badge variant="success">Ops: Active</Badge>
+          ) : (
+            <Badge variant="default">Ops: Idle</Badge>
+          )}
+        </div>
       </TableCell>
       {isPaidEnterpriseFeaturesEnabled && (
         <TableCell>
@@ -308,6 +327,10 @@ export function CCPairIndexingStatusTable({
             in_repeated_error_state: false,
             in_progress: false,
             latest_index_attempt_docs_indexed: 0,
+            operational_active: true,
+            operational_deleting: false,
+            operational_error: false,
+            operational_stuck: false,
           }}
           isEditable={false}
         />

@@ -250,6 +250,10 @@ export interface ConnectorIndexingStatusLite {
   docs_indexed: number;
   in_repeated_error_state: boolean;
   latest_index_attempt_docs_indexed: number | null;
+  operational_active: boolean;
+  operational_deleting: boolean;
+  operational_error: boolean;
+  operational_stuck: boolean;
 }
 
 export interface FederatedConnectorStatus {
