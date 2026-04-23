@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 
 from ee.onyx.auth.users import current_admin_user
 from ee.onyx.db.license import get_license
+from ee.onyx.db.license import get_license_metadata
 from ee.onyx.db.license import get_used_seats
 from ee.onyx.configs.app_configs import SELF_HOSTED_ONLINE_BILLING_ENABLED
 from ee.onyx.server.billing.models import BillingInformationResponse
@@ -52,6 +53,7 @@ from ee.onyx.server.billing.service import (
     get_billing_information as get_billing_service,
 )
 from ee.onyx.server.billing.service import update_seat_count as update_seat_service
+from ee.onyx.server.license.runtime_state import derive_license_operational_state
 from onyx.auth.users import User
 from onyx.configs.app_configs import STRIPE_PUBLISHABLE_KEY_OVERRIDE
 from onyx.configs.app_configs import STRIPE_PUBLISHABLE_KEY_URL
@@ -244,27 +246,51 @@ async def get_billing_information(
     returns a 503 error without making the request.
     """
     if _self_hosted_online_billing_disabled():
-        return SubscriptionStatusResponse(subscribed=False)
+        return SubscriptionStatusResponse(
+            subscribed=False,
+            operational_state=None,
+            operational_state_reason=(
+                "Online billing is disabled for this self-hosted deployment."
+            ),
+        )
 
     license_data = _get_license_data(db_session)
     tenant_id = _get_tenant_id()
+    billing_circuit_open = _is_billing_circuit_open()
+    operational_state = None
+    operational_state_reason = None
+    if not MULTI_TENANT:
+        metadata = get_license_metadata(db_session)
+        has_license_record = bool(license_data)
+        operational_state, operational_state_reason = derive_license_operational_state(
+            metadata=metadata,
+            has_license_record=has_license_record,
+            billing_circuit_open=billing_circuit_open,
+        )
 
     # Self-hosted without license = no subscription
     if not MULTI_TENANT and not license_data:
-        return SubscriptionStatusResponse(subscribed=False)
+        return SubscriptionStatusResponse(
+            subscribed=False,
+            operational_state=operational_state,
+            operational_state_reason=operational_state_reason,
+        )
 
     # Check circuit breaker (self-hosted only)
-    if _is_billing_circuit_open():
+    if billing_circuit_open:
         raise OnyxError(
             OnyxErrorCode.SERVICE_UNAVAILABLE,
-            "Stripe connection temporarily disabled. Click 'Connect to Stripe' to retry.",
+            "Stripe connection temporarily disabled (operational_state=disconnected_cached). Click 'Connect to Stripe' to retry.",
         )
 
     try:
-        return await get_billing_service(
+        response = await get_billing_service(
             license_data=license_data,
             tenant_id=tenant_id,
         )
+        response.operational_state = operational_state
+        response.operational_state_reason = operational_state_reason
+        return response
     except OnyxError as e:
         # Open circuit breaker on connection failures (self-hosted only)
         if e.status_code in (

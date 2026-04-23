@@ -16,6 +16,14 @@ class LicenseSource(str, Enum):
     MANUAL_UPLOAD = "manual_upload"
 
 
+class LicenseOperationalState(str, Enum):
+    VALID = "valid"
+    GRACE_PERIOD = "grace_period"
+    EXPIRED = "expired"
+    VERIFICATION_FAILED = "verification_failed"
+    DISCONNECTED_CACHED = "disconnected_cached"
+
+
 class LicensePayload(BaseModel):
     """The payload portion of a signed license."""
 
@@ -67,6 +75,8 @@ class LicenseStatusResponse(BaseModel):
     grace_period_end: datetime | None = None
     status: ApplicationStatus | None = None
     source: LicenseSource | None = None
+    operational_state: LicenseOperationalState | None = None
+    operational_state_reason: str | None = None
 
 
 class LicenseResponse(BaseModel):

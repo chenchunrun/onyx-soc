@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from ee.onyx.server.license.models import LicenseOperationalState
+
 
 class CreateCheckoutSessionRequest(BaseModel):
     """Request to create a Stripe checkout session."""
@@ -47,12 +49,16 @@ class BillingInformationResponse(BaseModel):
     trial_start: datetime | None = None
     trial_end: datetime | None = None
     payment_method_enabled: bool = False
+    operational_state: LicenseOperationalState | None = None
+    operational_state_reason: str | None = None
 
 
 class SubscriptionStatusResponse(BaseModel):
     """Response when no subscription exists."""
 
     subscribed: bool = False
+    operational_state: LicenseOperationalState | None = None
+    operational_state_reason: str | None = None
 
 
 class SeatUpdateRequest(BaseModel):

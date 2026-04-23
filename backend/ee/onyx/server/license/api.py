@@ -32,6 +32,7 @@ from ee.onyx.server.license.models import LicenseSource
 from ee.onyx.server.license.models import LicenseStatusResponse
 from ee.onyx.server.license.models import LicenseUploadResponse
 from ee.onyx.server.license.models import SeatUsageResponse
+from ee.onyx.server.license.runtime_state import derive_license_operational_state
 from ee.onyx.utils.license import verify_license_signature
 from onyx.auth.users import User
 from onyx.db.engine.sql_engine import get_session
@@ -70,9 +71,18 @@ async def get_license_status(
 ) -> LicenseStatusResponse:
     """Get current license status and seat usage."""
     metadata = get_license_metadata(db_session)
+    has_license_record = bool(get_license(db_session))
+    operational_state, operational_state_reason = derive_license_operational_state(
+        metadata=metadata,
+        has_license_record=has_license_record,
+    )
 
     if not metadata:
-        return LicenseStatusResponse(has_license=False)
+        return LicenseStatusResponse(
+            has_license=False,
+            operational_state=operational_state,
+            operational_state_reason=operational_state_reason,
+        )
 
     return LicenseStatusResponse(
         has_license=True,
@@ -84,6 +94,8 @@ async def get_license_status(
         grace_period_end=metadata.grace_period_end,
         status=metadata.status,
         source=metadata.source,
+        operational_state=operational_state,
+        operational_state_reason=operational_state_reason,
     )
 
 
@@ -284,9 +296,18 @@ async def refresh_license_cache_endpoint(
     Does NOT fetch from control plane - use /claim for that.
     """
     metadata = refresh_license_cache(db_session)
+    has_license_record = bool(get_license(db_session))
+    operational_state, operational_state_reason = derive_license_operational_state(
+        metadata=metadata,
+        has_license_record=has_license_record,
+    )
 
     if not metadata:
-        return LicenseStatusResponse(has_license=False)
+        return LicenseStatusResponse(
+            has_license=False,
+            operational_state=operational_state,
+            operational_state_reason=operational_state_reason,
+        )
 
     return LicenseStatusResponse(
         has_license=True,
@@ -298,6 +319,8 @@ async def refresh_license_cache_endpoint(
         grace_period_end=metadata.grace_period_end,
         status=metadata.status,
         source=metadata.source,
+        operational_state=operational_state,
+        operational_state_reason=operational_state_reason,
     )
 
 

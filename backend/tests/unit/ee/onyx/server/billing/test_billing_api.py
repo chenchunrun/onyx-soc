@@ -11,6 +11,7 @@ from ee.onyx.server.billing.models import CreateCheckoutSessionResponse
 from ee.onyx.server.billing.models import CreateCustomerPortalSessionResponse
 from ee.onyx.server.billing.models import SeatUpdateResponse
 from ee.onyx.server.billing.models import SubscriptionStatusResponse
+from ee.onyx.server.license.models import LicenseOperationalState
 from onyx.error_handling.error_codes import OnyxErrorCode
 from onyx.error_handling.exceptions import OnyxError
 
@@ -185,32 +186,38 @@ class TestGetBillingInformation:
 
     @pytest.mark.asyncio
     @patch("ee.onyx.server.billing.api.MULTI_TENANT", False)
+    @patch("ee.onyx.server.billing.api.get_license_metadata")
     @patch("ee.onyx.server.billing.api._get_tenant_id")
     @patch("ee.onyx.server.billing.api._get_license_data")
     async def test_returns_not_subscribed_without_license(
         self,
         mock_get_license: MagicMock,
         mock_get_tenant: MagicMock,
+        mock_get_license_metadata: MagicMock,
     ) -> None:
         """Should return subscribed=False for self-hosted without license."""
         from ee.onyx.server.billing.api import get_billing_information
 
         mock_get_license.return_value = None
         mock_get_tenant.return_value = None
+        mock_get_license_metadata.return_value = None
 
         result = await get_billing_information(_=MagicMock(), db_session=MagicMock())
 
         assert isinstance(result, SubscriptionStatusResponse)
         assert result.subscribed is False
+        assert result.operational_state == LicenseOperationalState.EXPIRED
 
     @pytest.mark.asyncio
     @patch("ee.onyx.server.billing.api.get_billing_service")
+    @patch("ee.onyx.server.billing.api.get_license_metadata")
     @patch("ee.onyx.server.billing.api._get_tenant_id")
     @patch("ee.onyx.server.billing.api._get_license_data")
     async def test_returns_billing_info(
         self,
         mock_get_license: MagicMock,
         mock_get_tenant: MagicMock,
+        mock_get_license_metadata: MagicMock,
         mock_service: AsyncMock,
     ) -> None:
         """Should return billing information with valid license."""
@@ -218,6 +225,7 @@ class TestGetBillingInformation:
 
         mock_get_license.return_value = "license_blob"
         mock_get_tenant.return_value = None
+        mock_get_license_metadata.return_value = MagicMock(status="active")
         mock_service.return_value = BillingInformationResponse(
             tenant_id="tenant_123",
             status="active",
@@ -230,6 +238,7 @@ class TestGetBillingInformation:
         assert result.tenant_id == "tenant_123"
         assert result.status == "active"
         assert result.seats == 10
+        assert result.operational_state is not None
 
     @pytest.mark.asyncio
     @patch("ee.onyx.server.billing.api.MULTI_TENANT", False)
@@ -244,6 +253,7 @@ class TestGetBillingInformation:
 
         assert isinstance(result, SubscriptionStatusResponse)
         assert result.subscribed is False
+        assert result.operational_state is None
 
 
 class TestUpdateSeats:
@@ -355,12 +365,14 @@ class TestCircuitBreaker:
     @pytest.mark.asyncio
     @patch("ee.onyx.server.billing.api.MULTI_TENANT", False)
     @patch("ee.onyx.server.billing.api._is_billing_circuit_open")
+    @patch("ee.onyx.server.billing.api.get_license_metadata")
     @patch("ee.onyx.server.billing.api._get_tenant_id")
     @patch("ee.onyx.server.billing.api._get_license_data")
     async def test_returns_503_when_circuit_open(
         self,
         mock_get_license: MagicMock,
         mock_get_tenant: MagicMock,
+        mock_get_license_metadata: MagicMock,
         mock_circuit_open: MagicMock,
     ) -> None:
         """Should return 503 when circuit breaker is open."""
@@ -368,6 +380,7 @@ class TestCircuitBreaker:
 
         mock_get_license.return_value = "license_blob"
         mock_get_tenant.return_value = None
+        mock_get_license_metadata.return_value = MagicMock(status="active")
         mock_circuit_open.return_value = True
 
         with pytest.raises(OnyxError) as exc_info:
@@ -382,12 +395,14 @@ class TestCircuitBreaker:
     @patch("ee.onyx.server.billing.api._open_billing_circuit")
     @patch("ee.onyx.server.billing.api._is_billing_circuit_open")
     @patch("ee.onyx.server.billing.api.get_billing_service")
+    @patch("ee.onyx.server.billing.api.get_license_metadata")
     @patch("ee.onyx.server.billing.api._get_tenant_id")
     @patch("ee.onyx.server.billing.api._get_license_data")
     async def test_opens_circuit_on_502_error(
         self,
         mock_get_license: MagicMock,
         mock_get_tenant: MagicMock,
+        mock_get_license_metadata: MagicMock,
         mock_service: AsyncMock,
         mock_circuit_open_check: MagicMock,
         mock_open_circuit: MagicMock,
@@ -397,6 +412,7 @@ class TestCircuitBreaker:
 
         mock_get_license.return_value = "license_blob"
         mock_get_tenant.return_value = None
+        mock_get_license_metadata.return_value = MagicMock(status="active")
         mock_circuit_open_check.return_value = False
         mock_service.side_effect = OnyxError(
             OnyxErrorCode.BAD_GATEWAY,
@@ -415,12 +431,14 @@ class TestCircuitBreaker:
     @patch("ee.onyx.server.billing.api._open_billing_circuit")
     @patch("ee.onyx.server.billing.api._is_billing_circuit_open")
     @patch("ee.onyx.server.billing.api.get_billing_service")
+    @patch("ee.onyx.server.billing.api.get_license_metadata")
     @patch("ee.onyx.server.billing.api._get_tenant_id")
     @patch("ee.onyx.server.billing.api._get_license_data")
     async def test_opens_circuit_on_503_error(
         self,
         mock_get_license: MagicMock,
         mock_get_tenant: MagicMock,
+        mock_get_license_metadata: MagicMock,
         mock_service: AsyncMock,
         mock_circuit_open_check: MagicMock,
         mock_open_circuit: MagicMock,
@@ -430,6 +448,7 @@ class TestCircuitBreaker:
 
         mock_get_license.return_value = "license_blob"
         mock_get_tenant.return_value = None
+        mock_get_license_metadata.return_value = MagicMock(status="active")
         mock_circuit_open_check.return_value = False
         mock_service.side_effect = OnyxError(
             OnyxErrorCode.BAD_GATEWAY,
@@ -448,12 +467,14 @@ class TestCircuitBreaker:
     @patch("ee.onyx.server.billing.api._open_billing_circuit")
     @patch("ee.onyx.server.billing.api._is_billing_circuit_open")
     @patch("ee.onyx.server.billing.api.get_billing_service")
+    @patch("ee.onyx.server.billing.api.get_license_metadata")
     @patch("ee.onyx.server.billing.api._get_tenant_id")
     @patch("ee.onyx.server.billing.api._get_license_data")
     async def test_opens_circuit_on_504_error(
         self,
         mock_get_license: MagicMock,
         mock_get_tenant: MagicMock,
+        mock_get_license_metadata: MagicMock,
         mock_service: AsyncMock,
         mock_circuit_open_check: MagicMock,
         mock_open_circuit: MagicMock,
@@ -463,6 +484,7 @@ class TestCircuitBreaker:
 
         mock_get_license.return_value = "license_blob"
         mock_get_tenant.return_value = None
+        mock_get_license_metadata.return_value = MagicMock(status="active")
         mock_circuit_open_check.return_value = False
         mock_service.side_effect = OnyxError(
             OnyxErrorCode.BAD_GATEWAY,
@@ -481,12 +503,14 @@ class TestCircuitBreaker:
     @patch("ee.onyx.server.billing.api._open_billing_circuit")
     @patch("ee.onyx.server.billing.api._is_billing_circuit_open")
     @patch("ee.onyx.server.billing.api.get_billing_service")
+    @patch("ee.onyx.server.billing.api.get_license_metadata")
     @patch("ee.onyx.server.billing.api._get_tenant_id")
     @patch("ee.onyx.server.billing.api._get_license_data")
     async def test_does_not_open_circuit_on_400_error(
         self,
         mock_get_license: MagicMock,
         mock_get_tenant: MagicMock,
+        mock_get_license_metadata: MagicMock,
         mock_service: AsyncMock,
         mock_circuit_open_check: MagicMock,
         mock_open_circuit: MagicMock,
@@ -496,6 +520,7 @@ class TestCircuitBreaker:
 
         mock_get_license.return_value = "license_blob"
         mock_get_tenant.return_value = None
+        mock_get_license_metadata.return_value = MagicMock(status="active")
         mock_circuit_open_check.return_value = False
         mock_service.side_effect = OnyxError(
             OnyxErrorCode.BAD_GATEWAY,
