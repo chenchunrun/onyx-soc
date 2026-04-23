@@ -3,6 +3,7 @@ from datetime import datetime
 from datetime import timezone
 from typing import Any
 from typing import cast
+from uuid import uuid4
 
 from celery import Celery
 from celery import shared_task
@@ -68,6 +69,35 @@ from onyx.utils.variable_functionality import noop_fallback
 class TaskDependencyError(RuntimeError):
     """Raised to the caller to indicate dependent tasks are running that would interfere
     with connector deletion."""
+
+
+def _is_current_deletion_execution(
+    redis_connector: RedisConnector,
+    execution_id: str | None,
+    cc_pair_id: int,
+    stage: str,
+) -> bool:
+    current_payload = redis_connector.delete.payload
+    if not current_payload:
+        task_logger.info(
+            "Connector deletion - stale execution observed (missing fence payload): "
+            f"cc_pair={cc_pair_id} stage={stage} execution_id={execution_id}"
+        )
+        return False
+
+    # Legacy payloads may not include execution_id. Keep behavior backward compatible.
+    if execution_id is None or current_payload.execution_id is None:
+        return True
+
+    if current_payload.execution_id != execution_id:
+        task_logger.info(
+            "Connector deletion - stale execution observed (execution_id mismatch): "
+            f"cc_pair={cc_pair_id} stage={stage} expected_execution_id={execution_id} "
+            f"current_execution_id={current_payload.execution_id}"
+        )
+        return False
+
+    return True
 
 
 def revoke_tasks_blocking_deletion(
@@ -282,6 +312,7 @@ def try_generate_document_cc_pair_cleanup_tasks(
     fence_payload = RedisConnectorDeletePayload(
         num_tasks=None,
         submitted=datetime.now(timezone.utc),
+        execution_id=uuid4().hex,
     )
 
     redis_connector.delete.set_fence(fence_payload)
@@ -324,7 +355,10 @@ def try_generate_document_cc_pair_cleanup_tasks(
             f"RedisConnectorDeletion.generate_tasks starting. cc_pair={cc_pair_id}"
         )
         tasks_generated = redis_connector.delete.generate_tasks(
-            app, db_session, lock_beat
+            app,
+            db_session,
+            lock_beat,
+            execution_id=fence_payload.execution_id,
         )
         if tasks_generated is None:
             raise ValueError("RedisConnectorDeletion.generate_tasks returned None")
@@ -389,11 +423,24 @@ def monitor_connector_deletion_taskset(
         # the fence is setting up but isn't ready yet
         return
 
+    execution_id = fence_data.execution_id
+
     remaining = redis_connector.delete.get_remaining()
     task_logger.info(
-        f"Connector deletion progress: cc_pair={cc_pair_id} remaining={remaining} initial={fence_data.num_tasks}"
+        "Connector deletion progress: "
+        f"cc_pair={cc_pair_id} "
+        f"execution_id={execution_id} "
+        f"remaining={remaining} initial={fence_data.num_tasks}"
     )
     if remaining > 0:
+        if not _is_current_deletion_execution(
+            redis_connector=redis_connector,
+            execution_id=execution_id,
+            cc_pair_id=cc_pair_id,
+            stage="in_progress",
+        ):
+            return
+
         with get_session_with_current_tenant() as db_session:
             update_sync_record_status(
                 db_session=db_session,
@@ -402,6 +449,14 @@ def monitor_connector_deletion_taskset(
                 sync_status=SyncStatus.IN_PROGRESS,
                 num_docs_synced=remaining,
             )
+        return
+
+    if not _is_current_deletion_execution(
+        redis_connector=redis_connector,
+        execution_id=execution_id,
+        cc_pair_id=cc_pair_id,
+        stage="finalize_precheck",
+    ):
         return
 
     with get_session_with_current_tenant() as db_session:
@@ -543,9 +598,18 @@ def monitor_connector_deletion_taskset(
             )
             raise e
 
+    if not _is_current_deletion_execution(
+        redis_connector=redis_connector,
+        execution_id=execution_id,
+        cc_pair_id=cc_pair_id,
+        stage="finalize_before_reset",
+    ):
+        return
+
     task_logger.info(
         f"Connector deletion succeeded: "
         f"cc_pair={cc_pair_id} "
+        f"execution_id={execution_id} "
         f"connector={connector_id_to_delete} "
         f"credential={credential_id_to_delete} "
         f"docs_deleted={fence_data.num_tasks}"

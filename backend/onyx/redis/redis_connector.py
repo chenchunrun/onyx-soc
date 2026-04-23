@@ -68,9 +68,11 @@ class RedisConnector:
         Returns:
             str | None: The extracted object ID if the task ID is in the correct format, otherwise None.
         """
-        # example: task_id=documentset_1_cbfdc96a-80ca-4312-a242-0bb68da3c1dc
+        # examples:
+        # - task_id=documentset_1_cbfdc96a-80ca-4312-a242-0bb68da3c1dc
+        # - task_id=connectordeletion_1_execabc_dd32ded3-00aa-4884-8b21-42f8332e7fac
         parts = task_id.split("_")
-        if len(parts) != 3:
+        if len(parts) < 3:
             return None
 
         object_id = parts[1]

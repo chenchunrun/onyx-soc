@@ -22,6 +22,7 @@ from onyx.db.document import construct_document_id_select_for_connector_credenti
 class RedisConnectorDeletePayload(BaseModel):
     num_tasks: int | None
     submitted: datetime
+    execution_id: str | None = None
 
 
 class RedisConnectorDelete:
@@ -94,18 +95,20 @@ class RedisConnectorDelete:
     def active(self) -> bool:
         return bool(self.redis.exists(self.active_key))
 
-    def _generate_task_id(self) -> str:
+    def _generate_task_id(self, execution_id: str | None = None) -> str:
         # celery's default task id format is "dd32ded3-00aa-4884-8b21-42f8332e7fac"
         # we prefix the task id so it's easier to keep track of who created the task
         # aka "connectordeletion_1_6dd32ded3-00aa-4884-8b21-42f8332e7fac"
-
-        return f"{self.PREFIX}_{self.id}_{uuid4()}"
+        if not execution_id:
+            return f"{self.PREFIX}_{self.id}_{uuid4()}"
+        return f"{self.PREFIX}_{self.id}_{execution_id}_{uuid4()}"
 
     def generate_tasks(
         self,
         celery_app: Celery,
         db_session: Session,
         lock: RedisLock,
+        execution_id: str | None = None,
     ) -> int | None:
         """Returns None if the cc_pair doesn't exist.
         Otherwise, returns an int with the number of generated tasks."""
@@ -132,7 +135,7 @@ class RedisConnectorDelete:
                 lock.reacquire()
                 last_lock_time = current_time
 
-            custom_task_id = self._generate_task_id()
+            custom_task_id = self._generate_task_id(execution_id=execution_id)
 
             # add to the tracking taskset in redis BEFORE creating the celery task.
             # note that for the moment we are using a single taskset key, not differentiated by cc_pair id
