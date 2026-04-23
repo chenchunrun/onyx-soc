@@ -47,6 +47,7 @@ AUTHORIZED_SCAN_TARGETS_PATH = (
     Path(__file__).resolve().parent / "authorized_scan_targets.yaml"
 )
 AUTHORIZED_SCAN_AUDIT_PATH = Path(__file__).resolve().parent / "authorized_scan_audit.jsonl"
+RUNTIME_SKILL_AUDIT_PATH = Path(__file__).resolve().parent / "runtime_skill_audit.jsonl"
 SCAN_CACHE_TTL_SECONDS = 10
 _SCANNED_SKILLS_CACHE: dict[str, tuple[float, dict[str, "ManagedSkill"]]] = {}
 
@@ -760,6 +761,8 @@ def resolve_bound_skill_runtime_state(
     requested_skill_keys: list[str] | None = None,
     targets: list[str] | None = None,
     approval_reference: str | None = None,
+    audit: bool = False,
+    audit_metadata: dict[str, Any] | None = None,
 ) -> BoundSkillRuntimeResolution:
     skills_by_key = {skill.key: skill for skill in list_managed_skills()}
     requested_key_set = set(requested_skill_keys or [])
@@ -826,12 +829,30 @@ def resolve_bound_skill_runtime_state(
     active_key_set = set(active_skill_keys)
     inactive_skill_keys = [skill_key for skill_key in bound_skill_keys if skill_key not in active_key_set]
 
-    return BoundSkillRuntimeResolution(
+    resolution = BoundSkillRuntimeResolution(
         active_skill_keys=active_skill_keys,
         inactive_skill_keys=inactive_skill_keys,
         activation_required_skill_keys=sorted(set(activation_required_skill_keys)),
         blocked_skill_reasons=blocked_skill_reasons,
     )
+    if audit:
+        _append_runtime_skill_audit(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "user_email": getattr(user, "email", None),
+                "bound_skill_keys": bound_skill_keys,
+                "requested_skill_keys": requested_skill_keys or [],
+                "active_skill_keys": resolution.active_skill_keys,
+                "inactive_skill_keys": resolution.inactive_skill_keys,
+                "activation_required_skill_keys": resolution.activation_required_skill_keys,
+                "blocked_skill_reasons": resolution.blocked_skill_reasons,
+                "targets": targets,
+                "approval_reference": approval_reference,
+                **(audit_metadata or {}),
+            }
+        )
+
+    return resolution
 
 
 def build_skill_registry_summary(
@@ -1046,10 +1067,29 @@ def _append_authorized_scan_audit(record: dict[str, Any]) -> None:
         handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+def _append_runtime_skill_audit(record: dict[str, Any]) -> None:
+    with open(RUNTIME_SKILL_AUDIT_PATH, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
 def list_authorized_scan_audit(limit: int = 20) -> list[dict[str, Any]]:
     if not AUTHORIZED_SCAN_AUDIT_PATH.exists():
         return []
     with open(AUTHORIZED_SCAN_AUDIT_PATH, "r", encoding="utf-8") as handle:
+        lines = handle.readlines()[-limit:]
+    records: list[dict[str, Any]] = []
+    for line in lines:
+        try:
+            records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return list(reversed(records))
+
+
+def list_runtime_skill_audit(limit: int = 20) -> list[dict[str, Any]]:
+    if not RUNTIME_SKILL_AUDIT_PATH.exists():
+        return []
+    with open(RUNTIME_SKILL_AUDIT_PATH, "r", encoding="utf-8") as handle:
         lines = handle.readlines()[-limit:]
     records: list[dict[str, Any]] = []
     for line in lines:

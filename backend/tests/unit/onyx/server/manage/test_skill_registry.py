@@ -753,3 +753,54 @@ def test_resolve_bound_skill_runtime_state_activates_authorized_scan_when_approv
     assert resolution.inactive_skill_keys == []
     assert resolution.activation_required_skill_keys == ["asset-discovery"]
     assert resolution.blocked_skill_reasons == {}
+
+
+def test_resolve_bound_skill_runtime_state_writes_audit_record_when_enabled(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        registry,
+        "list_managed_skills",
+        lambda *args, **kwargs: [
+            ManagedSkill(
+                key="code-audit",
+                name="code-audit",
+                description="",
+                path="skills/code-audit",
+                risk_level=SkillRiskLevel.LOW,
+                access_scope=SkillAccessScope.ALL_USERS,
+                enabled=True,
+                builtin=False,
+                has_scripts=False,
+                has_references=False,
+                has_tools=False,
+                has_requirements=False,
+                execution_scope=SkillExecutionScope.STANDARD,
+                notes=None,
+            )
+        ],
+    )
+
+    captured_records: list[dict] = []
+    monkeypatch.setattr(
+        registry,
+        "_append_runtime_skill_audit",
+        lambda record: captured_records.append(record),
+    )
+
+    user = SimpleNamespace(role=UserRole.BASIC, email="analyst@example.com")
+    resolution = resolve_bound_skill_runtime_state(
+        bound_skill_keys=["code-audit"],
+        user=user,
+        requested_skill_keys=["code-audit"],
+        audit=True,
+        audit_metadata={"chat_session_id": 42},
+    )
+
+    assert resolution.active_skill_keys == ["code-audit"]
+    assert len(captured_records) == 1
+    assert captured_records[0]["user_email"] == "analyst@example.com"
+    assert captured_records[0]["bound_skill_keys"] == ["code-audit"]
+    assert captured_records[0]["requested_skill_keys"] == ["code-audit"]
+    assert captured_records[0]["active_skill_keys"] == ["code-audit"]
+    assert captured_records[0]["chat_session_id"] == 42

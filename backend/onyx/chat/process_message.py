@@ -746,6 +746,11 @@ def build_chat_turn(
         requested_skill_keys=new_msg_req.active_skill_keys,
         targets=new_msg_req.skill_targets,
         approval_reference=new_msg_req.skill_approval_reference,
+        audit=True,
+        audit_metadata={
+            "chat_session_id": chat_session.id,
+            "persona_id": persona.id,
+        },
     )
 
     if new_msg_req.active_skill_keys:

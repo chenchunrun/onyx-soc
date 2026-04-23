@@ -28,6 +28,7 @@ from onyx.server.manage.skills.registry import (
 from onyx.server.manage.skills.registry import import_skill_registry
 from onyx.server.manage.skills.registry import list_authorized_scan_audit
 from onyx.server.manage.skills.registry import list_authorized_scan_targets
+from onyx.server.manage.skills.registry import list_runtime_skill_audit
 from onyx.server.manage.skills.registry import ManagedSkill
 from onyx.server.manage.skills.registry import SkillAccessScope
 from onyx.server.manage.skills.registry import SkillRegistryImportRequest
@@ -151,6 +152,14 @@ def get_authorized_scan_audit(
     _user: User = Depends(current_admin_user),
 ) -> list[dict[str, object]]:
     return list_authorized_scan_audit(limit=limit)
+
+
+@router.get("/runtime-policy/audit")
+def get_runtime_skill_audit(
+    limit: int = 20,
+    _user: User = Depends(current_admin_user),
+) -> list[dict[str, object]]:
+    return list_runtime_skill_audit(limit=limit)
 
 
 @router.put("/{skill_key}")
