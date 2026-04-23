@@ -14,8 +14,8 @@ from onyx.server.manage.skills.registry import ManagedSkill
 from onyx.server.manage.skills.registry import build_skill_runtime_profile
 from onyx.server.manage.skills.registry import list_authorized_scan_targets
 from onyx.server.manage.skills.registry import list_managed_skills
+from onyx.server.manage.skills.registry import resolve_bound_skill_accessibility
 from onyx.server.manage.skills.registry import resolve_bound_skill_runtime_state
-from onyx.server.manage.skills.registry import user_can_access_skill
 
 
 class PromptPresetRuntimeBinding(BaseModel):
@@ -96,8 +96,7 @@ def _build_prompt_preset_binding(persona: Persona) -> PromptPresetRuntimeBinding
 
 def _build_skill_binding(
     skill: ManagedSkill,
-    user: User,
-    db_session: Session,
+    accessible: bool,
 ) -> AgentSkillRuntimeBinding:
     return AgentSkillRuntimeBinding(
         key=skill.key,
@@ -113,7 +112,7 @@ def _build_skill_binding(
         ],
         notes=skill.notes,
         enabled=skill.enabled,
-        accessible=user_can_access_skill(skill, user, db_session),
+        accessible=accessible,
     )
 
 
@@ -194,16 +193,31 @@ def build_persona_runtime_profile(
         )
 
     all_skills = {skill.key: skill for skill in list_managed_skills()}
+    bound_skill_access = resolve_bound_skill_accessibility(
+        bound_skill_keys=persona.skill_keys,
+        user=user,
+        db_session=db_session,
+    )
     bound_skills = [
-        _build_skill_binding(skill, user, db_session)
+        _build_skill_binding(
+            skill,
+            bound_skill_access.get(skill.key, False),
+        )
         for skill_key in persona.skill_keys
         if (skill := all_skills.get(skill_key)) is not None
     ]
     accessible_skill_keys = sorted(
-        skill.key for skill in bound_skills if skill.accessible and skill.enabled
+        skill_key
+        for skill_key, is_accessible in bound_skill_access.items()
+        if is_accessible
+        and all_skills.get(skill_key) is not None
+        and all_skills[skill_key].enabled
     )
+    accessible_skill_key_set = set(accessible_skill_keys)
     inaccessible_skill_keys = sorted(
-        skill.key for skill in bound_skills if not skill.accessible or not skill.enabled
+        skill_key
+        for skill_key in bound_skill_access
+        if skill_key not in accessible_skill_key_set
     )
     authorized_target_suggestions = _build_authorized_target_suggestions(bound_skills)
     approval_reference_suggestions = sorted(

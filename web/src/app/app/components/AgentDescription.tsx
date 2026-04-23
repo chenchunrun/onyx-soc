@@ -2,14 +2,13 @@
 
 import Text from "@/refresh-components/texts/Text";
 import { MinimalPersonaSnapshot } from "@/app/admin/agents/interfaces";
-import AgentRuntimeBindings from "@/app/app/components/AgentRuntimeBindings";
 
 export interface AgentDescriptionProps {
   agent?: MinimalPersonaSnapshot;
 }
 
 export default function AgentDescription({ agent }: AgentDescriptionProps) {
-  if (!agent?.description && !agent?.skill_keys?.length && !agent?.prompt_preset_id) {
+  if (!agent?.description) {
     return null;
   }
 
@@ -25,7 +24,6 @@ export default function AgentDescription({ agent }: AgentDescriptionProps) {
           {agent.description}
         </Text>
       )}
-      <AgentRuntimeBindings agent={agent} />
     </div>
   );
 }

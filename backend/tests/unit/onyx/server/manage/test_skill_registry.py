@@ -163,6 +163,63 @@ def test_get_allowed_skill_names_for_user_accepts_security_group_membership(
     }
 
 
+def test_resolve_bound_skill_accessibility_skips_missing_and_respects_scope(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        registry,
+        "list_managed_skills",
+        lambda: [
+            ManagedSkill(
+                key="all-users-skill",
+                name="all-users-skill",
+                description="",
+                path="skills/all-users-skill",
+                risk_level=SkillRiskLevel.LOW,
+                access_scope=SkillAccessScope.ALL_USERS,
+                enabled=True,
+                builtin=False,
+                has_scripts=False,
+                has_references=False,
+                has_tools=False,
+                has_requirements=False,
+                notes=None,
+            ),
+            ManagedSkill(
+                key="security-only-skill",
+                name="security-only-skill",
+                description="",
+                path="skills/security-only-skill",
+                risk_level=SkillRiskLevel.MEDIUM,
+                access_scope=SkillAccessScope.SECURITY_TEAM,
+                enabled=True,
+                builtin=False,
+                has_scripts=False,
+                has_references=False,
+                has_tools=False,
+                has_requirements=False,
+                notes=None,
+            ),
+        ],
+    )
+
+    basic_user = SimpleNamespace(role=UserRole.BASIC, email="user@example.com")
+
+    access_map = registry.resolve_bound_skill_accessibility(
+        bound_skill_keys=[
+            "all-users-skill",
+            "security-only-skill",
+            "missing-skill",
+        ],
+        user=basic_user,
+    )
+
+    assert access_map == {
+        "all-users-skill": True,
+        "security-only-skill": False,
+    }
+
+
 def test_build_skill_registry_summary_exposes_role_previews(monkeypatch) -> None:
     monkeypatch.setattr(
         registry,

@@ -37,7 +37,7 @@ def _make_skill(
 
 @patch("onyx.server.features.persona.runtime_profile.build_skill_runtime_profile")
 @patch("onyx.server.features.persona.runtime_profile.resolve_bound_skill_runtime_state")
-@patch("onyx.server.features.persona.runtime_profile.user_can_access_skill")
+@patch("onyx.server.features.persona.runtime_profile.resolve_bound_skill_accessibility")
 @patch("onyx.server.features.persona.runtime_profile.list_authorized_scan_targets")
 @patch("onyx.server.features.persona.runtime_profile.list_managed_skills")
 @patch("onyx.server.features.persona.runtime_profile.scan_prompt_presets")
@@ -45,7 +45,7 @@ def test_build_persona_runtime_profile_filters_accessible_and_inaccessible_skill
     mock_scan_prompt_presets: MagicMock,
     mock_list_managed_skills: MagicMock,
     mock_list_authorized_scan_targets: MagicMock,
-    mock_user_can_access_skill: MagicMock,
+    mock_resolve_bound_skill_accessibility: MagicMock,
     mock_resolve_bound_skill_runtime_state: MagicMock,
     mock_build_skill_runtime_profile: MagicMock,
 ) -> None:
@@ -83,7 +83,10 @@ def test_build_persona_runtime_profile_filters_accessible_and_inaccessible_skill
     authorized_target.expires_at = None
     authorized_target.notes = "Approved corp scope"
     mock_list_authorized_scan_targets.return_value = [authorized_target]
-    mock_user_can_access_skill.side_effect = lambda skill, user, db: skill.key == "code-audit"
+    mock_resolve_bound_skill_accessibility.return_value = {
+        "code-audit": True,
+        "redteam": False,
+    }
 
     runtime_profile = MagicMock()
     runtime_profile.policy_entries = [
@@ -147,7 +150,7 @@ def test_build_persona_runtime_profile_filters_accessible_and_inaccessible_skill
 
 @patch("onyx.server.features.persona.runtime_profile.build_skill_runtime_profile")
 @patch("onyx.server.features.persona.runtime_profile.resolve_bound_skill_runtime_state")
-@patch("onyx.server.features.persona.runtime_profile.user_can_access_skill")
+@patch("onyx.server.features.persona.runtime_profile.resolve_bound_skill_accessibility")
 @patch("onyx.server.features.persona.runtime_profile.list_authorized_scan_targets")
 @patch("onyx.server.features.persona.runtime_profile.list_managed_skills")
 @patch("onyx.server.features.persona.runtime_profile.scan_prompt_presets")
@@ -155,7 +158,7 @@ def test_build_persona_runtime_profile_handles_no_accessible_bound_skills(
     mock_scan_prompt_presets: MagicMock,
     mock_list_managed_skills: MagicMock,
     mock_list_authorized_scan_targets: MagicMock,
-    mock_user_can_access_skill: MagicMock,
+    mock_resolve_bound_skill_accessibility: MagicMock,
     mock_resolve_bound_skill_runtime_state: MagicMock,
     mock_build_skill_runtime_profile: MagicMock,
 ) -> None:
@@ -163,7 +166,7 @@ def test_build_persona_runtime_profile_handles_no_accessible_bound_skills(
     mock_list_authorized_scan_targets.return_value = []
     quarantined = _make_skill(key="redteam", access_scope="security_team")
     mock_list_managed_skills.return_value = [quarantined]
-    mock_user_can_access_skill.return_value = False
+    mock_resolve_bound_skill_accessibility.return_value = {"redteam": False}
 
     runtime_profile = MagicMock()
     runtime_profile.policy_entries = []
@@ -210,7 +213,7 @@ def test_build_persona_runtime_profile_handles_no_accessible_bound_skills(
 
 @patch("onyx.server.features.persona.runtime_profile.build_skill_runtime_profile")
 @patch("onyx.server.features.persona.runtime_profile.resolve_bound_skill_runtime_state")
-@patch("onyx.server.features.persona.runtime_profile.user_can_access_skill")
+@patch("onyx.server.features.persona.runtime_profile.resolve_bound_skill_accessibility")
 @patch("onyx.server.features.persona.runtime_profile.list_authorized_scan_targets")
 @patch("onyx.server.features.persona.runtime_profile.list_managed_skills")
 @patch("onyx.server.features.persona.runtime_profile.scan_prompt_presets")
@@ -218,7 +221,7 @@ def test_build_persona_runtime_profile_includes_authorized_target_suggestions(
     mock_scan_prompt_presets: MagicMock,
     mock_list_managed_skills: MagicMock,
     mock_list_authorized_scan_targets: MagicMock,
-    mock_user_can_access_skill: MagicMock,
+    mock_resolve_bound_skill_accessibility: MagicMock,
     mock_resolve_bound_skill_runtime_state: MagicMock,
     mock_build_skill_runtime_profile: MagicMock,
 ) -> None:
@@ -233,7 +236,7 @@ def test_build_persona_runtime_profile_includes_authorized_target_suggestions(
         notes="Approved corp-only scans.",
     )
     mock_list_managed_skills.return_value = [asset_discovery]
-    mock_user_can_access_skill.return_value = True
+    mock_resolve_bound_skill_accessibility.return_value = {"asset-discovery": True}
 
     authorized_target = MagicMock()
     authorized_target.target = "example.com"

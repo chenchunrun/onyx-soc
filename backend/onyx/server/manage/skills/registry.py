@@ -17,7 +17,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 import yaml
 
-from onyx.auth.users import is_user_admin
 from onyx.auth.schemas import UserRole
 from onyx.db.models import User
 from onyx.db.models import User__UserGroup
@@ -624,19 +623,43 @@ def is_security_team_user(user: User, db_session: Session | None = None) -> bool
     return bool(user.email and user.email.lower() in SECURITY_TEAM_EMAILS)
 
 
+def get_skill_access_denial_reason(
+    skill: ManagedSkill,
+    user: User,
+    db_session: Session | None = None,
+    *,
+    detailed: bool = False,
+) -> str | None:
+    if not skill.enabled:
+        return "Skill is disabled"
+
+    if skill.access_scope == SkillAccessScope.ALL_USERS:
+        return None
+    if skill.access_scope == SkillAccessScope.ADMIN_ONLY:
+        if user.role == UserRole.ADMIN:
+            return None
+        return (
+            "Skill is restricted to admin users"
+            if detailed
+            else "Skill is not accessible to the current user"
+        )
+    if skill.access_scope == SkillAccessScope.SECURITY_TEAM:
+        if is_security_team_user(user, db_session):
+            return None
+        return (
+            "Skill is restricted to the security team"
+            if detailed
+            else "Skill is not accessible to the current user"
+        )
+    if skill.access_scope == SkillAccessScope.QUARANTINED:
+        return "Skill is quarantined" if detailed else "Skill is not accessible to the current user"
+    return "Skill is not accessible to the current user"
+
+
 def user_can_access_skill(
     skill: ManagedSkill, user: User, db_session: Session | None = None
 ) -> bool:
-    if not skill.enabled:
-        return False
-
-    if skill.access_scope == SkillAccessScope.ALL_USERS:
-        return True
-    if skill.access_scope == SkillAccessScope.ADMIN_ONLY:
-        return user.role == UserRole.ADMIN
-    if skill.access_scope == SkillAccessScope.SECURITY_TEAM:
-        return is_security_team_user(user, db_session)
-    return False
+    return get_skill_access_denial_reason(skill, user, db_session) is None
 
 
 def get_allowed_skill_names_for_user(
@@ -699,6 +722,22 @@ def build_skill_runtime_profile(
         policy_markdown=policy_markdown,
         policy_entries=policy_entries,
     )
+
+
+def resolve_bound_skill_accessibility(
+    *,
+    bound_skill_keys: list[str],
+    user: User,
+    db_session: Session | None = None,
+) -> dict[str, bool]:
+    skills_by_key = {skill.key: skill for skill in list_managed_skills()}
+    access_by_skill_key: dict[str, bool] = {}
+    for skill_key in bound_skill_keys:
+        skill = skills_by_key.get(skill_key)
+        if skill is None:
+            continue
+        access_by_skill_key[skill_key] = user_can_access_skill(skill, user, db_session)
+    return access_by_skill_key
 
 
 def skill_requires_explicit_runtime_activation(skill: ManagedSkill) -> bool:
@@ -1055,18 +1094,17 @@ def authorize_skill_scan_execution(
     allowed_targets: list[str] = []
     denied_targets: list[str] = []
 
-    if not skill.enabled:
-        reasons.append("Skill is disabled")
     if skill.execution_scope != SkillExecutionScope.AUTHORIZED_SCAN:
         reasons.append("Skill is not configured for authorized scan mode")
     if skill.requires_approval and not request.approval_reference:
         reasons.append("Approval reference is required")
-    if skill.access_scope == SkillAccessScope.QUARANTINED:
-        reasons.append("Skill is quarantined")
-    elif skill.access_scope == SkillAccessScope.ADMIN_ONLY and not is_user_admin(user):
-        reasons.append("Skill is restricted to admin users")
-    elif skill.access_scope == SkillAccessScope.SECURITY_TEAM and not is_security_team_user(user):
-        reasons.append("Skill is restricted to the security team")
+    access_denial_reason = get_skill_access_denial_reason(
+        skill,
+        user,
+        detailed=True,
+    )
+    if access_denial_reason:
+        reasons.append(access_denial_reason)
 
     authorized_targets = list_authorized_scan_targets()
     for target in request.targets:
