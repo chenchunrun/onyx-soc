@@ -5,6 +5,7 @@ import {
   Tag,
   UserGroup,
   ConnectorStatus,
+  ConnectorOperationalAlert,
   CCPairBasicInfo,
   FederatedConnectorDetail,
   ValidSources,
@@ -221,6 +222,24 @@ export const useConnectorStatus = (
   return {
     ...swrResponse,
     refreshIndexingStatus: enabled ? () => mutate(url) : () => {},
+  };
+};
+
+export const useConnectorOperationalAlerts = (
+  refreshInterval = 30000,
+  enabled: boolean = true
+) => {
+  const { mutate } = useSWRConfig();
+  const url = SWR_KEYS.connectorOperationalAlerts;
+  const swrResponse = useSWR<ConnectorOperationalAlert[]>(
+    enabled ? url : null,
+    errorHandlingFetcher,
+    { refreshInterval }
+  );
+
+  return {
+    ...swrResponse,
+    refreshOperationalAlerts: enabled ? () => mutate(url) : () => {},
   };
 };
 

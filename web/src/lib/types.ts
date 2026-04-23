@@ -256,6 +256,21 @@ export interface ConnectorIndexingStatusLite {
   operational_stuck: boolean;
 }
 
+export interface ConnectorOperationalAlert {
+  cc_pair_id: number;
+  name: string;
+  source: ValidSources;
+  cc_pair_status: ConnectorCredentialPairStatus;
+  operational_deleting: boolean;
+  operational_error: boolean;
+  operational_stuck: boolean;
+  reasons: string[];
+  last_status: ValidStatuses | null;
+  last_finished_status: ValidStatuses | null;
+  last_success: string | null;
+  last_error_message: string | null;
+}
+
 export interface FederatedConnectorStatus {
   id: number;
   source: ValidSources;

@@ -2,6 +2,7 @@
 
 import { CCPairIndexingStatusTable } from "./CCPairIndexingStatusTable";
 import { SearchAndFilterControls } from "./SearchAndFilterControls";
+import { OperationalAlertsPanel } from "./OperationalAlertsPanel";
 import * as SettingsLayouts from "@/layouts/settings-layouts";
 import Link from "next/link";
 import { ADMIN_ROUTES } from "@/lib/admin-routes";
@@ -9,6 +10,7 @@ import { Text } from "@opal/components";
 import { markdown } from "@opal/utils";
 import Spacer from "@/refresh-components/Spacer";
 import { useConnectorIndexingStatusWithPagination } from "@/lib/hooks";
+import { useConnectorOperationalAlerts } from "@/lib/hooks";
 import { useToastFromQuery } from "@/hooks/useToast";
 import { Button } from "@opal/components";
 import { useVectorDbEnabled } from "@/providers/SettingsProvider";
@@ -73,6 +75,11 @@ function Main() {
     sourceLoadingStates,
     resetPagination,
   } = useConnectorIndexingStatusWithPagination(request, 30000, vectorDbEnabled);
+  const {
+    data: connectorOperationalAlerts,
+    isLoading: isLoadingConnectorOperationalAlerts,
+    error: connectorOperationalAlertsError,
+  } = useConnectorOperationalAlerts(30000, vectorDbEnabled);
 
   // Check if filters are active
   const hasActiveFilters = useMemo(() => {
@@ -164,6 +171,13 @@ function Main() {
 
   return (
     <div>
+      {!connectorOperationalAlertsError ? (
+        <OperationalAlertsPanel
+          alerts={connectorOperationalAlerts}
+          isLoading={isLoadingConnectorOperationalAlerts}
+        />
+      ) : null}
+
       {/* Search bar and controls */}
       <SearchAndFilterControls
         searchQuery={searchQuery}

@@ -50,6 +50,7 @@ export const SWR_KEYS = {
   adminCredentials: "/api/manage/admin/credential",
   indexingStatus: "/api/manage/admin/connector/indexing-status",
   adminConnectorStatus: "/api/manage/admin/connector/status",
+  connectorOperationalAlerts: "/api/manage/admin/connector/operational-alerts",
   federatedConnectors: "/api/federated",
 
   // ── Google Connectors ─────────────────────────────────────────────────────
