@@ -30,6 +30,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ee.onyx.auth.users import current_admin_user
+from ee.onyx.configs.app_configs import BILLING_CIRCUIT_RETURN_CACHED_STATE_ENABLED
 from ee.onyx.db.license import get_license
 from ee.onyx.db.license import get_license_metadata
 from ee.onyx.db.license import get_used_seats
@@ -53,6 +54,8 @@ from ee.onyx.server.billing.service import (
     get_billing_information as get_billing_service,
 )
 from ee.onyx.server.billing.service import update_seat_count as update_seat_service
+from ee.onyx.server.license.models import LicenseMetadata
+from ee.onyx.server.license.models import LicenseOperationalState
 from ee.onyx.server.license.runtime_state import derive_license_operational_state
 from onyx.auth.users import User
 from onyx.configs.app_configs import STRIPE_PUBLISHABLE_KEY_OVERRIDE
@@ -158,6 +161,30 @@ def _get_tenant_id() -> str | None:
     return None
 
 
+def _build_cached_billing_response(
+    *,
+    metadata: LicenseMetadata | None,
+    has_license_record: bool,
+    operational_state: LicenseOperationalState | None,
+    operational_state_reason: str | None,
+) -> BillingInformationResponse | SubscriptionStatusResponse:
+    if metadata is None:
+        return SubscriptionStatusResponse(
+            subscribed=has_license_record,
+            operational_state=operational_state,
+            operational_state_reason=operational_state_reason,
+        )
+
+    return BillingInformationResponse(
+        tenant_id=metadata.tenant_id,
+        status=metadata.status.value,
+        seats=metadata.seats,
+        plan_type=metadata.plan_type.value,
+        operational_state=operational_state,
+        operational_state_reason=operational_state_reason,
+    )
+
+
 @router.post("/create-checkout-session")
 async def create_checkout_session(
     request: CreateCheckoutSessionRequest | None = None,
@@ -257,11 +284,12 @@ async def get_billing_information(
     license_data = _get_license_data(db_session)
     tenant_id = _get_tenant_id()
     billing_circuit_open = _is_billing_circuit_open()
+    metadata = None
+    has_license_record = bool(license_data)
     operational_state = None
     operational_state_reason = None
     if not MULTI_TENANT:
         metadata = get_license_metadata(db_session)
-        has_license_record = bool(license_data)
         operational_state, operational_state_reason = derive_license_operational_state(
             metadata=metadata,
             has_license_record=has_license_record,
@@ -278,6 +306,19 @@ async def get_billing_information(
 
     # Check circuit breaker (self-hosted only)
     if billing_circuit_open:
+        if (
+            not MULTI_TENANT
+            and BILLING_CIRCUIT_RETURN_CACHED_STATE_ENABLED
+        ):
+            logger.warning(
+                "Billing circuit is open; returning cached billing response (degraded mode)"
+            )
+            return _build_cached_billing_response(
+                metadata=metadata,
+                has_license_record=has_license_record,
+                operational_state=operational_state,
+                operational_state_reason=operational_state_reason,
+            )
         raise OnyxError(
             OnyxErrorCode.SERVICE_UNAVAILABLE,
             "Stripe connection temporarily disabled (operational_state=disconnected_cached). Click 'Connect to Stripe' to retry.",

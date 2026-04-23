@@ -148,3 +148,11 @@ CLOUD_DATA_PLANE_URL = os.environ.get(
 SELF_HOSTED_ONLINE_BILLING_ENABLED = (
     os.environ.get("SELF_HOSTED_ONLINE_BILLING_ENABLED", "false").lower() == "true"
 )
+
+# When true, self-hosted billing-information returns a cached/degraded payload
+# while the Stripe circuit breaker is open, instead of returning 503.
+# Default is false to preserve existing behavior.
+BILLING_CIRCUIT_RETURN_CACHED_STATE_ENABLED = (
+    os.environ.get("BILLING_CIRCUIT_RETURN_CACHED_STATE_ENABLED", "false").lower()
+    == "true"
+)

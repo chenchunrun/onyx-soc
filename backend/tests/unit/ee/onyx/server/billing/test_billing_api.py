@@ -364,6 +364,10 @@ class TestCircuitBreaker:
 
     @pytest.mark.asyncio
     @patch("ee.onyx.server.billing.api.MULTI_TENANT", False)
+    @patch(
+        "ee.onyx.server.billing.api.BILLING_CIRCUIT_RETURN_CACHED_STATE_ENABLED",
+        False,
+    )
     @patch("ee.onyx.server.billing.api._is_billing_circuit_open")
     @patch("ee.onyx.server.billing.api.get_license_metadata")
     @patch("ee.onyx.server.billing.api._get_tenant_id")
@@ -389,6 +393,46 @@ class TestCircuitBreaker:
         assert exc_info.value.status_code == 503
         assert exc_info.value.error_code is OnyxErrorCode.SERVICE_UNAVAILABLE
         assert "Connect to Stripe" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    @patch("ee.onyx.server.billing.api.MULTI_TENANT", False)
+    @patch(
+        "ee.onyx.server.billing.api.BILLING_CIRCUIT_RETURN_CACHED_STATE_ENABLED",
+        True,
+    )
+    @patch("ee.onyx.server.billing.api._is_billing_circuit_open")
+    @patch("ee.onyx.server.billing.api.get_license_metadata")
+    @patch("ee.onyx.server.billing.api._get_tenant_id")
+    @patch("ee.onyx.server.billing.api._get_license_data")
+    async def test_returns_cached_response_when_circuit_open_and_degrade_enabled(
+        self,
+        mock_get_license: MagicMock,
+        mock_get_tenant: MagicMock,
+        mock_get_license_metadata: MagicMock,
+        mock_circuit_open: MagicMock,
+    ) -> None:
+        from ee.onyx.server.billing.api import get_billing_information
+        from ee.onyx.server.license.models import LicenseSource
+        from ee.onyx.server.license.models import PlanType
+        from onyx.server.settings.models import ApplicationStatus
+
+        mock_get_license.return_value = "license_blob"
+        mock_get_tenant.return_value = None
+        metadata = MagicMock()
+        metadata.tenant_id = "public"
+        metadata.status = ApplicationStatus.ACTIVE
+        metadata.seats = 20
+        metadata.plan_type = PlanType.ANNUAL
+        metadata.source = LicenseSource.AUTO_FETCH
+        mock_get_license_metadata.return_value = metadata
+        mock_circuit_open.return_value = True
+
+        result = await get_billing_information(_=MagicMock(), db_session=MagicMock())
+
+        assert isinstance(result, BillingInformationResponse)
+        assert result.tenant_id == "public"
+        assert result.status == "active"
+        assert result.seats == 20
 
     @pytest.mark.asyncio
     @patch("ee.onyx.server.billing.api.MULTI_TENANT", False)
