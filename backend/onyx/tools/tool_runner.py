@@ -332,6 +332,20 @@ def _to_tool_response_with_default_error(
     )
 
 
+def _to_tool_response_with_unknown_tool_error(
+    tool_name: str,
+    tool_call: ToolCallKickoff,
+) -> ToolResponse:
+    """Build a fallback response when a tool is not configured/available."""
+    return ToolResponse(
+        rich_response=None,
+        llm_facing_response=GENERIC_TOOL_ERROR_MESSAGE.format(
+            error=f"Tool '{tool_name}' is not available"
+        ),
+        tool_call=tool_call,
+    )
+
+
 def run_tool_calls(
     tool_calls: list[ToolCallKickoff],
     tools: list[Tool],
@@ -402,22 +416,17 @@ def run_tool_calls(
 
     tools_by_name = {tool.name: tool for tool in tools}
 
-    # Drop unknown tools (and don't let them count against the cap)
-    filtered_tool_calls: list[ToolCallKickoff] = []
-    for tool_call in merged_tool_calls:
-        if tool_call.tool_name not in tools_by_name:
-            logger.warning(f"Tool {tool_call.tool_name} not found in tools list")
-            continue
-        filtered_tool_calls.append(tool_call)
+    # Unknown tools return immediate fallback responses and are not dispatched.
+    tool_responses: list[ToolResponse | None] = [
+        None for _ in range(len(merged_tool_calls))
+    ]
+    tool_dispatch_calls: list[tuple[int, ToolCallKickoff]] = []
 
-    # Apply safety cap (drop tool calls beyond the cap)
-    if max_concurrent_tools is not None:
-        if max_concurrent_tools <= 0:
-            return ParallelToolCallResponse(
-                tool_responses=[],
-                updated_citation_mapping=citation_mapping,
-            )
-        filtered_tool_calls = filtered_tool_calls[:max_concurrent_tools]
+    if max_concurrent_tools is not None and max_concurrent_tools <= 0:
+        return ParallelToolCallResponse(
+            tool_responses=[],
+            updated_citation_mapping=citation_mapping,
+        )
 
     # Get starting citation number from citation processor to avoid conflicts with project files
     starting_citation_num = next_citation_num
@@ -445,7 +454,23 @@ def run_tool_calls(
     # Each tool gets a unique starting citation number to avoid conflicts when running in parallel
     tool_run_params: list[tuple[Tool, ToolCallKickoff, Any, threading.Event]] = []
 
-    for tool_call in filtered_tool_calls:
+    for idx, tool_call in enumerate(merged_tool_calls):
+        if tool_call.tool_name not in tools_by_name:
+            logger.warning(f"Tool {tool_call.tool_name} not found in tools list")
+            tool_responses[idx] = _to_tool_response_with_unknown_tool_error(
+                tool_name=tool_call.tool_name, tool_call=tool_call
+            )
+            continue
+
+        if (
+            max_concurrent_tools is not None
+            and len(tool_dispatch_calls) >= max_concurrent_tools
+        ):
+            logger.debug(
+                "Skipping tool dispatch due to max_concurrent_tools cap"
+            )
+            continue
+
         tool = tools_by_name[tool_call.tool_name]
 
         # Emit the tool start packet before running the tool
@@ -528,6 +553,7 @@ def run_tool_calls(
 
         timeout_event = threading.Event()
         tool_run_params.append((tool, tool_call, override_kwargs, timeout_event))
+        tool_dispatch_calls.append((idx, tool_call))
 
     # Run all tools in parallel
     functions_with_args = [
@@ -544,8 +570,9 @@ def run_tool_calls(
     )
 
     # Process results and update citation_mapping
-    tool_responses: list[ToolResponse] = []
-    for tool_call, result in zip(filtered_tool_calls, tool_run_results):
+    for (tool_call_index, tool_call), result in zip(
+        tool_dispatch_calls, tool_run_results
+    ):
         if result is None:
             result = _to_tool_response_with_default_error(
                 tool_name=tool_call.tool_name,
@@ -560,9 +587,14 @@ def run_tool_calls(
                 # Merge new citations into the existing mapping
                 citation_mapping.update(new_citations)
 
-        tool_responses.append(result)
+        tool_responses[tool_call_index] = result
+
+    # Preserve original ordering and omit internal placeholders.
+    final_tool_responses: list[ToolResponse] = [
+        response for response in tool_responses if response is not None
+    ]
 
     return ParallelToolCallResponse(
-        tool_responses=tool_responses,
+        tool_responses=final_tool_responses,
         updated_citation_mapping=citation_mapping,
     )

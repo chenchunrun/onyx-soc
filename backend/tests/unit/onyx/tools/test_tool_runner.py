@@ -476,6 +476,36 @@ class TestRunToolCalls:
         assert response.tool_call.tool_call_id == "error_1"
         assert response.llm_facing_response == "Tool failed with error: boom"
 
+    def test_unknown_tool_returns_not_available_response(self) -> None:
+        tool_call = _make_tool_call(
+            tool_name="missing_tool",
+            tool_args={},
+            tool_call_id="missing_1",
+        )
+        result = run_tool_calls(
+            tool_calls=[tool_call],
+            tools=[_TestTool(_NoopEmitter(), name="known_tool")],
+            message_history=[
+                ChatMessageSimple(
+                    message="search query",
+                    token_count=5,
+                    message_type=MessageType.USER,
+                )
+            ],
+            user_memory_context=None,
+            user_info=None,
+            citation_mapping={},
+            next_citation_num=1,
+        )
+
+        assert len(result.tool_responses) == 1
+        response = result.tool_responses[0]
+        assert response.tool_call is not None
+        assert response.tool_call.tool_call_id == "missing_1"
+        assert response.llm_facing_response == (
+            "Tool failed with error: Tool 'missing_tool' is not available"
+        )
+
 
 class TestImageHistoryExtraction:
     def test_extracts_image_file_ids_from_json_response(self) -> None:
