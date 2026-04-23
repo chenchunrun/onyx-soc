@@ -24,6 +24,7 @@ from onyx.background.celery.celery_redis import celery_get_unacked_task_ids
 from onyx.background.celery.celery_utils import extract_ids_from_runnable_connector
 from onyx.background.celery.tasks.beat_schedule import CLOUD_BEAT_MULTIPLIER_DEFAULT
 from onyx.background.celery.tasks.docprocessing.utils import IndexingCallbackBase
+from onyx.background.celery.tasks.shared.connector_task_guard import guard_cc_pair_for_task
 from onyx.configs.app_configs import ALLOW_SIMULTANEOUS_PRUNING
 from onyx.configs.app_configs import JOB_TIMEOUT
 from onyx.configs.constants import CELERY_GENERIC_BEAT_LOCK_TIMEOUT
@@ -367,10 +368,10 @@ def try_creating_prune_generator_task(
             return None
 
         db_session.refresh(cc_pair)
-        if cc_pair.status == ConnectorCredentialPairStatus.DELETING:
-            logger.info(
-                f"try_creating_prune_generator_task: cc_pair={cc_pair.id} deleting"
-            )
+        if not guard_cc_pair_for_task(
+            cc_pair=cc_pair,
+            task_name="try_creating_prune_generator_task",
+        ):
             return None
 
         # add a long running generator task to the queue
@@ -531,10 +532,10 @@ def connector_pruning_generator_task(
                 credential_id=credential_id,
             )
 
-            if not cc_pair:
-                task_logger.warning(
-                    f"cc_pair not found for {connector_id} {credential_id}"
-                )
+            if not guard_cc_pair_for_task(
+                cc_pair=cc_pair,
+                task_name="connector_pruning_generator_task",
+            ):
                 return
 
             payload = redis_connector.prune.payload

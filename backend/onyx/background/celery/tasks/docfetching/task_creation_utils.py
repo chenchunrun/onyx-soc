@@ -6,6 +6,7 @@ from redis.lock import Lock as RedisLock
 from sqlalchemy.orm import Session
 
 from onyx.background.celery.apps.app_base import task_logger
+from onyx.background.celery.tasks.shared.connector_task_guard import guard_cc_pair_for_task
 from onyx.configs.constants import DANSWER_REDIS_FUNCTION_LOCK_PREFIX
 from onyx.configs.constants import OnyxCeleryPriority
 from onyx.configs.constants import OnyxCeleryQueues
@@ -52,7 +53,11 @@ def try_creating_docfetching_task(
     try:
         # Basic status checks
         db_session.refresh(cc_pair)
-        if cc_pair.status == ConnectorCredentialPairStatus.DELETING:
+        if not guard_cc_pair_for_task(
+            cc_pair=cc_pair,
+            task_name="try_creating_docfetching_task",
+            allowed_statuses=ConnectorCredentialPairStatus.indexable_statuses(),
+        ):
             return None
 
         # Generate custom task ID for tracking

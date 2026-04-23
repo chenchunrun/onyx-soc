@@ -33,6 +33,7 @@ from onyx.background.celery.celery_redis import celery_get_queue_length
 from onyx.background.celery.celery_redis import celery_get_queued_task_ids
 from onyx.background.celery.celery_redis import celery_get_unacked_task_ids
 from onyx.background.celery.tasks.beat_schedule import CLOUD_BEAT_MULTIPLIER_DEFAULT
+from onyx.background.celery.tasks.shared.connector_task_guard import guard_cc_pair_for_task
 from onyx.configs.app_configs import JOB_TIMEOUT
 from onyx.configs.constants import CELERY_GENERIC_BEAT_LOCK_TIMEOUT
 from onyx.configs.constants import CELERY_PERMISSIONS_SYNC_LOCK_TIMEOUT
@@ -312,6 +313,18 @@ def try_creating_permissions_sync_task(
         if redis_connector.prune.fenced:
             return None
 
+        with get_session_with_current_tenant() as db_session:
+            cc_pair = get_connector_credential_pair_from_id(
+                db_session=db_session,
+                cc_pair_id=cc_pair_id,
+            )
+            if not guard_cc_pair_for_task(
+                cc_pair=cc_pair,
+                task_name="try_creating_permissions_sync_task",
+                allowed_statuses=(ConnectorCredentialPairStatus.ACTIVE,),
+            ):
+                return None
+
         redis_connector.permissions.generator_clear()
         redis_connector.permissions.taskset_clear()
 
@@ -477,10 +490,12 @@ def connector_permission_sync_generator_task(
                 eager_load_connector=True,
                 eager_load_credential=True,
             )
-            if cc_pair is None:
-                raise ValueError(
-                    f"No connector credential pair found for id: {cc_pair_id}"
-                )
+            if not guard_cc_pair_for_task(
+                cc_pair=cc_pair,
+                task_name="connector_permission_sync_generator_task",
+                allowed_statuses=(ConnectorCredentialPairStatus.ACTIVE,),
+            ):
+                return None
 
             try:
                 created = validate_ccpair_for_user(
