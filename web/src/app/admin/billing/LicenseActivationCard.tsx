@@ -5,12 +5,16 @@ import Card from "@/refresh-components/cards/Card";
 import { Button } from "@opal/components";
 import { Disabled } from "@opal/core";
 import Text from "@/refresh-components/texts/Text";
+import Message from "@/refresh-components/messages/Message";
 import InputFile from "@/refresh-components/inputs/InputFile";
 import { Section } from "@/layouts/general-layouts";
 import * as InputLayouts from "@/layouts/input-layouts";
 import { SvgXCircle, SvgCheckCircle, SvgXOctagon } from "@opal/icons";
 import { uploadLicense } from "@/lib/billing/svc";
-import { LicenseStatus } from "@/lib/billing/interfaces";
+import {
+  LicenseOperationalState,
+  LicenseStatus,
+} from "@/lib/billing/interfaces";
 import { formatDateShort } from "@/lib/dateUtils";
 import { BILLING_HELP_URL } from "@/lib/constants";
 
@@ -20,6 +24,54 @@ interface LicenseActivationCardProps {
   onSuccess: () => void;
   license?: LicenseStatus;
   hideClose?: boolean;
+}
+
+interface OperationalStateNotice {
+  level: "warning" | "error";
+  text: string;
+  description: string;
+}
+
+function getOperationalStateNotice(
+  operationalState: LicenseOperationalState | null | undefined,
+  reason: string | null | undefined
+): OperationalStateNotice | null {
+  switch (operationalState) {
+    case "verification_failed":
+      return {
+        level: "error",
+        text: "Access key verification failed",
+        description:
+          reason ||
+          "The stored key could not be verified. Upload a valid key to recover.",
+      };
+    case "disconnected_cached":
+      return {
+        level: "warning",
+        text: "Billing service is temporarily disconnected",
+        description:
+          reason ||
+          "Using cached billing state. You can still upload a local access key.",
+      };
+    case "grace_period":
+      return {
+        level: "warning",
+        text: "Access key is in grace period",
+        description:
+          reason ||
+          "Renew or update your key soon to avoid gated access.",
+      };
+    case "expired":
+      return {
+        level: "warning",
+        text: "Access key is expired",
+        description:
+          reason ||
+          "Upload a valid key to restore full access.",
+      };
+    default:
+      return null;
+  }
 }
 
 export default function LicenseActivationCard({
@@ -46,6 +98,10 @@ export default function LicenseActivationCard({
   const expirationDate = license?.expires_at
     ? formatDateShort(license.expires_at)
     : null;
+  const operationalStateNotice = getOperationalStateNotice(
+    license?.operational_state,
+    license?.operational_state_reason
+  );
 
   const handleActivate = async () => {
     if (!licenseKey.trim()) {
@@ -87,6 +143,18 @@ export default function LicenseActivationCard({
   if (hasLicense && !showInput) {
     return (
       <Card padding={1} alignItems="stretch">
+        {operationalStateNotice && (
+          <Message
+            static
+            icon
+            close={false}
+            warning={operationalStateNotice.level === "warning"}
+            error={operationalStateNotice.level === "error"}
+            text={operationalStateNotice.text}
+            description={operationalStateNotice.description}
+            className="w-full"
+          />
+        )}
         <Section
           flexDirection="row"
           justifyContent="between"
@@ -165,6 +233,18 @@ export default function LicenseActivationCard({
           gap={0.5}
           padding={1}
         >
+          {operationalStateNotice && (
+            <Message
+              static
+              icon
+              close={false}
+              warning={operationalStateNotice.level === "warning"}
+              error={operationalStateNotice.level === "error"}
+              text={operationalStateNotice.text}
+              description={operationalStateNotice.description}
+              className="w-full"
+            />
+          )}
           {success && (
             <div className="billing-success-message">
               <Text secondaryBody>
