@@ -422,12 +422,6 @@ def run_tool_calls(
     ]
     tool_dispatch_calls: list[tuple[int, ToolCallKickoff]] = []
 
-    if max_concurrent_tools is not None and max_concurrent_tools <= 0:
-        return ParallelToolCallResponse(
-            tool_responses=[],
-            updated_citation_mapping=citation_mapping,
-        )
-
     # Get starting citation number from citation processor to avoid conflicts with project files
     starting_citation_num = next_citation_num
 
