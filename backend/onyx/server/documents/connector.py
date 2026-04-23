@@ -111,6 +111,7 @@ from onyx.db.enums import IndexingMode
 from onyx.db.enums import ProcessingMode
 from onyx.db.federated import fetch_all_federated_connectors_parallel
 from onyx.db.index_attempt import get_index_attempts_for_cc_pair
+from onyx.db.index_attempt import get_latest_index_attempts
 from onyx.db.index_attempt import get_latest_index_attempts_by_status
 from onyx.db.index_attempt import get_latest_index_attempts_parallel
 from onyx.db.index_attempt import (
@@ -136,6 +137,7 @@ from onyx.server.documents.models import ConnectorFileInfo
 from onyx.server.documents.models import ConnectorFilesResponse
 from onyx.server.documents.models import ConnectorIndexingStatusLite
 from onyx.server.documents.models import ConnectorIndexingStatusLiteResponse
+from onyx.server.documents.models import ConnectorOperationalAlert
 from onyx.server.documents.models import ConnectorRequestSubmission
 from onyx.server.documents.models import ConnectorSnapshot
 from onyx.server.documents.models import ConnectorStatus
@@ -1444,27 +1446,16 @@ def _get_connector_indexing_status_lite(
         and latest_index_attempt.status == IndexingStatus.IN_PROGRESS
     )
 
-    operational_deleting = cc_pair.status == ConnectorCredentialPairStatus.DELETING
-    operational_error = (
-        bool(cc_pair.deletion_failure_message)
-        or cc_pair.in_repeated_error_state
-        or bool(
-            latest_finished_index_attempt
-            and latest_finished_index_attempt.status == IndexingStatus.FAILED
-        )
-    )
-    operational_stuck = bool(
-        in_progress
-        and latest_index_attempt
-        and latest_index_attempt.time_updated
-        < datetime.now(timezone.utc)
-        - timedelta(hours=_INDEXING_STUCK_THRESHOLD_HOURS)
-    )
-    operational_active = (
-        cc_pair.status in ConnectorCredentialPairStatus.active_statuses()
-        and not operational_deleting
-        and not operational_error
-        and not operational_stuck
+    (
+        operational_active,
+        operational_deleting,
+        operational_error,
+        operational_stuck,
+    ) = _compute_operational_flags(
+        cc_pair=cc_pair,
+        latest_index_attempt=latest_index_attempt,
+        latest_finished_index_attempt=latest_finished_index_attempt,
+        in_progress=in_progress,
     )
 
     return ConnectorIndexingStatusLite(
@@ -1492,6 +1483,176 @@ def _get_connector_indexing_status_lite(
         operational_error=operational_error,
         operational_stuck=operational_stuck,
     )
+
+
+def _compute_operational_flags(
+    *,
+    cc_pair: ConnectorCredentialPair,
+    latest_index_attempt: IndexAttempt | None,
+    latest_finished_index_attempt: IndexAttempt | None,
+    in_progress: bool,
+) -> tuple[bool, bool, bool, bool]:
+    operational_deleting = cc_pair.status == ConnectorCredentialPairStatus.DELETING
+    operational_error = (
+        bool(cc_pair.deletion_failure_message)
+        or cc_pair.in_repeated_error_state
+        or bool(
+            latest_finished_index_attempt
+            and latest_finished_index_attempt.status == IndexingStatus.FAILED
+        )
+    )
+    operational_stuck = bool(
+        in_progress
+        and latest_index_attempt
+        and latest_index_attempt.time_updated
+        < datetime.now(timezone.utc)
+        - timedelta(hours=_INDEXING_STUCK_THRESHOLD_HOURS)
+    )
+    operational_active = (
+        cc_pair.status in ConnectorCredentialPairStatus.active_statuses()
+        and not operational_deleting
+        and not operational_error
+        and not operational_stuck
+    )
+    return (
+        operational_active,
+        operational_deleting,
+        operational_error,
+        operational_stuck,
+    )
+
+
+def _compute_operational_reasons(
+    *,
+    cc_pair: ConnectorCredentialPair,
+    latest_finished_index_attempt: IndexAttempt | None,
+    operational_deleting: bool,
+    operational_error: bool,
+    operational_stuck: bool,
+) -> list[str]:
+    reasons: list[str] = []
+    if operational_deleting:
+        reasons.append("deleting")
+    if operational_error:
+        if cc_pair.deletion_failure_message:
+            reasons.append("deletion_failure")
+        if cc_pair.in_repeated_error_state:
+            reasons.append("repeated_indexing_errors")
+        if (
+            latest_finished_index_attempt
+            and latest_finished_index_attempt.status == IndexingStatus.FAILED
+        ):
+            reasons.append("latest_index_attempt_failed")
+    if operational_stuck:
+        reasons.append("indexing_stuck")
+    return reasons
+
+
+@router.get("/admin/connector/operational-alerts", tags=PUBLIC_API_TAGS)
+def get_connector_operational_alerts(
+    user: User = Depends(current_curator_or_admin_user),
+    db_session: Session = Depends(get_session),
+) -> list[ConnectorOperationalAlert]:
+    cc_pairs = get_connector_credential_pairs_for_user(
+        db_session=db_session,
+        user=user,
+        eager_load_connector=True,
+        eager_load_credential=True,
+        eager_load_user=True,
+        get_editable=False,
+    )
+
+    latest_index_attempts = get_latest_index_attempts(
+        secondary_index=False,
+        db_session=db_session,
+        only_finished=False,
+    )
+    latest_finished_index_attempts = get_latest_index_attempts(
+        secondary_index=False,
+        db_session=db_session,
+        only_finished=True,
+    )
+
+    latest_by_cc_pair_id = {
+        attempt.connector_credential_pair_id: attempt
+        for attempt in latest_index_attempts
+    }
+    latest_finished_by_cc_pair_id = {
+        attempt.connector_credential_pair_id: attempt
+        for attempt in latest_finished_index_attempts
+    }
+
+    alerts: list[ConnectorOperationalAlert] = []
+    for cc_pair in cc_pairs:
+        if (
+            cc_pair.name == "DefaultCCPair"
+            or not cc_pair.connector
+            or not cc_pair.credential
+        ):
+            continue
+
+        latest_attempt = latest_by_cc_pair_id.get(cc_pair.id)
+        latest_finished_attempt = latest_finished_by_cc_pair_id.get(cc_pair.id)
+        in_progress = bool(
+            latest_attempt and latest_attempt.status == IndexingStatus.IN_PROGRESS
+        )
+        (
+            _operational_active,
+            operational_deleting,
+            operational_error,
+            operational_stuck,
+        ) = _compute_operational_flags(
+            cc_pair=cc_pair,
+            latest_index_attempt=latest_attempt,
+            latest_finished_index_attempt=latest_finished_attempt,
+            in_progress=in_progress,
+        )
+
+        if not (operational_deleting or operational_error or operational_stuck):
+            continue
+
+        reasons = _compute_operational_reasons(
+            cc_pair=cc_pair,
+            latest_finished_index_attempt=latest_finished_attempt,
+            operational_deleting=operational_deleting,
+            operational_error=operational_error,
+            operational_stuck=operational_stuck,
+        )
+        last_error_message = cc_pair.deletion_failure_message or (
+            latest_finished_attempt.error_msg
+            if latest_finished_attempt
+            and latest_finished_attempt.status == IndexingStatus.FAILED
+            else None
+        )
+
+        alerts.append(
+            ConnectorOperationalAlert(
+                cc_pair_id=cc_pair.id,
+                name=cc_pair.name,
+                source=cc_pair.connector.source,
+                cc_pair_status=cc_pair.status,
+                operational_deleting=operational_deleting,
+                operational_error=operational_error,
+                operational_stuck=operational_stuck,
+                reasons=reasons,
+                last_status=latest_attempt.status if latest_attempt else None,
+                last_finished_status=(
+                    latest_finished_attempt.status if latest_finished_attempt else None
+                ),
+                last_success=cc_pair.last_successful_index_time,
+                last_error_message=last_error_message,
+            )
+        )
+
+    alerts.sort(
+        key=lambda alert: (
+            not alert.operational_stuck,
+            not alert.operational_error,
+            not alert.operational_deleting,
+            alert.name.lower(),
+        )
+    )
+    return alerts
 
 
 def _apply_connector_status_filters(

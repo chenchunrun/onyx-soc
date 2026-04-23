@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 from onyx.db.enums import ConnectorCredentialPairStatus
 from onyx.db.models import IndexingStatus
+from onyx.server.documents.connector import _compute_operational_reasons
 from onyx.server.documents.connector import _get_connector_indexing_status_lite
 
 
@@ -110,3 +111,33 @@ def test_operational_state_stuck_for_old_in_progress_attempt() -> None:
     assert status is not None
     assert status.operational_stuck is True
     assert status.operational_active is False
+
+
+def test_compute_operational_reasons_includes_error_sources() -> None:
+    cc_pair = _build_cc_pair(repeated_error=True, deletion_failure_message="failed")
+    failed_attempt = _build_attempt(IndexingStatus.FAILED, datetime.now(timezone.utc))
+
+    reasons = _compute_operational_reasons(
+        cc_pair=cc_pair,
+        latest_finished_index_attempt=failed_attempt,
+        operational_deleting=False,
+        operational_error=True,
+        operational_stuck=False,
+    )
+
+    assert "deletion_failure" in reasons
+    assert "repeated_indexing_errors" in reasons
+    assert "latest_index_attempt_failed" in reasons
+
+
+def test_compute_operational_reasons_includes_deleting_and_stuck() -> None:
+    cc_pair = _build_cc_pair(status=ConnectorCredentialPairStatus.DELETING)
+    reasons = _compute_operational_reasons(
+        cc_pair=cc_pair,
+        latest_finished_index_attempt=None,
+        operational_deleting=True,
+        operational_error=False,
+        operational_stuck=True,
+    )
+
+    assert reasons == ["deleting", "indexing_stuck"]

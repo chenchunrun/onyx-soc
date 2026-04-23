@@ -470,6 +470,21 @@ class ConnectorIndexingStatusLite(BaseModel):
     operational_stuck: bool = False
 
 
+class ConnectorOperationalAlert(BaseModel):
+    cc_pair_id: int
+    name: str
+    source: DocumentSource
+    cc_pair_status: ConnectorCredentialPairStatus
+    operational_deleting: bool
+    operational_error: bool
+    operational_stuck: bool
+    reasons: list[str]
+    last_status: IndexingStatus | None
+    last_finished_status: IndexingStatus | None
+    last_success: datetime | None
+    last_error_message: str | None
+
+
 class SourceSummary(BaseModel):
     total_connectors: int
     active_connectors: int
