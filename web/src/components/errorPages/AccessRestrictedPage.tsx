@@ -14,9 +14,58 @@ import { useLicense } from "@/hooks/useLicense";
 import { useSettingsContext } from "@/providers/SettingsProvider";
 import { ApplicationStatus } from "@/interfaces/settings";
 import Text from "@/refresh-components/texts/Text";
+import Message from "@/refresh-components/messages/Message";
 import { SvgLock } from "@opal/icons";
 
 const linkClassName = "text-action-link-05 hover:text-action-link-06 underline";
+
+type AccessOperationalNotice = {
+  level: "warning" | "error";
+  text: string;
+  description: string;
+};
+
+function getAccessOperationalNotice(
+  operationalState: string | null | undefined,
+  reason: string | null | undefined
+): AccessOperationalNotice | null {
+  switch (operationalState) {
+    case "verification_failed":
+      return {
+        level: "error",
+        text: "Deployment access key verification failed",
+        description:
+          reason ||
+          "The stored key could not be verified. Re-upload a valid key from Plans & Billing.",
+      };
+    case "disconnected_cached":
+      return {
+        level: "warning",
+        text: "Billing service is temporarily disconnected",
+        description:
+          reason ||
+          "The deployment is using cached access state. Retry from Plans & Billing when connectivity is restored.",
+      };
+    case "grace_period":
+      return {
+        level: "warning",
+        text: "Deployment access is in grace period",
+        description:
+          reason ||
+          "Renew or refresh deployment access soon to avoid full gating.",
+      };
+    case "expired":
+      return {
+        level: "warning",
+        text: "Deployment access has expired",
+        description:
+          reason ||
+          "Refresh or upload a valid access key from Plans & Billing to restore service.",
+      };
+    default:
+      return null;
+  }
+}
 
 const fetchStripePublishableKey = async (): Promise<string> => {
   const response = await fetch("/api/tenants/stripe-publishable-key");
@@ -51,6 +100,10 @@ export default function AccessRestricted() {
     ApplicationStatus.SEAT_LIMIT_EXCEEDED;
   const hadPreviousLicense = license?.has_license === true;
   const showRenewalMessage = NEXT_PUBLIC_CLOUD_ENABLED || hadPreviousLicense;
+  const accessOperationalNotice = getAccessOperationalNotice(
+    license?.operational_state,
+    license?.operational_state_reason
+  );
 
   function getSeatLimitMessage() {
     const { used_seats, seat_count } = settings.settings;
@@ -98,6 +151,18 @@ export default function AccessRestricted() {
       </div>
 
       <Text text03>{initialModalMessage}</Text>
+      {accessOperationalNotice && (
+        <Message
+          static
+          icon
+          close={false}
+          warning={accessOperationalNotice.level === "warning"}
+          error={accessOperationalNotice.level === "error"}
+          text={accessOperationalNotice.text}
+          description={accessOperationalNotice.description}
+          className="w-full"
+        />
+      )}
 
       {isSeatLimitExceeded ? (
         <>
