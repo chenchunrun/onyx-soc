@@ -10,6 +10,9 @@ from sqlalchemy.orm import Session
 
 from onyx.auth.users import current_admin_user
 from onyx.auth.users import current_curator_or_admin_user
+from onyx.background.celery.tasks.connector_deletion.tasks import (
+    revoke_tasks_blocking_deletion,
+)
 from onyx.background.celery.versioned_apps.client import app as client_app
 from onyx.configs.app_configs import GENERATIVE_MODEL_ACCESS_CHECK_FREQ
 from onyx.configs.constants import DocumentSource
@@ -27,6 +30,7 @@ from onyx.db.feedback import fetch_docs_ranked_by_boost_for_user
 from onyx.db.feedback import update_document_boost_for_user
 from onyx.db.feedback import update_document_hidden_for_user
 from onyx.db.index_attempt import cancel_indexing_attempts_for_ccpair
+from onyx.redis.redis_connector import RedisConnector
 from onyx.db.models import User
 from onyx.file_store.file_store import get_default_file_store
 from onyx.key_value_store.factory import get_kv_store
@@ -164,6 +168,17 @@ def create_deletion_attempt_for_connector_id(
     # Cancel any scheduled indexing attempts
     cancel_indexing_attempts_for_ccpair(
         cc_pair_id=cc_pair.id, db_session=db_session, include_secondary_index=True
+    )
+    redis_connector = RedisConnector(tenant_id=tenant_id, cc_pair_id=cc_pair.id)
+
+    # clear stale delete state to force a clean deletion attempt
+    redis_connector.delete.reset()
+
+    # block ongoing connector work and revoke blockers before running the delete
+    redis_connector.stop.set_fence(True)
+    redis_connector.stop.set_timeout()
+    revoke_tasks_blocking_deletion(
+        redis_connector=redis_connector, db_session=db_session, app=client_app
     )
 
     # TODO(rkuo): 2024-10-24 - check_deletion_attempt_is_allowed shouldn't be necessary

@@ -42,6 +42,7 @@ from onyx.db.enums import ConnectorCredentialPairStatus
 from onyx.db.enums import IndexingStatus
 from onyx.db.enums import SyncStatus
 from onyx.db.enums import SyncType
+from onyx.db.indexing_coordination import IndexingCoordination
 from onyx.db.index_attempt import delete_index_attempts
 from onyx.db.index_attempt import get_recent_attempts_for_cc_pair
 from onyx.db.permission_sync_attempt import (
@@ -55,9 +56,9 @@ from onyx.db.sync_record import cleanup_sync_records
 from onyx.db.sync_record import insert_sync_record
 from onyx.db.sync_record import update_sync_record_status
 from onyx.db.tag import delete_orphan_tags__no_commit
-from onyx.redis.redis_connector import RedisConnector
-from onyx.redis.redis_connector_delete import RedisConnectorDelete
 from onyx.redis.redis_connector_delete import RedisConnectorDeletePayload
+from onyx.redis.redis_connector_delete import RedisConnectorDelete
+from onyx.redis.redis_connector import RedisConnector
 from onyx.redis.redis_pool import get_redis_client
 from onyx.redis.redis_pool import get_redis_replica_client
 from onyx.utils.variable_functionality import (
@@ -117,6 +118,10 @@ def revoke_tasks_blocking_deletion(
                 and recent_index_attempts[0].status == IndexingStatus.IN_PROGRESS
                 and recent_index_attempts[0].celery_task_id
             ):
+                IndexingCoordination.request_cancellation(
+                    db_session,
+                    recent_index_attempts[0].id,
+                )
                 app.control.revoke(recent_index_attempts[0].celery_task_id)
                 task_logger.info(
                     f"Revoked indexing task {recent_index_attempts[0].celery_task_id}."
@@ -406,6 +411,7 @@ def monitor_connector_deletion_taskset(
     cc_pair_id_str = RedisConnector.get_id_from_fence_key(fence_key)
     if cc_pair_id_str is None:
         task_logger.warning(f"could not parse cc_pair_id from {fence_key}")
+        r.srem(OnyxRedisConstants.ACTIVE_FENCES, key_bytes)
         return
 
     cc_pair_id = int(cc_pair_id_str)
@@ -417,6 +423,7 @@ def monitor_connector_deletion_taskset(
         task_logger.warning(
             f"Connector deletion - fence payload invalid: cc_pair={cc_pair_id}"
         )
+        redis_connector.delete.reset()
         return
 
     if fence_data.num_tasks is None:
@@ -470,6 +477,15 @@ def monitor_connector_deletion_taskset(
             task_logger.warning(
                 f"Connector deletion - cc_pair not found: cc_pair={cc_pair_id}"
             )
+            redis_connector.delete.reset()
+            return
+
+        if cc_pair.status != ConnectorCredentialPairStatus.DELETING:
+            task_logger.info(
+                f"Connector deletion - cc_pair no longer deleting: "
+                f"cc_pair={cc_pair_id} status={cc_pair.status.value}"
+            )
+            redis_connector.delete.reset()
             return
 
         try:

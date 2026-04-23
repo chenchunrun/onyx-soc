@@ -3,9 +3,13 @@ from onyx.chat.models import ToolCallSimple
 from onyx.configs.constants import MessageType
 from onyx.server.query_and_chat.placement import Placement
 from onyx.tools.models import ToolCallKickoff
+from onyx.tools.interface import Tool
+from onyx.tools.models import ToolResponse
+from onyx.tools.tool_runner import run_tool_calls
 from onyx.tools.tool_runner import _extract_image_file_ids_from_tool_response_message
 from onyx.tools.tool_runner import _extract_recent_generated_image_file_ids
 from onyx.tools.tool_runner import _merge_tool_calls
+import time
 
 
 def _make_tool_call(
@@ -312,6 +316,149 @@ class TestMergeToolCalls:
         assert len(result) == 1
         # String should be converted to list item
         assert result[0].tool_args["queries"] == ["single_query", "q2"]
+
+
+class _NoopEmitter:
+    """Minimal emitter stub used to avoid packet side effects in unit tests."""
+
+    def emit(self, _packet: object) -> None:
+        return None
+
+
+class _TestTool(Tool):
+    """Small tool implementation for unit tests."""
+
+    _next_response: str
+
+    def __init__(
+        self, emitter: object, name: str = "dummy_tool", response: str = "ok"
+    ) -> None:
+        super().__init__(emitter=emitter)
+        self._name = name
+        self._next_response = response
+
+    @property
+    def id(self) -> int:  # noqa: D401
+        return 1
+
+    @property
+    def name(self) -> str:  # noqa: D401
+        return self._name
+
+    @property
+    def description(self) -> str:  # noqa: D401
+        return "Test tool"
+
+    @property
+    def display_name(self) -> str:  # noqa: D401
+        return "Test Tool"
+
+    def tool_definition(self) -> dict:
+        return {
+            "type": "function",
+            "function": {"name": self._name, "description": self.description},
+        }
+
+    def emit_start(self, placement: Placement) -> None:
+        return None
+
+    def run(
+        self, placement: Placement, override_kwargs: object, **llm_kwargs: object
+    ) -> ToolResponse:
+        return ToolResponse(
+            rich_response=None,
+            llm_facing_response=self._next_response,
+        )
+
+
+class _SlowTool(_TestTool):
+    """Tool that intentionally sleeps longer than timeout for deterministic timeout path."""
+
+    def __init__(
+        self, emitter: object, delay_seconds: float, name: str = "slow_tool"
+    ) -> None:
+        super().__init__(emitter=emitter, name=name, response="slow-result")
+        self._delay_seconds = delay_seconds
+
+    def run(
+        self, placement: Placement, override_kwargs: object, **llm_kwargs: object
+    ) -> ToolResponse:
+        time.sleep(self._delay_seconds)
+        return super().run(placement, override_kwargs, **llm_kwargs)
+
+
+class _ErrorTool(_TestTool):
+    """Tool that always raises to verify fallback response handling."""
+
+    def run(
+        self, placement: Placement, override_kwargs: object, **llm_kwargs: object
+    ) -> ToolResponse:
+        raise RuntimeError("boom")
+
+
+class TestRunToolCalls:
+    """Tests for run_tool_calls edge paths."""
+
+    def test_threadpool_timeout_returns_tool_fallback_response(
+        self, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            "onyx.tools.tool_runner.TOOL_EXECUTION_TIMEOUT_SECONDS", 0.01
+        )
+        tool_call = _make_tool_call(
+            tool_name="slow_tool",
+            tool_args={},
+            tool_call_id="timeout_1",
+        )
+        result = run_tool_calls(
+            tool_calls=[tool_call],
+            tools=[_SlowTool(_NoopEmitter(), delay_seconds=0.1)],
+            message_history=[
+                ChatMessageSimple(
+                    message="search query",
+                    token_count=5,
+                    message_type=MessageType.USER,
+                )
+            ],
+            user_memory_context=None,
+            user_info=None,
+            citation_mapping={},
+            next_citation_num=1,
+        )
+
+        assert len(result.tool_responses) == 1
+        response = result.tool_responses[0]
+        assert response.tool_call is not None
+        assert response.tool_call.tool_call_id == "timeout_1"
+        assert "timed out" in response.llm_facing_response.lower()
+
+    def test_tool_exception_returns_fallback_response_with_call_mapping(self) -> None:
+        tool_call = _make_tool_call(
+            tool_name="error_tool",
+            tool_args={},
+            tool_call_id="error_1",
+        )
+        result = run_tool_calls(
+            tool_calls=[tool_call],
+            tools=[_ErrorTool(_NoopEmitter(), name="error_tool")],
+            message_history=[
+                ChatMessageSimple(
+                    message="search query",
+                    token_count=5,
+                    message_type=MessageType.USER,
+                )
+            ],
+            user_memory_context=None,
+            user_info=None,
+            citation_mapping={},
+            next_citation_num=1,
+        )
+
+        assert len(result.tool_responses) == 1
+        response = result.tool_responses[0]
+        assert response.tool_call is not None
+        assert response.tool_call.tool_call_id == "error_1"
+        assert response.llm_facing_response == "Tool failed with error: boom"
 
 
 class TestImageHistoryExtraction:

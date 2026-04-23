@@ -43,6 +43,9 @@ logger = setup_logger()
 QUERIES_FIELD = "queries"
 URLS_FIELD = "urls"
 GENERIC_TOOL_ERROR_MESSAGE = "Tool failed with error: {error}"
+TOOL_EXECUTION_TIMEOUT_ERROR_MESSAGE = (
+    "Tool execution timed out after {timeout_seconds:.0f} seconds"
+)
 
 # 10 minute timeout for tool execution to prevent indefinite hangs
 TOOL_EXECUTION_TIMEOUT_SECONDS = 10 * 60
@@ -281,6 +284,46 @@ def _safe_run_single_tool(
     return tool_response
 
 
+def _on_tool_timeout(
+    index: int,  # noqa: ARG001
+    func: Any,  # noqa: ARG001
+    args: tuple[Any, ...],
+) -> ToolResponse:
+    """Build a timeout response for tool execution."""
+    _tool: Tool = args[0]
+    tool_call: ToolCallKickoff = args[1]
+
+    # Emit section-end so callers don't wait indefinitely on partial UI state.
+    _tool.emitter.emit(
+        Packet(
+            placement=tool_call.placement,
+            obj=SectionEnd(),
+        )
+    )
+    return ToolResponse(
+        rich_response=None,
+        llm_facing_response=GENERIC_TOOL_ERROR_MESSAGE.format(
+            error=TOOL_EXECUTION_TIMEOUT_ERROR_MESSAGE.format(
+                timeout_seconds=TOOL_EXECUTION_TIMEOUT_SECONDS
+            )
+        ),
+    )
+
+
+def _to_tool_response_with_default_error(
+    tool_name: str,
+    tool_call: ToolCallKickoff,
+) -> ToolResponse:
+    """Build a deterministic fallback when threadpool returns an empty result."""
+    return ToolResponse(
+        rich_response=None,
+        llm_facing_response=GENERIC_TOOL_ERROR_MESSAGE.format(
+            error=f"Tool '{tool_name}' did not return a response"
+        ),
+        tool_call=tool_call,
+    )
+
+
 def run_tool_calls(
     tool_calls: list[ToolCallKickoff],
     tools: list[Tool],
@@ -335,9 +378,9 @@ def run_tool_calls(
 
     Returns:
         A `ParallelToolCallResponse` containing:
-        - `tool_responses`: `ToolResponse` objects for successfully dispatched tool calls
-          (each has `tool_call` set). If a tool execution fails at the threadpool layer,
-          its entry will be omitted.
+        - `tool_responses`: `ToolResponse` objects for all dispatched tool calls
+          (each has `tool_call` set). Tool failures are converted into deterministic
+          fallback `ToolResponse` entries so the caller can continue chat flow.
         - `updated_citation_mapping`: The updated citation mapping dictionary.
     """
     # Merge tool calls for SearchTool, WebSearchTool, and OpenURLTool
@@ -488,12 +531,19 @@ def run_tool_calls(
         allow_failures=True,  # Continue even if some tools fail
         max_workers=max_concurrent_tools,
         timeout=TOOL_EXECUTION_TIMEOUT_SECONDS,
+        timeout_callback=_on_tool_timeout,
     )
 
     # Process results and update citation_mapping
-    for result in tool_run_results:
+    tool_responses: list[ToolResponse] = []
+    for tool_call, result in zip(filtered_tool_calls, tool_run_results):
         if result is None:
-            continue
+            result = _to_tool_response_with_default_error(
+                tool_name=tool_call.tool_name,
+                tool_call=tool_call,
+            )
+        elif result.tool_call is None:
+            result.tool_call = tool_call
 
         if result and isinstance(result.rich_response, SearchDocsResponse):
             new_citations = result.rich_response.citation_mapping
@@ -501,7 +551,8 @@ def run_tool_calls(
                 # Merge new citations into the existing mapping
                 citation_mapping.update(new_citations)
 
-    tool_responses = [result for result in tool_run_results if result is not None]
+        tool_responses.append(result)
+
     return ParallelToolCallResponse(
         tool_responses=tool_responses,
         updated_citation_mapping=citation_mapping,
