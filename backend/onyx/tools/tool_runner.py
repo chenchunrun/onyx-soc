@@ -1,5 +1,6 @@
 import json
 import traceback
+import threading
 from collections import defaultdict
 from typing import Any
 
@@ -174,6 +175,7 @@ def _safe_run_single_tool(
     tool: Tool,
     tool_call: ToolCallKickoff,
     override_kwargs: Any,
+    timeout_event: threading.Event | None = None,
 ) -> ToolResponse:
     """Execute a single tool and return its response.
 
@@ -271,13 +273,15 @@ def _safe_run_single_tool(
                 )
             )
 
-    # Emit SectionEnd after tool completes (success or failure)
-    tool.emitter.emit(
-        Packet(
-            placement=tool_call.placement,
-            obj=SectionEnd(),
+    # Emit SectionEnd after tool completes (success or failure) unless a timeout
+    # has already emitted it on behalf of this call.
+    if timeout_event is None or not timeout_event.is_set():
+        tool.emitter.emit(
+            Packet(
+                placement=tool_call.placement,
+                obj=SectionEnd(),
+            )
         )
-    )
 
     # Set tool_call on the response for downstream processing
     tool_response.tool_call = tool_call
@@ -292,6 +296,10 @@ def _on_tool_timeout(
     """Build a timeout response for tool execution."""
     _tool: Tool = args[0]
     tool_call: ToolCallKickoff = args[1]
+    timeout_event: threading.Event | None = args[3] if len(args) > 3 else None
+
+    if timeout_event is not None:
+        timeout_event.set()
 
     # Emit section-end so callers don't wait indefinitely on partial UI state.
     _tool.emitter.emit(
@@ -435,7 +443,7 @@ def run_tool_calls(
 
     # Prepare all tool calls with their override_kwargs
     # Each tool gets a unique starting citation number to avoid conflicts when running in parallel
-    tool_run_params: list[tuple[Tool, ToolCallKickoff, Any]] = []
+    tool_run_params: list[tuple[Tool, ToolCallKickoff, Any, threading.Event]] = []
 
     for tool_call in filtered_tool_calls:
         tool = tools_by_name[tool_call.tool_name]
@@ -518,12 +526,13 @@ def run_tool_calls(
                 chat_history=minimal_history,
             )
 
-        tool_run_params.append((tool, tool_call, override_kwargs))
+        timeout_event = threading.Event()
+        tool_run_params.append((tool, tool_call, override_kwargs, timeout_event))
 
     # Run all tools in parallel
     functions_with_args = [
-        (_safe_run_single_tool, (tool, tool_call, override_kwargs))
-        for tool, tool_call, override_kwargs in tool_run_params
+        (_safe_run_single_tool, (tool, tool_call, override_kwargs, timeout_event))
+        for tool, tool_call, override_kwargs, timeout_event in tool_run_params
     ]
 
     tool_run_results: list[ToolResponse | None] = run_functions_tuples_in_parallel(

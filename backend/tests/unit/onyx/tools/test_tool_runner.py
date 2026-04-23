@@ -9,6 +9,8 @@ from onyx.tools.tool_runner import run_tool_calls
 from onyx.tools.tool_runner import _extract_image_file_ids_from_tool_response_message
 from onyx.tools.tool_runner import _extract_recent_generated_image_file_ids
 from onyx.tools.tool_runner import _merge_tool_calls
+from onyx.server.query_and_chat.streaming_models import Packet
+from onyx.server.query_and_chat.streaming_models import SectionEnd
 import time
 
 
@@ -325,6 +327,18 @@ class _NoopEmitter:
         return None
 
 
+class _RecordingEmitter(_NoopEmitter):
+    def __init__(self) -> None:
+        self.packets: list[Packet] = []
+
+    def emit(self, packet: Packet) -> None:
+        self.packets.append(packet)
+
+
+def _count_section_end(packets: list[object]) -> int:
+    return len([packet for packet in packets if isinstance(packet.obj, SectionEnd)])
+
+
 class _TestTool(Tool):
     """Small tool implementation for unit tests."""
 
@@ -405,6 +419,7 @@ class TestRunToolCalls:
         monkeypatch.setattr(
             "onyx.tools.tool_runner.TOOL_EXECUTION_TIMEOUT_SECONDS", 0.01
         )
+        emitter = _RecordingEmitter()
         tool_call = _make_tool_call(
             tool_name="slow_tool",
             tool_args={},
@@ -412,7 +427,7 @@ class TestRunToolCalls:
         )
         result = run_tool_calls(
             tool_calls=[tool_call],
-            tools=[_SlowTool(_NoopEmitter(), delay_seconds=0.1)],
+            tools=[_SlowTool(emitter, delay_seconds=0.1)],
             message_history=[
                 ChatMessageSimple(
                     message="search query",
@@ -431,6 +446,7 @@ class TestRunToolCalls:
         assert response.tool_call is not None
         assert response.tool_call.tool_call_id == "timeout_1"
         assert "timed out" in response.llm_facing_response.lower()
+        assert _count_section_end(emitter.packets) == 1
 
     def test_tool_exception_returns_fallback_response_with_call_mapping(self) -> None:
         tool_call = _make_tool_call(
