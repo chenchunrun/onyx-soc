@@ -14,6 +14,7 @@ import {
   BillingInformation,
   hasActiveSubscription,
   claimLicense,
+  type LicenseOperationalState,
 } from "@/lib/billing";
 import {
   NEXT_PUBLIC_CLOUD_ENABLED,
@@ -42,6 +43,54 @@ interface ViewConfig {
   icon: React.FunctionComponent<IconProps>;
   title: string;
   showBackButton: boolean;
+}
+
+interface OperationalStateBanner {
+  level: "warning" | "error";
+  text: string;
+  description: string;
+}
+
+function getOperationalStateBanner(
+  operationalState: LicenseOperationalState | null,
+  reason: string | null
+): OperationalStateBanner | null {
+  switch (operationalState) {
+    case "grace_period":
+      return {
+        level: "warning",
+        text: "Deployment access is in grace period",
+        description:
+          reason ||
+          "Renew your plan before the grace period ends to avoid gated access.",
+      };
+    case "expired":
+      return {
+        level: "warning",
+        text: "Deployment access is expired",
+        description:
+          reason ||
+          "Upload or claim a valid access key to restore full billing capabilities.",
+      };
+    case "verification_failed":
+      return {
+        level: "error",
+        text: "Access key verification failed",
+        description:
+          reason ||
+          "The stored access key could not be verified. Re-upload or re-claim a valid key.",
+      };
+    case "disconnected_cached":
+      return {
+        level: "warning",
+        text: "Billing service is temporarily disconnected",
+        description:
+          reason ||
+          "Showing cached subscription state while Stripe connectivity is unavailable.",
+      };
+    default:
+      return null;
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -133,6 +182,16 @@ export default function BillingPage() {
     NEXT_PUBLIC_CLOUD_ENABLED || NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED;
 
   const hasManualLicense = licenseData?.source === "manual_upload";
+  const operationalState =
+    billingData?.operational_state ?? licenseData?.operational_state ?? null;
+  const operationalStateReason =
+    billingData?.operational_state_reason ??
+    licenseData?.operational_state_reason ??
+    null;
+  const operationalStateBanner =
+    !isLoading && !isActivating
+      ? getOperationalStateBanner(operationalState, operationalStateReason)
+      : null;
 
   // Air-gapped: billing endpoint is unreachable (manual license + connectivity error)
   const isAirGapped = !!(hasManualLicense && billingError);
@@ -488,6 +547,18 @@ export default function BillingPage() {
               large
               text="Online billing is disabled for this deployment"
               description="This local deployment uses access keys and deployment-side provisioning. Enable NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED and SELF_HOSTED_ONLINE_BILLING_ENABLED only if you intend to connect billing to an external control plane."
+              className="w-full"
+            />
+          )}
+          {operationalStateBanner && (
+            <Message
+              static
+              icon
+              large
+              warning={operationalStateBanner.level === "warning"}
+              error={operationalStateBanner.level === "error"}
+              text={operationalStateBanner.text}
+              description={operationalStateBanner.description}
               className="w-full"
             />
           )}

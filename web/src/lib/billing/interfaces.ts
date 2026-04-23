@@ -13,6 +13,12 @@
 export type PlanType = "monthly" | "annual";
 
 export type LicenseSource = "auto_fetch" | "manual_upload";
+export type LicenseOperationalState =
+  | "valid"
+  | "grace_period"
+  | "expired"
+  | "verification_failed"
+  | "disconnected_cached";
 
 export type ApplicationStatus =
   | "active"
@@ -47,6 +53,8 @@ export interface LicenseStatus {
   grace_period_end: string | null;
   status: ApplicationStatus | null;
   source: LicenseSource | null;
+  operational_state?: LicenseOperationalState | null;
+  operational_state_reason?: string | null;
 }
 
 // ----------------------------------------------------------------------------
@@ -70,6 +78,8 @@ export interface BillingInformation {
   trial_start: string | null;
   trial_end: string | null;
   payment_method_enabled: boolean;
+  operational_state?: LicenseOperationalState | null;
+  operational_state_reason?: string | null;
 }
 
 /**
@@ -77,6 +87,8 @@ export interface BillingInformation {
  */
 export interface SubscriptionStatus {
   subscribed: boolean;
+  operational_state?: LicenseOperationalState | null;
+  operational_state_reason?: string | null;
 }
 
 // ----------------------------------------------------------------------------

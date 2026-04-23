@@ -103,6 +103,7 @@ jest.mock("@/lib/billing", () => ({
 
 jest.mock("@/lib/constants", () => ({
   NEXT_PUBLIC_CLOUD_ENABLED: false,
+  NEXT_PUBLIC_SELF_HOSTED_ONLINE_BILLING_ENABLED: true,
 }));
 
 // ---- Import after mocks ----
@@ -217,7 +218,9 @@ describe("BillingPage — handleBillingReturn retry logic", () => {
     expect(mockRefreshBilling).toHaveBeenCalled();
     // Failure is logged
     expect(consoleSpy).toHaveBeenCalledWith(
-      expect.stringContaining("Failed to sync license after billing return"),
+      expect.stringContaining(
+        "Failed to sync deployment access after billing return"
+      ),
       expect.any(Error)
     );
 
@@ -276,7 +279,7 @@ describe("BillingPage — handleBillingReturn retry logic", () => {
       expect(screen.getByTestId("activating-banner")).toBeInTheDocument();
     });
     expect(screen.getByTestId("activating-banner-text")).toHaveTextContent(
-      "Your license is still activating"
+      "Deployment access is still activating"
     );
     expect(
       sessionStorage.getItem("billing_license_activating_until")
