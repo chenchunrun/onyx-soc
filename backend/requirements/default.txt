@@ -46,7 +46,7 @@ anyio==4.11.0
     #   sse-starlette
     #   starlette
     #   watchfiles
-argon2-cffi==23.1.0
+argon2-cffi==25.1.0
     # via pwdlib
 argon2-cffi-bindings==25.1.0
     # via argon2-cffi
