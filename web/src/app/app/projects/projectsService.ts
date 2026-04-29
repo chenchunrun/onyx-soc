@@ -1,5 +1,15 @@
 import { ChatFileType, ChatSession } from "../interfaces";
 
+const CONTEXT_TOKEN_CACHE_TTL_MS = 30_000;
+const maxSelectedDocumentTokensCache = new Map<
+  number,
+  { tokens: number | null; fetchedAt: number }
+>();
+const maxSelectedDocumentTokensRequests = new Map<
+  number,
+  Promise<number | null>
+>();
+
 // Generic error handler that avoids exposing server error details
 const handleRequestError = (action: string, response: Response) => {
   throw new Error(`${action} failed (Status: ${response.status})`);
@@ -310,14 +320,38 @@ export async function getProjectTokenCount(projectId: number): Promise<number> {
 export async function getMaxSelectedDocumentTokens(
   personaId: number
 ): Promise<number | null> {
-  const response = await fetch(
-    `/api/chat/max-selected-document-tokens?persona_id=${personaId}`
-  );
-  if (!response.ok) {
-    return null;
+  const cached = maxSelectedDocumentTokensCache.get(personaId);
+  if (cached && Date.now() - cached.fetchedAt < CONTEXT_TOKEN_CACHE_TTL_MS) {
+    return cached.tokens;
   }
-  const json = await response.json();
-  return (json?.max_tokens as number) ?? null;
+
+  const existingRequest = maxSelectedDocumentTokensRequests.get(personaId);
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = (async () => {
+    const response = await fetch(
+      `/api/chat/max-selected-document-tokens?persona_id=${personaId}`
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const json = await response.json();
+    const tokens = (json?.max_tokens as number) ?? null;
+    maxSelectedDocumentTokensCache.set(personaId, {
+      tokens,
+      fetchedAt: Date.now(),
+    });
+    return tokens;
+  })();
+
+  maxSelectedDocumentTokensRequests.set(personaId, request);
+  try {
+    return await request;
+  } finally {
+    maxSelectedDocumentTokensRequests.delete(personaId);
+  }
 }
 
 export async function moveChatSession(

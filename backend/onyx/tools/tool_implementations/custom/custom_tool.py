@@ -1,6 +1,8 @@
 import csv
+import ipaddress
 import json
 import queue
+import re
 import uuid
 from io import BytesIO
 from io import StringIO
@@ -44,6 +46,37 @@ from onyx.utils.logger import setup_logger
 logger = setup_logger()
 
 CUSTOM_TOOL_RESPONSE_ID = "custom_tool_response"
+DOMAIN_RE = re.compile(
+    r"^(?=.{1,253}$)(?!-)(?:[A-Za-z0-9-]{1,63}\.)+[A-Za-z]{2,63}$"
+)
+
+
+def _validate_security_lookup_args(tool_name: str, path_params: dict[str, Any]) -> None:
+    """Reject obvious LLM tool-routing mistakes before making network calls."""
+    if tool_name == "lookupIP" and "ip" in path_params:
+        try:
+            ipaddress.ip_address(str(path_params["ip"]))
+        except ValueError as e:
+            raise ToolCallException(
+                message=f"Invalid IP address for {tool_name}: {path_params['ip']}",
+                llm_facing_message=(
+                    f"The {tool_name} tool only accepts IPv4 or IPv6 addresses. "
+                    f"'{path_params['ip']}' is not an IP address, so use a vulnerability "
+                    "or document search tool instead."
+                ),
+            ) from e
+
+    if tool_name == "lookupDomain" and "domain" in path_params:
+        domain = str(path_params["domain"]).strip().rstrip(".")
+        if not DOMAIN_RE.fullmatch(domain):
+            raise ToolCallException(
+                message=f"Invalid domain for {tool_name}: {path_params['domain']}",
+                llm_facing_message=(
+                    f"The {tool_name} tool only accepts domain names. "
+                    f"'{path_params['domain']}' is not a domain, so use a vulnerability "
+                    "or document search tool instead."
+                ),
+            )
 
 
 # override_kwargs is not supported for custom tools
@@ -165,6 +198,8 @@ class CustomTool(Tool[None]):
                 )
             path_params[param_name] = llm_kwargs[param_name]
 
+        _validate_security_lookup_args(self._name, path_params)
+
         # Build query params
         query_params = {}
         for query_param_schema in self._method_spec.get_query_param_schemas():
@@ -190,9 +225,41 @@ class CustomTool(Tool[None]):
         url = self._method_spec.build_url(self._base_url, path_params, query_params)
         method = self._method_spec.method
 
-        response = requests.request(
-            method, url, json=request_body, headers=self.headers
-        )
+        try:
+            response = requests.request(
+                method, url, json=request_body, headers=self.headers
+            )
+        except requests.RequestException as e:
+            message = f"{self._name} action failed because the upstream service is unavailable"
+            error_info = CustomToolErrorInfo(
+                is_auth_error=False,
+                status_code=503,
+                message=message,
+            )
+            logger.warning("%s: %s", message, e)
+            self.emitter.emit(
+                Packet(
+                    placement=placement,
+                    obj=CustomToolDelta(
+                        tool_name=self._name,
+                        tool_id=self._id,
+                        response_type="text",
+                        data=message,
+                        file_ids=None,
+                        error=error_info,
+                    ),
+                )
+            )
+            return ToolResponse(
+                rich_response=CustomToolCallSummary(
+                    tool_name=self._name,
+                    response_type="text",
+                    tool_result=message,
+                    error=error_info,
+                ),
+                llm_facing_response=json.dumps({"error": message}),
+            )
+
         content_type = response.headers.get("Content-Type", "")
 
         # Detect HTTP errors — only 401/403 are flagged as auth errors

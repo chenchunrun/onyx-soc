@@ -21,6 +21,15 @@ RRF_K_VALUE = 50
 
 # Context Expansion
 FULL_DOC_NUM_CHUNKS_AROUND = 5
+# Context expansion can make one LLM classification call per selected section.
+# Keep this deliberately low so a single search does not burst into provider rate
+# limits and increase tail latency.
+MAX_CONTEXT_EXPANSION_WORKERS = 3
+
+# LLM document selection is the dominant latency source for broad internal
+# searches. Keep the re-rank prompt bounded and rely on RRF ordering to preserve
+# the strongest candidates.
+MAX_SECTIONS_FOR_LLM_SELECTION = 20
 
 # If a document is quite relevant and has many returned sections, likely it's enough to use the chunks around
 # the highest scoring section to detect relevance. This allows more other docs to be evaluated in the step.

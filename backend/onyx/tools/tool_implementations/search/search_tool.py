@@ -107,6 +107,12 @@ from onyx.tools.tool_implementations.search.constants import (
 from onyx.tools.tool_implementations.search.constants import (
     MAX_CHUNKS_FOR_RELEVANCE,
 )
+from onyx.tools.tool_implementations.search.constants import (
+    MAX_CONTEXT_EXPANSION_WORKERS,
+)
+from onyx.tools.tool_implementations.search.constants import (
+    MAX_SECTIONS_FOR_LLM_SELECTION,
+)
 from onyx.tools.tool_implementations.search.constants import ORIGINAL_QUERY_WEIGHT
 from onyx.tools.tool_implementations.search.search_utils import (
     expand_section_with_context,
@@ -842,7 +848,7 @@ class SearchTool(Tool[SearchToolOverrideKwargs]):
             max_tokens=max_tokens_for_selection,
             token_counter=token_counter,
             max_chunks_per_section=MAX_CHUNKS_FOR_RELEVANCE,
-        )
+        )[:MAX_SECTIONS_FOR_LLM_SELECTION]
 
         # Start timing for LLM document selection
         document_selection_start_time = time.time()
@@ -922,8 +928,13 @@ class SearchTool(Tool[SearchToolOverrideKwargs]):
         # Start timing for document expansion
         document_expansion_start_time = time.time()
 
-        # Run all expansions in parallel
-        expanded_sections = run_functions_tuples_in_parallel(expansion_functions)
+        # Run expansions in bounded parallelism. These can each issue an LLM
+        # classification request, so unbounded fan-out often trips provider rate
+        # limits and increases tail latency.
+        expanded_sections = run_functions_tuples_in_parallel(
+            expansion_functions,
+            max_workers=MAX_CONTEXT_EXPANSION_WORKERS,
+        )
 
         # End timing for document expansion
         document_expansion_elapsed = time.time() - document_expansion_start_time
@@ -948,11 +959,21 @@ class SearchTool(Tool[SearchToolOverrideKwargs]):
 
         # End overall timing
         overall_elapsed = time.time() - overall_start_time
-        logger.debug(
-            f"Search tool - Total execution time: {overall_elapsed:.3f} seconds "
-            f"(query expansion: {query_expansion_elapsed:.3f}s, "
-            f"document selection: {document_selection_elapsed:.3f}s, "
-            f"document expansion: {document_expansion_elapsed:.3f}s)"
+        logger.info(
+            "Search tool timing: total=%.3fs query_expansion=%.3fs "
+            "document_selection=%.3fs document_expansion=%.3fs "
+            "queries=%s candidates=%s selection_candidates=%s selected=%s expanded=%s "
+            "expansion_workers=%s",
+            overall_elapsed,
+            query_expansion_elapsed,
+            document_selection_elapsed,
+            document_expansion_elapsed,
+            len(all_queries),
+            len(top_sections),
+            len(sections_for_selection),
+            len(selected_sections),
+            len(expanded_sections),
+            MAX_CONTEXT_EXPANSION_WORKERS,
         )
 
         return ToolResponse(

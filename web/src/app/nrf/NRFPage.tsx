@@ -503,6 +503,8 @@ export default function NRFPage({ isSidePanel = false }: NRFPageProps) {
                 currentSessionFileTokenCount={currentSessionFileTokenCount}
                 availableContextTokens={AVAILABLE_CONTEXT_TOKENS}
                 selectedAgent={liveAgent ?? undefined}
+                availableAgents={availableAgents}
+                onSelectAgent={setSelectedAgentFromId}
                 handleFileUpload={handleFileUpload}
                 disabled={
                   !llmManager.isLoadingProviders && !llmManager.hasAnyProvider

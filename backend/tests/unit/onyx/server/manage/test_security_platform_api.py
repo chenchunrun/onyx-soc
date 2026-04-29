@@ -26,6 +26,7 @@ from onyx.server.manage.security_platform.api import build_tool_drift_summary
 from onyx.server.manage.security_platform.api import build_usage_limit_summary
 from onyx.server.manage.security_platform.api import build_remediation_commands
 from onyx.server.manage.security_platform.api import build_recommended_next_actions
+from onyx.server.manage.security_platform.api import build_security_task_route
 from onyx.server.manage.security_platform.api import build_tool_status
 from onyx.server.manage.security_platform.api import build_health_status
 from onyx.server.manage.security_platform.api import get_deployment_profile_issues
@@ -41,6 +42,35 @@ def test_get_deployment_profile_issues_rejects_localhost_for_demo(monkeypatch) -
     assert issues == [
         "SECURITY_TOOLS_MOCK_SERVER_URL must use host.docker.internal in Docker-backed demo deployments"
     ]
+
+
+def test_build_security_task_route_detects_vulnerability_assessment() -> None:
+    route = build_security_task_route("CVE-2025-1234 影响我们哪些版本，需要补丁优先级")
+
+    assert route.task_type == "vulnerability_assessment"
+    assert route.persona_name == "漏洞评估专家"
+    assert route.skill_keys == [
+        "researching-vulnerabilities",
+        "sca-analyzer",
+        "asset-discovery",
+    ]
+    assert route.confidence > 0.5
+
+
+def test_build_security_task_route_detects_containment_playbook() -> None:
+    route = build_security_task_route("EDR 告警确认后需要隔离主机并创建工单")
+
+    assert route.task_type == "incident_containment"
+    assert route.persona_name == "应急响应指挥官"
+    assert route.playbook_name == "incident-containment-and-ticketing"
+
+
+def test_build_security_task_route_defaults_to_readonly_triage() -> None:
+    route = build_security_task_route("帮我看看这个情况")
+
+    assert route.task_type == "incident_triage"
+    assert route.persona_name == "安全事件分析师"
+    assert route.playbook_name == "incident-triage-readonly"
 
 
 def test_get_deployment_profile_issues_allows_host_docker_internal(monkeypatch) -> None:

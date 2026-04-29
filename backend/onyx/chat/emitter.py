@@ -28,11 +28,23 @@ class Emitter:
         self._model_idx = model_idx
         self._merged_queue = merged_queue
         self._drain_done = drain_done
+        self._suppressed_placements: set[tuple[int, int, int | None]] = set()
+        self._suppressed_placements_lock = threading.Lock()
+
+    def suppress_placement(self, placement: Placement) -> None:
+        with self._suppressed_placements_lock:
+            self._suppressed_placements.add(
+                (placement.turn_index, placement.tab_index, placement.sub_turn_index)
+            )
 
     def emit(self, packet: Packet) -> None:
         if self._drain_done is not None and self._drain_done.is_set():
             return
         base = packet.placement or Placement(turn_index=0)
+        placement_key = (base.turn_index, base.tab_index, base.sub_turn_index)
+        with self._suppressed_placements_lock:
+            if placement_key in self._suppressed_placements:
+                return
         tagged = Packet(
             placement=base.model_copy(update={"model_index": self._model_idx}),
             obj=packet.obj,

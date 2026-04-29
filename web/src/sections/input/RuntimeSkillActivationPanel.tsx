@@ -6,10 +6,17 @@ import {
   AgentSkillRuntimeBinding,
 } from "@/app/admin/agents/interfaces";
 import { Button } from "@opal/components";
+import Tag from "@/refresh-components/buttons/Tag";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/refresh-components/Collapsible";
 import Checkbox from "@/refresh-components/inputs/Checkbox";
 import InputTextArea from "@/refresh-components/inputs/InputTextArea";
 import InputTypeIn from "@/refresh-components/inputs/InputTypeIn";
 import Text from "@/refresh-components/texts/Text";
+import { cn } from "@/lib/utils";
 
 interface RuntimeSkillValidationErrors {
   selection?: string | null;
@@ -73,6 +80,32 @@ function getTargetTypeExample(targetType: string): string {
     default:
       return "supported target format";
   }
+}
+
+function RuntimePill({
+  label,
+  tone = "default",
+}: {
+  label: string;
+  tone?: "default" | "success" | "warning" | "danger";
+}) {
+  return (
+    <span
+      className={cn(
+        "rounded-full border px-2 py-1 text-[11px] font-medium leading-none",
+        tone === "success" &&
+          "border-status-success-02 bg-status-success-00 text-status-success-05",
+        tone === "warning" &&
+          "border-status-warning-02 bg-status-warning-00 text-status-warning-05",
+        tone === "danger" &&
+          "border-status-error-02 bg-status-error-00 text-status-error-05",
+        tone === "default" &&
+          "border-border bg-background-neutral-00 text-text-03"
+      )}
+    >
+      {label}
+    </span>
+  );
 }
 
 export default function RuntimeSkillActivationPanel({
@@ -223,7 +256,7 @@ export default function RuntimeSkillActivationPanel({
     new Set(
       selectedTargetSuggestionMatches
         .map((suggestion) => suggestion.approval_reference)
-        .filter(Boolean)
+        .filter((reference): reference is string => Boolean(reference))
     )
   );
   const visibleApprovalSuggestions =
@@ -326,121 +359,235 @@ export default function RuntimeSkillActivationPanel({
       ? "no shared target type"
       : null,
   ].filter(Boolean) as string[];
+  const selectedCount = selectedRestrictedSkills.length;
+  const allowedTargetTypesLabel =
+    selectedAllowedTargetTypes.length > 0
+      ? selectedAllowedTargetTypes.join(", ")
+      : "any";
+  const hasValidationError = Boolean(
+    validationErrors?.selection ||
+      validationErrors?.targets ||
+      validationErrors?.approvalReference
+  );
+  const shouldAutoExpand =
+    hasValidationError ||
+    selectedCount > 0 ||
+    targetLines.length > 0 ||
+    Boolean(skillApprovalReference.trim());
+  const [isExpanded, setIsExpanded] = useState(shouldAutoExpand);
+
+  useEffect(() => {
+    if (shouldAutoExpand) {
+      setIsExpanded(true);
+    }
+  }, [shouldAutoExpand]);
 
   return (
-    <div className="mx-1 mb-1 rounded-12 border border-border bg-background-neutral-00 px-3 py-2">
-      <Text as="p" className="font-semibold">
-        Runtime Skill Activation
-      </Text>
-      <Text text03 secondaryBody>
-        Restricted bound skills are not activated by default. Select only the
-        skills you want to enable for this message.
-      </Text>
-      {validationErrors?.selection && (
-        <Text className="mt-2 text-xs text-status-error-05">
-          {validationErrors.selection}
-        </Text>
-      )}
-      {hasPolicyConflictHint && (
-        <Text
-          className={`mt-2 text-xs ${
-            hasBlockingSelectionConflict
-              ? "text-status-error-05"
-              : "text-status-warning-05"
-          }`}
-        >
-          Selected skills do not share the same runtime policy. Check target
-          types, approval, and gateway requirements before sending.
-          {conflictDetails.length > 0 ? ` Conflict areas: ${conflictDetails.join("; ")}.` : ""}
-        </Text>
-      )}
+    <div className="mx-1 mb-1 rounded-2xl border border-border bg-background-neutral-00 p-4">
+      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <Text as="p" className="font-semibold">
+              Runtime Skill Activation
+            </Text>
+            <Text text03 secondaryBody className="mt-1">
+              Restricted skills stay off by default. Turn them on only when this
+              message needs extra actions.
+            </Text>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <RuntimePill label={`${restrictedSkills.length} restricted`} />
+            <RuntimePill
+              label={`${selectedCount} selected`}
+              tone={selectedCount > 0 ? "success" : "default"}
+            />
+            {requiresTargets && (
+              <RuntimePill label={`targets: ${allowedTargetTypesLabel}`} />
+            )}
+            {requiresApproval && (
+              <RuntimePill label="approval required" tone="warning" />
+            )}
+            <CollapsibleTrigger asChild>
+              <Button
+                type="button"
+                size="sm"
+                prominence={isExpanded ? "secondary" : "tertiary"}
+              >
+                {isExpanded ? "Hide details" : "Configure"}
+              </Button>
+            </CollapsibleTrigger>
+          </div>
+        </div>
 
-      <div className="mt-3 flex flex-col gap-2">
-        {restrictedSkills.map((skill) => {
-          const checked = selectedSkillKeySet.has(skill.key);
-          const blockedReasons =
-            runtimeProfile.blocked_skill_reasons?.[skill.key] ?? [];
-          const canSelect = skill.accessible && skill.enabled;
-
-          return (
-            <div
-              key={skill.key}
-              className="rounded-08 border border-border px-3 py-2"
-            >
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  checked={checked}
-                  disabled={disabled || !canSelect}
-                  onCheckedChange={(nextChecked) => {
-                    if (nextChecked) {
-                      onSelectedSkillKeysChange([
-                        ...selectedSkillKeys.filter((key) => key !== skill.key),
-                        skill.key,
-                      ]);
-                    } else {
-                      onSelectedSkillKeysChange(
-                        selectedSkillKeys.filter((key) => key !== skill.key)
-                      );
-                    }
-                  }}
-                  aria-label={`Activate runtime skill ${skill.name}`}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <Text as="p" className="font-semibold">
-                      {skill.name}
-                    </Text>
-                    <span className="text-[11px] text-text-03">
-                      {skill.execution_scope}
-                      {skill.gateway_required ? " · gateway" : ""}
-                      {skill.requires_approval ? " · approval" : ""}
-                    </span>
-                  </div>
-                  <Text text03 secondaryBody className="mt-1">
-                    {skill.description}
-                  </Text>
-                  <Text className="mt-2 text-xs text-text-03">
-                    Policy: target types{" "}
-                    {skill.allowed_target_types.length
-                      ? skill.allowed_target_types.join(", ")
-                      : "none"}
-                    ; approval {skill.requires_approval ? "required" : "optional"}
-                    ; gateway {skill.gateway_required ? "required" : "optional"}
-                  </Text>
-                  {blockedReasons.length > 0 && (
-                    <div className="mt-2 text-xs text-status-error-05">
-                      {blockedReasons.join("; ")}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {requiresTargets && (
-        <div className="mt-3">
-          <Text as="p" className="mb-1 font-semibold">
-            Authorized Targets
+        {validationErrors?.selection && (
+          <Text className="mt-2 text-xs text-status-error-05">
+            {validationErrors.selection}
           </Text>
-          <Text className="mb-2 text-xs text-text-03">
-            Allowed target types:{" "}
-            {selectedAllowedTargetTypes.length > 0
-              ? selectedAllowedTargetTypes.join(", ")
-              : "any"}
+        )}
+        {hasPolicyConflictHint && (
+          <Text
+            className={`mt-2 text-xs ${
+              hasBlockingSelectionConflict
+                ? "text-status-error-05"
+                : "text-status-warning-05"
+            }`}
+          >
+            Selected skills do not share the same runtime policy.
+            {conflictDetails.length > 0
+              ? ` Check: ${conflictDetails.join("; ")}.`
+              : ""}
+          </Text>
+        )}
+
+        {!isExpanded && (
+          <Text className="mt-3 text-xs text-text-03">
+            {selectedCount > 0
+              ? "Restricted skills are active for this message. Expand to adjust targets or approval."
+              : "No restricted skill is active."}
+          </Text>
+        )}
+
+        <CollapsibleContent className="mt-4">
+          <div className="flex flex-col gap-3">
+            {restrictedSkills.map((skill) => {
+              const checked = selectedSkillKeySet.has(skill.key);
+              const blockedReasons =
+                runtimeProfile.blocked_skill_reasons?.[skill.key] ?? [];
+              const canSelect = skill.accessible && skill.enabled;
+
+              return (
+                <div
+                  key={skill.key}
+                  className={cn(
+                    "rounded-xl border px-4 py-3 transition-colors",
+                    checked
+                      ? "border-action-link-03 bg-background-tint-01"
+                      : "border-border bg-background-neutral-00",
+                    !canSelect && "opacity-85"
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="pt-0.5">
+                      <Checkbox
+                        checked={checked}
+                        disabled={disabled || !canSelect}
+                        onCheckedChange={(nextChecked) => {
+                          if (nextChecked) {
+                            onSelectedSkillKeysChange([
+                              ...selectedSkillKeys.filter(
+                                (key) => key !== skill.key
+                              ),
+                              skill.key,
+                            ]);
+                          } else {
+                            onSelectedSkillKeysChange(
+                              selectedSkillKeys.filter((key) => key !== skill.key)
+                            );
+                          }
+                        }}
+                        aria-label={`Activate runtime skill ${skill.name}`}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Text as="p" className="font-semibold">
+                              {skill.name}
+                            </Text>
+                            <RuntimePill
+                              label={
+                                skill.accessible ? "accessible" : "restricted"
+                              }
+                              tone={skill.accessible ? "success" : "danger"}
+                            />
+                            <RuntimePill
+                              label={skill.enabled ? "enabled" : "disabled"}
+                              tone={skill.enabled ? "default" : "danger"}
+                            />
+                          </div>
+                          <Text text03 secondaryBody className="mt-1">
+                            {skill.description}
+                          </Text>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <RuntimePill label={skill.execution_scope} />
+                          {skill.gateway_required && (
+                            <RuntimePill label="gateway" tone="warning" />
+                          )}
+                          {skill.requires_approval && (
+                            <RuntimePill label="approval" tone="warning" />
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(skill.allowed_target_types.length
+                          ? skill.allowed_target_types
+                          : ["no target restriction"]
+                        ).map((targetType) => (
+                          <Tag
+                            key={`${skill.key}:${targetType}`}
+                            label={
+                              skill.allowed_target_types.length
+                                ? `target: ${targetType}`
+                                : targetType
+                            }
+                            className="pointer-events-none"
+                          />
+                        ))}
+                      </div>
+
+                      {skill.notes && (
+                        <div className="mt-3 rounded-lg bg-background-tint-02 px-3 py-2">
+                          <Text className="text-xs text-text-03">
+                            {skill.notes}
+                          </Text>
+                        </div>
+                      )}
+                      {blockedReasons.length > 0 && (
+                        <div className="mt-3 rounded-lg border border-status-error-02 bg-status-error-00 px-3 py-2">
+                          <Text className="text-xs text-status-error-05">
+                            {blockedReasons.join("; ")}
+                          </Text>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {requiresTargets && (
+            <div className="mt-4 rounded-xl border border-border bg-background-tint-01 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Text as="p" className="font-semibold">
+              Authorized Targets
+            </Text>
+            <div className="flex flex-wrap gap-2">
+              <RuntimePill label={`allowed: ${allowedTargetTypesLabel}`} />
+              <RuntimePill
+                label={`${targetLines.length} selected`}
+                tone={targetLines.length > 0 ? "success" : "default"}
+              />
+            </div>
+          </div>
+          <Text className="mt-1 text-xs text-text-03">
+            Add one target per line, or pick from the authorized suggestions
+            below.
           </Text>
           {singleAllowedTargetType && (
-            <Text className="mb-2 text-xs text-text-03">
+            <Text className="mt-2 text-xs text-text-03">
               Only {singleAllowedTargetType} targets are allowed here. Example:{" "}
               {getTargetTypeExample(singleAllowedTargetType)}
             </Text>
           )}
-          {targetLines.length > 0 && (
-            <div className="mb-2">
-              <Text className="mb-1 text-xs text-text-03">
-                Selected authorized targets
-              </Text>
+          <div className="mt-3">
+            <Text as="p" className="mb-1 font-semibold">
+              Selected Targets
+            </Text>
+            {targetLines.length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {targetLines.map((target) => (
                   <Button
@@ -455,25 +602,34 @@ export default function RuntimeSkillActivationPanel({
                   </Button>
                 ))}
               </div>
-            </div>
-          )}
-          <InputTextArea
-            value={skillTargetsText}
-            onChange={(event) => onSkillTargetsTextChange(event.target.value)}
-            rows={3}
-            resizable={false}
-            placeholder="One target per line, for example: example.com"
-            variant={disabled ? "disabled" : "primary"}
-          />
+            ) : (
+              <Text className="text-xs text-text-03">
+                No targets selected yet.
+              </Text>
+            )}
+          </div>
+          <div className="mt-3">
+            <Text as="p" className="mb-1 font-semibold">
+              Manual Entry
+            </Text>
+            <InputTextArea
+              value={skillTargetsText}
+              onChange={(event) => onSkillTargetsTextChange(event.target.value)}
+              rows={3}
+              resizable={false}
+              placeholder="One target per line, for example: example.com"
+              variant={disabled ? "disabled" : "primary"}
+            />
+          </div>
           {validationErrors?.targets && (
             <Text className="mt-1 text-xs text-status-error-05">
               {validationErrors.targets}
             </Text>
           )}
           {detectedTargetRows.length > 0 && (
-            <div className="mt-2 flex flex-col gap-1">
-              <Text className="text-xs text-text-03">
-                Manual target type detection
+            <div className="mt-3 flex flex-col gap-1">
+              <Text className="text-xs font-semibold text-text-03">
+                Detected target types
               </Text>
               {detectedTargetRows.map((row) => (
                 <Text
@@ -489,15 +645,15 @@ export default function RuntimeSkillActivationPanel({
                     ? ` (not allowed for ${selectedAllowedTargetTypes.join(", ")}; try ${row.suggestedExample ?? "a supported target format"})`
                     : !row.detectedType && row.suggestedExample
                       ? ` (try ${row.suggestedExample})`
-                    : ""}
+                      : ""}
                 </Text>
               ))}
             </div>
           )}
           {availableTargetSuggestionCount > 0 && (
-            <div className="mt-2">
-              <Text className="mb-1 text-xs text-text-03">
-                Suggested authorized targets
+            <div className="mt-3">
+              <Text as="p" className="mb-1 font-semibold">
+                Suggested Authorized Targets
               </Text>
               <InputTypeIn
                 value={targetQuery}
@@ -512,10 +668,10 @@ export default function RuntimeSkillActivationPanel({
                   constraints.
                 </Text>
               )}
-              <div className="mt-2 flex flex-col gap-2">
+              <div className="mt-3 flex flex-col gap-3">
                 {groupedTargetSuggestions.map(([targetType, suggestions]) => (
                   <div key={`target-group:${targetType}`}>
-                    <Text className="mb-1 text-xs text-text-03">
+                    <Text className="mb-1 text-xs font-semibold text-text-03">
                       {`${targetType} (${suggestions.length})`}
                     </Text>
                     <div className="flex flex-wrap gap-1">
@@ -551,7 +707,7 @@ export default function RuntimeSkillActivationPanel({
                 ))}
               </div>
               {targetSuggestions.length > 0 && (
-                <div className="mt-2 flex flex-col gap-1">
+                <div className="mt-3 flex flex-col gap-1">
                   {targetSuggestions.slice(0, 5).map((suggestion) => (
                     <Text
                       key={`meta:${suggestion.target}:${suggestion.approval_reference}`}
@@ -565,9 +721,9 @@ export default function RuntimeSkillActivationPanel({
                 </div>
               )}
               {selectedTargetSuggestionMatches.length > 0 && (
-                <div className="mt-2 flex flex-col gap-1">
-                  <Text className="text-xs text-text-03">
-                    Selected targets are linked to these approvals:
+                <div className="mt-3 flex flex-col gap-1">
+                  <Text className="text-xs font-semibold text-text-03">
+                    Selected targets are linked to these approvals
                   </Text>
                   {selectedTargetSuggestionMatches.map((suggestion) => (
                     <Text
@@ -582,52 +738,58 @@ export default function RuntimeSkillActivationPanel({
               )}
             </div>
           )}
-        </div>
-      )}
-
-      {requiresApproval && (
-        <div className="mt-3">
-          <Text as="p" className="mb-1 font-semibold">
-            Approval Reference
-          </Text>
-          <InputTypeIn
-            value={skillApprovalReference}
-            onChange={(event) =>
-              onSkillApprovalReferenceChange(event.target.value)
-            }
-            placeholder="For example: CHG-1001"
-            variant={disabled ? "disabled" : "primary"}
-          />
-          {validationErrors?.approvalReference && (
-            <Text className="mt-1 text-xs text-status-error-05">
-              {validationErrors.approvalReference}
-            </Text>
-          )}
-          {visibleApprovalSuggestions.length > 0 && (
-            <div className="mt-2">
-              <Text className="mb-1 text-xs text-text-03">
-                {selectedTargetApprovalReferences.length > 0
-                  ? "Approval references for selected targets"
-                  : "Known approval references"}
-              </Text>
-              <div className="flex flex-wrap gap-1">
-                {visibleApprovalSuggestions.map((reference) => (
-                  <Button
-                    key={reference}
-                    type="button"
-                    size="xs"
-                    prominence="tertiary"
-                    onClick={() => onSkillApprovalReferenceChange(reference)}
-                    disabled={disabled}
-                  >
-                    {reference}
-                  </Button>
-                ))}
-              </div>
             </div>
           )}
-        </div>
-      )}
+
+          {requiresApproval && (
+            <div className="mt-4 rounded-xl border border-border bg-background-tint-01 p-4">
+              <Text as="p" className="mb-1 font-semibold">
+                Approval Reference
+              </Text>
+              <Text className="mb-2 text-xs text-text-03">
+                Provide an approval or change reference for the selected skill
+                set.
+              </Text>
+              <InputTypeIn
+                value={skillApprovalReference}
+                onChange={(event) =>
+                  onSkillApprovalReferenceChange(event.target.value)
+                }
+                placeholder="For example: CHG-1001"
+                variant={disabled ? "disabled" : "primary"}
+              />
+              {validationErrors?.approvalReference && (
+                <Text className="mt-1 text-xs text-status-error-05">
+                  {validationErrors.approvalReference}
+                </Text>
+              )}
+              {visibleApprovalSuggestions.length > 0 && (
+                <div className="mt-2">
+                  <Text className="mb-1 text-xs text-text-03">
+                    {selectedTargetApprovalReferences.length > 0
+                      ? "Approval references for selected targets"
+                      : "Known approval references"}
+                  </Text>
+                  <div className="flex flex-wrap gap-1">
+                    {visibleApprovalSuggestions.map((reference) => (
+                      <Button
+                        key={reference}
+                        type="button"
+                        size="xs"
+                        prominence="tertiary"
+                        onClick={() => onSkillApprovalReferenceChange(reference)}
+                        disabled={disabled}
+                      >
+                        {reference}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

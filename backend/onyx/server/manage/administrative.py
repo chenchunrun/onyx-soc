@@ -165,22 +165,6 @@ def create_deletion_attempt_for_connector_id(
             detail=error,
         )
 
-    # Cancel any scheduled indexing attempts
-    cancel_indexing_attempts_for_ccpair(
-        cc_pair_id=cc_pair.id, db_session=db_session, include_secondary_index=True
-    )
-    redis_connector = RedisConnector(tenant_id=tenant_id, cc_pair_id=cc_pair.id)
-
-    # clear stale delete state to force a clean deletion attempt
-    redis_connector.delete.reset()
-
-    # block ongoing connector work and revoke blockers before running the delete
-    redis_connector.stop.set_fence(True)
-    redis_connector.stop.set_timeout()
-    revoke_tasks_blocking_deletion(
-        redis_connector=redis_connector, db_session=db_session, app=client_app
-    )
-
     # TODO(rkuo): 2024-10-24 - check_deletion_attempt_is_allowed shouldn't be necessary
     # any more due to background locking improvements.
     # Remove the below permanently if everything is behaving for 30 days.
@@ -202,6 +186,25 @@ def create_deletion_attempt_for_connector_id(
         status=ConnectorCredentialPairStatus.DELETING,
     )
 
+    db_session.commit()
+
+    redis_connector = RedisConnector(tenant_id=tenant_id, cc_pair_id=cc_pair.id)
+
+    # clear stale delete state to force a clean deletion attempt
+    redis_connector.delete.reset()
+
+    # block ongoing connector work and revoke blockers after the durable state transition
+    redis_connector.stop.set_fence(True)
+    redis_connector.stop.set_timeout()
+    revoke_tasks_blocking_deletion(
+        redis_connector=redis_connector, db_session=db_session, app=client_app
+    )
+
+    # Cancel any scheduled indexing attempts after deletion is durable. This helper
+    # intentionally shares the current session so the cancellation is committed below.
+    cancel_indexing_attempts_for_ccpair(
+        cc_pair_id=cc_pair.id, db_session=db_session, include_secondary_index=True
+    )
     db_session.commit()
 
     # run the beat task to pick up this deletion from the db immediately

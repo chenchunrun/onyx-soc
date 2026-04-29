@@ -89,6 +89,8 @@ export interface AppInputBarProps {
 
   // agents
   selectedAgent: MinimalPersonaSnapshot | undefined;
+  availableAgents?: MinimalPersonaSnapshot[];
+  onSelectAgent?: (agentId: number) => void;
 
   handleFileUpload: (files: File[]) => void;
   filterManager: FilterManager;
@@ -107,6 +109,119 @@ interface RuntimeSkillValidationErrors {
   selection?: string | null;
   targets?: string | null;
   approvalReference?: string | null;
+}
+
+interface SecurityTaskSuggestion {
+  taskType: string;
+  personaName: string;
+  skillKeys: string[];
+  playbookName?: string;
+  confidence: number;
+  reasons: string[];
+}
+
+const SECURITY_TASK_SUGGESTIONS: Array<
+  SecurityTaskSuggestion & { keywords: string[] }
+> = [
+  {
+    taskType: "vulnerability_assessment",
+    personaName: "漏洞评估专家",
+    skillKeys: [
+      "researching-vulnerabilities",
+      "sca-analyzer",
+      "asset-discovery",
+    ],
+    confidence: 0.86,
+    reasons: ["vulnerability context", "impact and remediation workflow"],
+    keywords: [
+      "漏洞",
+      "cve",
+      "补丁",
+      "影响",
+      "优先级",
+      "vulnerability",
+      "patch",
+      "exploit",
+    ],
+  },
+  {
+    taskType: "malware_analysis",
+    personaName: "恶意软件分析师",
+    skillKeys: [
+      "binary-reverse-engineering",
+      "office-malware-analyzer",
+      "pdf-analysis",
+    ],
+    confidence: 0.84,
+    reasons: ["sample analysis context", "malware-focused skills"],
+    keywords: [
+      "恶意",
+      "木马",
+      "样本",
+      "反编译",
+      "宏",
+      "malware",
+      "sample",
+      "yara",
+      "reverse",
+    ],
+  },
+  {
+    taskType: "incident_triage",
+    personaName: "安全事件分析师",
+    skillKeys: ["auth-log-analysis", "email-osint", "url-analysis"],
+    playbookName: "incident-triage-readonly",
+    confidence: 0.78,
+    reasons: ["alert triage context", "read-only investigation workflow"],
+    keywords: [
+      "告警",
+      "事件",
+      "日志",
+      "钓鱼",
+      "可疑",
+      "alert",
+      "incident",
+      "phishing",
+    ],
+  },
+  {
+    taskType: "incident_containment",
+    personaName: "应急响应指挥官",
+    skillKeys: ["auth-log-analysis", "endpoint-triage", "url-analysis"],
+    playbookName: "incident-containment-and-ticketing",
+    confidence: 0.82,
+    reasons: ["containment intent", "response playbook required"],
+    keywords: ["隔离", "封禁", "阻断", "工单", "contain", "isolate", "block"],
+  },
+];
+
+function getSecurityTaskSuggestion(
+  message: string
+): SecurityTaskSuggestion | null {
+  const normalizedMessage = message.trim().toLowerCase();
+  if (normalizedMessage.length < 4) {
+    return null;
+  }
+
+  const scoredSuggestions = SECURITY_TASK_SUGGESTIONS.map((suggestion) => ({
+    suggestion,
+    score: suggestion.keywords.filter((keyword) =>
+      normalizedMessage.includes(keyword.toLowerCase())
+    ).length,
+  }));
+  const bestMatch = scoredSuggestions.reduce((best, current) =>
+    current.score > best.score ? current : best
+  );
+
+  if (bestMatch.score === 0) {
+    return null;
+  }
+
+  const { keywords: _keywords, ...suggestion } = bestMatch.suggestion;
+  return {
+    ...suggestion,
+    confidence: Math.min(0.95, suggestion.confidence + bestMatch.score * 0.03),
+  };
 }
 
 function detectRuntimeTargetType(target: string): string | null {
@@ -184,7 +299,9 @@ function validateRuntimeSkillActivation(
   const requiresTargets = selectedSkills.some(
     (skill) => skill.execution_scope === "authorized_scan"
   );
-  const requiresApproval = selectedSkills.some((skill) => skill.requires_approval);
+  const requiresApproval = selectedSkills.some(
+    (skill) => skill.requires_approval
+  );
   const targetLines = skillTargetsText
     .split("\n")
     .map((value) => value.trim())
@@ -201,7 +318,9 @@ function validateRuntimeSkillActivation(
       if (!detectedType) {
         return true;
       }
-      return allowedTargetTypes.size > 0 && !allowedTargetTypes.has(detectedType);
+      return (
+        allowedTargetTypes.size > 0 && !allowedTargetTypes.has(detectedType)
+      );
     });
     if (hasInvalidTarget) {
       errors.targets =
@@ -227,6 +346,8 @@ const AppInputBar = React.memo(
     currentSessionFileTokenCount,
     availableContextTokens,
     selectedAgent,
+    availableAgents = [],
+    onSelectAgent,
 
     handleFileUpload,
     llmManager,
@@ -302,17 +423,44 @@ const AppInputBar = React.memo(
         dedupingInterval: 60000,
       }
     );
+    const securityTaskSuggestion = useMemo(
+      () => getSecurityTaskSuggestion(message),
+      [message]
+    );
+    const matchingActivationSkillKeys = useMemo(() => {
+      if (!runtimeProfile || !securityTaskSuggestion) {
+        return [];
+      }
+      const activationRequired = new Set(
+        runtimeProfile.activation_required_skill_keys ?? []
+      );
+      return securityTaskSuggestion.skillKeys.filter((skillKey) =>
+        activationRequired.has(skillKey)
+      );
+    }, [runtimeProfile, securityTaskSuggestion]);
+    const suggestedPersonaMatches =
+      !!selectedAgent &&
+      !!securityTaskSuggestion &&
+      selectedAgent.name === securityTaskSuggestion.personaName;
+    const suggestedAgent = securityTaskSuggestion
+      ? availableAgents.find(
+          (agent) => agent.name === securityTaskSuggestion.personaName
+        )
+      : undefined;
 
-    const updateSelectedRuntimeSkillKeys = useCallback((skillKeys: string[]) => {
-      selectedRuntimeSkillKeysRef.current = skillKeys;
-      setSelectedRuntimeSkillKeys(skillKeys);
-      setRuntimeSkillValidationErrors((prev) => ({
-        ...prev,
-        selection: null,
-        targets: null,
-        approvalReference: null,
-      }));
-    }, []);
+    const updateSelectedRuntimeSkillKeys = useCallback(
+      (skillKeys: string[]) => {
+        selectedRuntimeSkillKeysRef.current = skillKeys;
+        setSelectedRuntimeSkillKeys(skillKeys);
+        setRuntimeSkillValidationErrors((prev) => ({
+          ...prev,
+          selection: null,
+          targets: null,
+          approvalReference: null,
+        }));
+      },
+      []
+    );
 
     const updateRuntimeSkillTargetsText = useCallback((value: string) => {
       runtimeSkillTargetsTextRef.current = value;
@@ -1103,6 +1251,79 @@ const AppInputBar = React.memo(
           </div>
 
           {chatControls}
+
+          {securityTaskSuggestion && !isSearchMode && (
+            <div className="border-t border-border px-4 py-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-semibold text-text-02">建议路由</span>
+                    <span className="rounded-full border border-border bg-background-neutral-00 px-2 py-0.5 text-text-03">
+                      {Math.round(securityTaskSuggestion.confidence * 100)}%
+                    </span>
+                    <span
+                      className={cn(
+                        "rounded-full border px-2 py-0.5",
+                        suggestedPersonaMatches
+                          ? "border-status-success-04/40 bg-status-success-02/15 text-status-success-04"
+                          : "border-status-warning-04/40 bg-status-warning-02/20 text-status-warning-05"
+                      )}
+                    >
+                      {suggestedPersonaMatches
+                        ? "当前智能体匹配"
+                        : `建议切换至 ${securityTaskSuggestion.personaName}`}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1.5 text-xs text-text-03">
+                    {securityTaskSuggestion.skillKeys.map((skillKey) => (
+                      <span
+                        key={skillKey}
+                        className="rounded-full bg-background-subtle px-2 py-0.5"
+                      >
+                        {skillKey}
+                      </span>
+                    ))}
+                    {securityTaskSuggestion.playbookName && (
+                      <span className="rounded-full bg-background-subtle px-2 py-0.5">
+                        剧本：{securityTaskSuggestion.playbookName}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {matchingActivationSkillKeys.length > 0 && (
+                  <Button
+                    prominence="secondary"
+                    disabled={disabled || chatState !== "input"}
+                    onClick={() => {
+                      updateSelectedRuntimeSkillKeys(
+                        Array.from(
+                          new Set([
+                            ...selectedRuntimeSkillKeysRef.current,
+                            ...matchingActivationSkillKeys,
+                          ])
+                        )
+                      );
+                    }}
+                  >
+                    启用匹配技能
+                  </Button>
+                )}
+                {!suggestedPersonaMatches &&
+                  suggestedAgent &&
+                  onSelectAgent &&
+                  isNewSession && (
+                    <Button
+                      prominence="secondary"
+                      disabled={disabled || chatState !== "input"}
+                      onClick={() => onSelectAgent(suggestedAgent.id)}
+                    >
+                      切换智能体
+                    </Button>
+                  )}
+              </div>
+            </div>
+          )}
 
           {runtimeProfile && (
             <RuntimeSkillActivationPanel

@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import * as SettingsLayouts from "@/layouts/settings-layouts";
 import { ADMIN_ROUTES } from "@/lib/admin-routes";
 import { Card } from "@/components/ui/card";
 import { ThreeDotsLoader } from "@/components/Loading";
-import { Text } from "@opal/components";
+import { Button, Text } from "@opal/components";
+import InputTextArea from "@/refresh-components/inputs/InputTextArea";
 import useSWR from "swr";
 import { errorHandlingFetcher } from "@/lib/fetcher";
 
@@ -384,6 +386,15 @@ interface SecurityPlatformRuntimeStatus {
   };
 }
 
+interface SecurityTaskRoute {
+  task_type: string;
+  confidence: number;
+  persona_name: string;
+  skill_keys: string[];
+  playbook_name: string | null;
+  reasons: string[];
+}
+
 function getHealthTone(status: string) {
   if (status === "failing") {
     return "border-red-200 bg-red-50 text-red-700";
@@ -440,6 +451,121 @@ function SectionCard({
       ) : null}
       <div className="mt-3">{children}</div>
     </div>
+  );
+}
+
+function SecurityTaskRouterPanel() {
+  const [message, setMessage] = useState(
+    "CVE-2025-1234 影响我们哪些版本，需要补丁优先级"
+  );
+  const [route, setRoute] = useState<SecurityTaskRoute | null>(null);
+  const [isRouting, setIsRouting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const routeTask = async () => {
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage) {
+      setError("Enter a security task first.");
+      setRoute(null);
+      return;
+    }
+
+    setIsRouting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/manage/admin/security-platform/task-route", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: trimmedMessage }),
+      });
+      if (!response.ok) {
+        throw new Error(`Task route request failed: ${response.status}`);
+      }
+      setRoute((await response.json()) as SecurityTaskRoute);
+    } catch (err) {
+      setRoute(null);
+      setError(err instanceof Error ? err.message : "Task route request failed.");
+    } finally {
+      setIsRouting(false);
+    }
+  };
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="max-w-2xl">
+          <div className="text-sm font-medium text-muted-foreground">
+            Security Task Router
+          </div>
+          <div className="mt-1 text-sm text-foreground">
+            Preview how the platform maps an analyst request to the right agent,
+            security skills, and playbook.
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          prominence="primary"
+          onClick={routeTask}
+          disabled={isRouting}
+        >
+          {isRouting ? "Routing..." : "Route Task"}
+        </Button>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+        <InputTextArea
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          rows={4}
+          resizable={false}
+          placeholder="Describe a security task, for example: suspicious PowerShell alert on finance-host-01"
+        />
+
+        <div className="rounded-md border border-border bg-background/60 p-4">
+          {route ? (
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-base font-semibold text-foreground">
+                  {route.persona_name}
+                </div>
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
+                  {Math.round(route.confidence * 100)}%
+                </span>
+              </div>
+              <div className="mt-2 text-sm text-muted-foreground">
+                task={route.task_type}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {route.skill_keys.map((skillKey) => (
+                  <span
+                    key={skillKey}
+                    className="rounded-md border border-border bg-background px-2 py-1 text-xs text-foreground"
+                  >
+                    {skillKey}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-3 text-sm text-muted-foreground">
+                playbook={route.playbook_name || "none"}
+              </div>
+              <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                {route.reasons.map((reason) => (
+                  <div key={reason}>{reason}</div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm text-muted-foreground">
+              Run the router to see the recommended security workflow.
+            </div>
+          )}
+          {error ? <div className="mt-3 text-xs text-red-700">{error}</div> : null}
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -810,6 +936,8 @@ function Main() {
           ))}
         </div>
       </Card>
+
+      <SecurityTaskRouterPanel />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <SummaryCard title="Deployment Profile">

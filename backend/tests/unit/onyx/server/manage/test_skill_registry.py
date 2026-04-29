@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import uuid4
 
 from onyx.auth.schemas import UserRole
 from onyx.server.manage.skills import registry
@@ -804,3 +805,15 @@ def test_resolve_bound_skill_runtime_state_writes_audit_record_when_enabled(
     assert captured_records[0]["requested_skill_keys"] == ["code-audit"]
     assert captured_records[0]["active_skill_keys"] == ["code-audit"]
     assert captured_records[0]["chat_session_id"] == 42
+
+
+def test_runtime_skill_audit_serializes_uuid_metadata(tmp_path, monkeypatch) -> None:
+    audit_path = tmp_path / "runtime_skill_audit.jsonl"
+    monkeypatch.setattr(registry, "RUNTIME_SKILL_AUDIT_PATH", audit_path)
+
+    chat_session_id = uuid4()
+    registry._append_runtime_skill_audit({"chat_session_id": chat_session_id})
+
+    assert audit_path.read_text(encoding="utf-8").strip() == (
+        f'{{"chat_session_id": "{chat_session_id}"}}'
+    )

@@ -308,6 +308,7 @@ def _on_tool_timeout(
             obj=SectionEnd(),
         )
     )
+    _tool.emitter.suppress_placement(tool_call.placement)
     return ToolResponse(
         rich_response=None,
         llm_facing_response=GENERIC_TOOL_ERROR_MESSAGE.format(

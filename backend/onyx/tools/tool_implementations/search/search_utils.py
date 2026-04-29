@@ -26,6 +26,17 @@ logger = setup_logger()
 
 T = TypeVar("T")
 
+SKIP_CONTEXT_EXPANSION_DOCUMENT_ID_PREFIXES = (
+    "FILE_CONNECTOR__",
+    "ingestion_api_",
+)
+
+
+def _should_skip_context_expansion(section: InferenceSection) -> bool:
+    return section.center_chunk.document_id.startswith(
+        SKIP_CONTEXT_EXPANSION_DOCUMENT_ID_PREFIXES
+    )
+
 
 def weighted_reciprocal_rank_fusion(
     ranked_results: list[list[T]],
@@ -375,6 +386,13 @@ def expand_section_with_context(
     Returns:
         Expanded InferenceSection with appropriate context, or None if NOT_RELEVANT
     """
+    if _should_skip_context_expansion(section):
+        logger.debug(
+            "Skipping context expansion for single-record document: %s",
+            section.center_chunk.document_id,
+        )
+        return section
+
     chunks_above_for_prompt: list[InferenceChunk] = []
     chunks_below_for_prompt: list[InferenceChunk] = []
 

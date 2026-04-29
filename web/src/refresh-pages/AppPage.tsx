@@ -885,6 +885,8 @@ export default function AppPage({ firstMessage }: ChatPageProps) {
                         }
                         availableContextTokens={availableContextTokens}
                         selectedAgent={selectedAgent || liveAgent}
+                        availableAgents={agents}
+                        onSelectAgent={setSelectedAgentFromId}
                         handleFileUpload={handleMessageSpecificFileUpload}
                         setPresentingDocument={setPresentingDocument}
                         // Intentionally enabled during name-only onboarding (showOnboarding=false)

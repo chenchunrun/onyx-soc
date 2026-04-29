@@ -68,7 +68,15 @@ class TiktokenTokenizer(BaseTokenizer):
 
 class HuggingFaceTokenizer(BaseTokenizer):
     def __init__(self, model_name: str):
-        self.encoder: Tokenizer = Tokenizer.from_pretrained(model_name)
+        previous_offline = os.environ.get("HF_HUB_OFFLINE")
+        os.environ["HF_HUB_OFFLINE"] = "1"
+        try:
+            self.encoder = Tokenizer.from_pretrained(model_name)
+        finally:
+            if previous_offline is None:
+                os.environ.pop("HF_HUB_OFFLINE", None)
+            else:
+                os.environ["HF_HUB_OFFLINE"] = previous_offline
 
     def _safer_encode(self, string: str) -> Encoding:
         """
@@ -157,7 +165,14 @@ def _get_default_tokenizer() -> BaseTokenizer:
     """Lazy-load the default tokenizer to avoid loading it at module import time."""
     global _DEFAULT_TOKENIZER
     if _DEFAULT_TOKENIZER is None:
-        _DEFAULT_TOKENIZER = HuggingFaceTokenizer(DOCUMENT_ENCODER_MODEL)
+        try:
+            _DEFAULT_TOKENIZER = HuggingFaceTokenizer(DOCUMENT_ENCODER_MODEL)
+        except Exception as hf_error:
+            logger.warning(
+                f"Failed to initialize default HuggingFaceTokenizer for {DOCUMENT_ENCODER_MODEL}: {hf_error}. "
+                "Falling back to cl100k tokenizer."
+            )
+            _DEFAULT_TOKENIZER = TiktokenTokenizer("gpt-3.5-turbo")
     return _DEFAULT_TOKENIZER
 
 

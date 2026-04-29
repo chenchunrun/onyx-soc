@@ -4,9 +4,11 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
+import requests
 
 from onyx.server.query_and_chat.placement import Placement
 from onyx.tools.models import DynamicSchemaInfo
+from onyx.tools.models import ToolCallException
 from onyx.tools.models import ToolResponse
 from onyx.tools.tool_implementations.custom.custom_tool import (
     build_custom_tools_from_openapi_schema_and_headers,
@@ -265,6 +267,107 @@ class TestCustomTool(unittest.TestCase):
             {"id": "789", "name": "Final Assistant"},
             "Final result does not match expected output",
         )
+
+    @patch("onyx.tools.tool_implementations.custom.custom_tool.requests.request")
+    def test_security_lookup_ip_rejects_non_ip(
+        self, mock_request: unittest.mock.MagicMock
+    ) -> None:
+        schema: dict[str, Any] = {
+            "openapi": "3.0.0",
+            "info": {"version": "1.0.0", "title": "Security Tools"},
+            "servers": [{"url": "http://localhost:9999"}],
+            "paths": {
+                "/ip_addresses/{ip}": {
+                    "GET": {
+                        "summary": "Lookup IP reputation",
+                        "operationId": "lookupIP",
+                        "parameters": [
+                            {
+                                "name": "ip",
+                                "in": "path",
+                                "required": True,
+                                "schema": {"type": "string"},
+                            }
+                        ],
+                    }
+                }
+            },
+        }
+
+        tools = build_custom_tools_from_openapi_schema_and_headers(
+            tool_id=-1,
+            openapi_schema=schema,
+        )
+
+        with self.assertRaises(ToolCallException):
+            tools[0].run(
+                placement=Placement(turn_index=0, tab_index=0),
+                override_kwargs=None,
+                ip="CVE-2025-12480",
+            )
+
+        mock_request.assert_not_called()
+
+    @patch("onyx.tools.tool_implementations.custom.custom_tool.requests.request")
+    def test_security_lookup_domain_rejects_non_domain(
+        self, mock_request: unittest.mock.MagicMock
+    ) -> None:
+        schema: dict[str, Any] = {
+            "openapi": "3.0.0",
+            "info": {"version": "1.0.0", "title": "Security Tools"},
+            "servers": [{"url": "http://localhost:9999"}],
+            "paths": {
+                "/domains/{domain}": {
+                    "GET": {
+                        "summary": "Lookup domain reputation",
+                        "operationId": "lookupDomain",
+                        "parameters": [
+                            {
+                                "name": "domain",
+                                "in": "path",
+                                "required": True,
+                                "schema": {"type": "string"},
+                            }
+                        ],
+                    }
+                }
+            },
+        }
+
+        tools = build_custom_tools_from_openapi_schema_and_headers(
+            tool_id=-1,
+            openapi_schema=schema,
+        )
+
+        with self.assertRaises(ToolCallException):
+            tools[0].run(
+                placement=Placement(turn_index=0, tab_index=0),
+                override_kwargs=None,
+                domain="CVE-2025-12480",
+            )
+
+        mock_request.assert_not_called()
+
+    @patch("onyx.tools.tool_implementations.custom.custom_tool.requests.request")
+    def test_custom_tool_upstream_unavailable_returns_tool_response(
+        self, mock_request: unittest.mock.MagicMock
+    ) -> None:
+        mock_request.side_effect = requests.ConnectionError("connection refused")
+        tools = build_custom_tools_from_openapi_schema_and_headers(
+            tool_id=-1,
+            openapi_schema=self.openapi_schema,
+            dynamic_schema_info=self.dynamic_schema_info,
+        )
+
+        result = tools[0].run(
+            placement=Placement(turn_index=0, tab_index=0),
+            override_kwargs=None,
+            assistant_id="123",
+        )
+
+        assert isinstance(result.rich_response, CustomToolCallSummary)
+        self.assertEqual(result.rich_response.response_type, "text")
+        self.assertIn("unavailable", result.llm_facing_response)
 
 
 if __name__ == "__main__":

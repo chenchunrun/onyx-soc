@@ -1,9 +1,17 @@
 """Unit tests for search utility functions."""
 
 from typing import NamedTuple
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
 
+from onyx.configs.constants import DocumentSource
+from onyx.context.search.models import InferenceChunk
+from onyx.context.search.utils import inference_section_from_single_chunk
+from onyx.tools.tool_implementations.search.search_utils import (
+    expand_section_with_context,
+)
 from onyx.tools.tool_implementations.search.search_tool import deduplicate_queries
 from onyx.tools.tool_implementations.search.search_utils import (
     weighted_reciprocal_rank_fusion,
@@ -20,6 +28,29 @@ class MockDocument(NamedTuple):
 
     document_id: str
     content: str
+
+
+def _mock_inference_chunk(document_id: str) -> InferenceChunk:
+    return InferenceChunk(
+        document_id=document_id,
+        chunk_id=0,
+        content="test content",
+        source_type=DocumentSource.FILE,
+        semantic_identifier="test file",
+        title="test file",
+        boost=1,
+        score=1.0,
+        hidden=False,
+        metadata={},
+        match_highlights=[],
+        doc_summary="",
+        chunk_context="",
+        updated_at=None,
+        image_file_id=None,
+        source_links={},
+        section_continuation=False,
+        blurb="test content",
+    )
 
 
 # =============================================================================
@@ -334,6 +365,48 @@ class TestWeightedReciprocalRankFusion:
         assert len(result) == 2
         assert result[0].document_id == "doc_a"
         assert result[1].document_id == "doc_b"
+
+
+class TestExpandSectionWithContext:
+    def test_file_connector_sections_skip_context_expansion(self) -> None:
+        chunk = _mock_inference_chunk("FILE_CONNECTOR__test-file")
+        section = inference_section_from_single_chunk(chunk)
+        document_index = MagicMock()
+        llm = MagicMock()
+
+        with patch(
+            "onyx.tools.tool_implementations.search.search_utils.classify_section_relevance"
+        ) as mock_classify_section_relevance:
+            result = expand_section_with_context(
+                section=section,
+                user_query="test query",
+                llm=llm,
+                document_index=document_index,
+            )
+
+        assert result == section
+        document_index.id_based_retrieval.assert_not_called()
+        mock_classify_section_relevance.assert_not_called()
+
+    def test_ingestion_api_sections_skip_context_expansion(self) -> None:
+        chunk = _mock_inference_chunk("ingestion_api_CVE-2025-12480%3A_N%2FA")
+        section = inference_section_from_single_chunk(chunk)
+        document_index = MagicMock()
+        llm = MagicMock()
+
+        with patch(
+            "onyx.tools.tool_implementations.search.search_utils.classify_section_relevance"
+        ) as mock_classify_section_relevance:
+            result = expand_section_with_context(
+                section=section,
+                user_query="test query",
+                llm=llm,
+                document_index=document_index,
+            )
+
+        assert result == section
+        document_index.id_based_retrieval.assert_not_called()
+        mock_classify_section_relevance.assert_not_called()
 
 
 # =============================================================================

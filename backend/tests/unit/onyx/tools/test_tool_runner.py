@@ -326,13 +326,31 @@ class _NoopEmitter:
     def emit(self, _packet: object) -> None:
         return None
 
+    def suppress_placement(self, _placement: Placement) -> None:
+        return None
+
 
 class _RecordingEmitter(_NoopEmitter):
     def __init__(self) -> None:
         self.packets: list[Packet] = []
+        self.suppressed_placements: set[tuple[int, int, int | None]] = set()
 
     def emit(self, packet: Packet) -> None:
+        placement = packet.placement
+        if placement is not None:
+            placement_key = (
+                placement.turn_index,
+                placement.tab_index,
+                placement.sub_turn_index,
+            )
+            if placement_key in self.suppressed_placements:
+                return
         self.packets.append(packet)
+
+    def suppress_placement(self, placement: Placement) -> None:
+        self.suppressed_placements.add(
+            (placement.turn_index, placement.tab_index, placement.sub_turn_index)
+        )
 
 
 def _count_section_end(packets: list[object]) -> int:
@@ -401,6 +419,17 @@ class _SlowTool(_TestTool):
         return super().run(placement, override_kwargs, **llm_kwargs)
 
 
+class _SlowEmittingTool(_SlowTool):
+    """Tool that emits after the timeout callback has returned."""
+
+    def run(
+        self, placement: Placement, override_kwargs: object, **llm_kwargs: object
+    ) -> ToolResponse:
+        time.sleep(self._delay_seconds)
+        self.emitter.emit(Packet(placement=placement, obj="late packet"))
+        return super(_SlowTool, self).run(placement, override_kwargs, **llm_kwargs)
+
+
 class _ErrorTool(_TestTool):
     """Tool that always raises to verify fallback response handling."""
 
@@ -447,6 +476,39 @@ class TestRunToolCalls:
         assert response.tool_call.tool_call_id == "timeout_1"
         assert "timed out" in response.llm_facing_response.lower()
         assert _count_section_end(emitter.packets) == 1
+
+        time.sleep(0.15)
+        assert _count_section_end(emitter.packets) == 1
+        assert all(packet.obj != "late packet" for packet in emitter.packets)
+
+    def test_timeout_suppresses_late_tool_packets(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "onyx.tools.tool_runner.TOOL_EXECUTION_TIMEOUT_SECONDS", 0.01
+        )
+        emitter = _RecordingEmitter()
+        tool_call = _make_tool_call(
+            tool_name="slow_tool",
+            tool_args={},
+            tool_call_id="timeout_2",
+        )
+        run_tool_calls(
+            tool_calls=[tool_call],
+            tools=[_SlowEmittingTool(emitter, delay_seconds=0.05)],
+            message_history=[
+                ChatMessageSimple(
+                    message="search query",
+                    token_count=5,
+                    message_type=MessageType.USER,
+                )
+            ],
+            user_memory_context=None,
+            user_info=None,
+            citation_mapping={},
+            next_citation_num=1,
+        )
+
+        time.sleep(0.1)
+        assert [packet.obj for packet in emitter.packets] == [SectionEnd()]
 
     def test_tool_exception_returns_fallback_response_with_call_mapping(self) -> None:
         tool_call = _make_tool_call(

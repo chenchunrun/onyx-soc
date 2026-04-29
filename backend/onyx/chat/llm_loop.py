@@ -987,9 +987,11 @@ def run_llm_loop(
                 # Get the tool object to retrieve tool_id
                 tool = tools_by_name.get(tool_call.tool_name)
                 if not tool:
-                    raise ValueError(
-                        f"Tool '{tool_call.tool_name}' not found in tools list"
+                    logger.warning(
+                        "Skipping persistence for unavailable tool '%s'",
+                        tool_call.tool_name,
                     )
+                    continue
 
                 # Extract search_docs if this is a search tool response
                 search_docs = None

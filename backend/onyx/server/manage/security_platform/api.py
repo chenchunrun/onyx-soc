@@ -239,6 +239,222 @@ class SecurityPlatformFailureEntry(BaseModel):
     error: str
 
 
+class SecurityTaskRouteRequest(BaseModel):
+    message: str
+
+
+class SecurityTaskRoute(BaseModel):
+    task_type: str
+    confidence: float
+    persona_name: str
+    skill_keys: list[str]
+    playbook_name: str | None
+    reasons: list[str]
+
+
+class SecurityTaskRouteDefinition(BaseModel):
+    task_type: str
+    persona_name: str
+    skill_keys: list[str]
+    playbook_name: str | None
+    keywords: list[str]
+
+
+SECURITY_TASK_ROUTES: tuple[SecurityTaskRouteDefinition, ...] = (
+    SecurityTaskRouteDefinition(
+        task_type="vulnerability_assessment",
+        persona_name="漏洞评估专家",
+        skill_keys=[
+            "researching-vulnerabilities",
+            "sca-analyzer",
+            "asset-discovery",
+        ],
+        playbook_name=None,
+        keywords=[
+            "cve",
+            "漏洞",
+            "补丁",
+            "patch",
+            "exploit",
+            "poc",
+            "影响",
+            "修复",
+            "版本",
+            "依赖",
+            "sbom",
+        ],
+    ),
+    SecurityTaskRouteDefinition(
+        task_type="malware_analysis",
+        persona_name="恶意软件分析师",
+        skill_keys=[
+            "office-malware-analyzer",
+            "pdf-analysis",
+            "binary-reverse-engineering",
+        ],
+        playbook_name=None,
+        keywords=[
+            "恶意",
+            "样本",
+            "木马",
+            "勒索",
+            "hash",
+            "哈希",
+            "宏",
+            "office",
+            "pdf",
+            "附件",
+            "malware",
+            "ransomware",
+        ],
+    ),
+    SecurityTaskRouteDefinition(
+        task_type="incident_containment",
+        persona_name="应急响应指挥官",
+        skill_keys=["asset-monitor", "ttp-extractor"],
+        playbook_name="incident-containment-and-ticketing",
+        keywords=[
+            "隔离",
+            "封禁",
+            "处置",
+            "止损",
+            "工单",
+            "升级",
+            "contain",
+            "isolate",
+            "ticket",
+            "edr",
+            "p1",
+        ],
+    ),
+    SecurityTaskRouteDefinition(
+        task_type="incident_triage",
+        persona_name="安全事件分析师",
+        skill_keys=["auth-log-analysis", "email-osint", "url-analysis"],
+        playbook_name="incident-triage-readonly",
+        keywords=[
+            "告警",
+            "事件",
+            "ioc",
+            "ip",
+            "域名",
+            "url",
+            "登录",
+            "powershell",
+            "siem",
+            "alert",
+            "incident",
+            "triage",
+            "phishing",
+        ],
+    ),
+    SecurityTaskRouteDefinition(
+        task_type="threat_hunting",
+        persona_name="威胁狩猎工程师",
+        skill_keys=["asset-monitor", "ttp-extractor", "dns-cache-detection"],
+        playbook_name=None,
+        keywords=[
+            "狩猎",
+            "横向",
+            "异常",
+            "行为",
+            "ttp",
+            "attack",
+            "technique",
+            "hunting",
+            "lateral",
+            "dns",
+        ],
+    ),
+    SecurityTaskRouteDefinition(
+        task_type="compliance_audit",
+        persona_name="合规审计员",
+        skill_keys=["rga-knowledge-search", "data-desensitize"],
+        playbook_name=None,
+        keywords=[
+            "合规",
+            "审计",
+            "基线",
+            "控制项",
+            "证据",
+            "整改",
+            "等保",
+            "iso",
+            "compliance",
+            "audit",
+        ],
+    ),
+    SecurityTaskRouteDefinition(
+        task_type="detection_engineering",
+        persona_name="检测工程师",
+        skill_keys=["ttp-extractor", "auth-log-analysis", "prompt-injection-detect"],
+        playbook_name=None,
+        keywords=[
+            "检测",
+            "规则",
+            "sigma",
+            "yara",
+            "误报",
+            "字段",
+            "覆盖",
+            "detection",
+            "rule",
+        ],
+    ),
+)
+
+
+def build_security_task_route(message: str) -> SecurityTaskRoute:
+    normalized_message = message.strip().lower()
+    if not normalized_message:
+        return SecurityTaskRoute(
+            task_type="incident_triage",
+            confidence=0.0,
+            persona_name="安全事件分析师",
+            skill_keys=["auth-log-analysis", "email-osint", "url-analysis"],
+            playbook_name="incident-triage-readonly",
+            reasons=["empty input defaults to readonly incident triage"],
+        )
+
+    scored_routes: list[tuple[int, SecurityTaskRouteDefinition, list[str]]] = []
+    for route in SECURITY_TASK_ROUTES:
+        matched_keywords = [
+            keyword
+            for keyword in route.keywords
+            if keyword.lower() in normalized_message
+        ]
+        scored_routes.append((len(matched_keywords), route, matched_keywords))
+
+    score, selected_route, matched_keywords = max(
+        scored_routes,
+        key=lambda item: (
+            item[0],
+            1 if item[1].task_type == "incident_triage" else 0,
+        ),
+    )
+    confidence = min(0.95, 0.35 + score * 0.15) if score else 0.25
+    reasons = (
+        [f"matched keyword: {keyword}" for keyword in matched_keywords[:5]]
+        if matched_keywords
+        else ["no strong keyword match; defaulting to readonly incident triage"]
+    )
+    if score == 0:
+        selected_route = next(
+            route
+            for route in SECURITY_TASK_ROUTES
+            if route.task_type == "incident_triage"
+        )
+
+    return SecurityTaskRoute(
+        task_type=selected_route.task_type,
+        confidence=confidence,
+        persona_name=selected_route.persona_name,
+        skill_keys=selected_route.skill_keys,
+        playbook_name=selected_route.playbook_name,
+        reasons=reasons,
+    )
+
+
 class SecurityPlatformFailureAggregateEntry(BaseModel):
     label: str
     count: int
@@ -3796,3 +4012,11 @@ def get_security_platform_status(
         security_users=security_users,
         rbac=rbac_summary,
     )
+
+
+@router.post("/task-route")
+def route_security_task(
+    request: SecurityTaskRouteRequest,
+    _: User = Depends(current_admin_user),
+) -> SecurityTaskRoute:
+    return build_security_task_route(request.message)

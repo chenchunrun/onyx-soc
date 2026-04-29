@@ -523,52 +523,58 @@ def run_research_agent_call(
 
                         tool = tools_by_name.get(tc.tool_name)
                         if not tool:
-                            raise ValueError(
-                                f"Tool '{tc.tool_name}' not found in tools list"
+                            logger.warning(
+                                "Skipping persistence for unavailable research "
+                                "agent tool '%s'",
+                                tc.tool_name,
+                            )
+                        else:
+                            search_docs = None
+                            displayed_docs = None
+                            if isinstance(
+                                tool_response.rich_response, SearchDocsResponse
+                            ):
+                                search_docs = tool_response.rich_response.search_docs
+                                displayed_docs = (
+                                    tool_response.rich_response.displayed_docs
+                                )
+
+                                # Add ALL search docs to state container for DB persistence
+                                if search_docs:
+                                    state_container.add_search_docs(search_docs)
+
+                                # This is used for the Open URL reminder in the next cycle
+                                # only do this if the web search tool yielded results
+                                if search_docs and tc.tool_name == WebSearchTool.NAME:
+                                    just_ran_web_search = True
+
+                            # Makes sure the citation processor is updated with all the possible docs
+                            # and citation numbers so that it's populated when passed in to report generation.
+                            update_citation_processor_from_tool_response(
+                                tool_response=tool_response,
+                                citation_processor=citation_processor,
                             )
 
-                        search_docs = None
-                        displayed_docs = None
-                        if isinstance(tool_response.rich_response, SearchDocsResponse):
-                            search_docs = tool_response.rich_response.search_docs
-                            displayed_docs = tool_response.rich_response.displayed_docs
-
-                            # Add ALL search docs to state container for DB persistence
-                            if search_docs:
-                                state_container.add_search_docs(search_docs)
-
-                            # This is used for the Open URL reminder in the next cycle
-                            # only do this if the web search tool yielded results
-                            if search_docs and tc.tool_name == WebSearchTool.NAME:
-                                just_ran_web_search = True
-
-                        # Makes sure the citation processor is updated with all the possible docs
-                        # and citation numbers so that it's populated when passed in to report generation.
-                        update_citation_processor_from_tool_response(
-                            tool_response=tool_response,
-                            citation_processor=citation_processor,
-                        )
-
-                        # Research Agent is a top level tool call but the tools called by the research
-                        # agent are sub-tool calls.
-                        tool_call_info = ToolCallInfo(
-                            parent_tool_call_id=parent_tool_call_id,
-                            # At the DB save level, there is only a turn index, no sub-turn etc.
-                            # This is implied by the parent tool call's turn index and the depth
-                            # of the tree traversal.
-                            turn_index=llm_cycle_count + reasoning_cycles,
-                            tab_index=tool_call_tab_index,
-                            tool_name=tc.tool_name,
-                            tool_call_id=tc.tool_call_id,
-                            tool_id=tool.id,
-                            reasoning_tokens=llm_step_result.reasoning
-                            or most_recent_reasoning,
-                            tool_call_arguments=tc.tool_args,
-                            tool_call_response=tool_response.llm_facing_response,
-                            search_docs=displayed_docs or search_docs,
-                            generated_images=None,
-                        )
-                        state_container.add_tool_call(tool_call_info)
+                            # Research Agent is a top level tool call but the tools called by the research
+                            # agent are sub-tool calls.
+                            tool_call_info = ToolCallInfo(
+                                parent_tool_call_id=parent_tool_call_id,
+                                # At the DB save level, there is only a turn index, no sub-turn etc.
+                                # This is implied by the parent tool call's turn index and the depth
+                                # of the tree traversal.
+                                turn_index=llm_cycle_count + reasoning_cycles,
+                                tab_index=tool_call_tab_index,
+                                tool_name=tc.tool_name,
+                                tool_call_id=tc.tool_call_id,
+                                tool_id=tool.id,
+                                reasoning_tokens=llm_step_result.reasoning
+                                or most_recent_reasoning,
+                                tool_call_arguments=tc.tool_args,
+                                tool_call_response=tool_response.llm_facing_response,
+                                search_docs=displayed_docs or search_docs,
+                                generated_images=None,
+                            )
+                            state_container.add_tool_call(tool_call_info)
 
                         tool_response_message = tool_response.llm_facing_response
                         tool_response_token_count = token_counter(tool_response_message)

@@ -1064,12 +1064,12 @@ def _target_matches_entry(target: str, target_type: AuthorizedTargetType, entry:
 
 def _append_authorized_scan_audit(record: dict[str, Any]) -> None:
     with open(AUTHORIZED_SCAN_AUDIT_PATH, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
 
 def _append_runtime_skill_audit(record: dict[str, Any]) -> None:
     with open(RUNTIME_SKILL_AUDIT_PATH, "a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+        handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
 
 def list_authorized_scan_audit(limit: int = 20) -> list[dict[str, Any]]:

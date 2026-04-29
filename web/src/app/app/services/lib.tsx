@@ -26,6 +26,17 @@ import { WEB_SEARCH_TOOL_ID } from "@/app/app/components/tools/constants";
 import { SEARCH_TOOL_ID } from "@/app/app/components/tools/constants";
 import { Packet } from "./streamingModels";
 
+const CONTEXT_TOKEN_CACHE_TTL_MS = 30_000;
+
+const availableContextTokensCache = new Map<
+  string,
+  { tokens: number | null; fetchedAt: number }
+>();
+const availableContextTokensRequests = new Map<
+  string,
+  Promise<number | null>
+>();
+
 export async function updateLlmOverrideForChatSession(
   chatSessionId: string,
   newAlternateModel: string
@@ -327,14 +338,39 @@ export async function deleteAllChatSessions() {
 export async function getAvailableContextTokens(
   chatSessionId: string
 ): Promise<number | null> {
-  const response = await fetch(
-    `/api/chat/available-context-tokens/${chatSessionId}`
-  );
-  if (!response.ok) {
-    return null;
+  const cacheKey = chatSessionId;
+  const cached = availableContextTokensCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < CONTEXT_TOKEN_CACHE_TTL_MS) {
+    return cached.tokens;
   }
-  const data = (await response.json()) as { available_tokens: number };
-  return data?.available_tokens ?? null;
+
+  const existingRequest = availableContextTokensRequests.get(cacheKey);
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = (async () => {
+    const response = await fetch(
+      `/api/chat/available-context-tokens/${chatSessionId}`
+    );
+    if (!response.ok) {
+      return null;
+    }
+    const data = (await response.json()) as { available_tokens: number };
+    const tokens = data?.available_tokens ?? null;
+    availableContextTokensCache.set(cacheKey, {
+      tokens,
+      fetchedAt: Date.now(),
+    });
+    return tokens;
+  })();
+
+  availableContextTokensRequests.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    availableContextTokensRequests.delete(cacheKey);
+  }
 }
 
 export function processRawChatHistory(
