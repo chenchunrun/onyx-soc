@@ -13,9 +13,10 @@
 2. [架构说明](/Users/newmba/Downloads/onyx-main/docs/security-platform/2-architecture.md)
 3. [实施指南](/Users/newmba/Downloads/onyx-main/docs/security-platform/6-implementation-guide.md)
 4. [部署指南](/Users/newmba/Downloads/onyx-main/docs/security-platform/7-deployment.md)
-5. [Secret 管理说明](/Users/newmba/Downloads/onyx-main/docs/security-platform/20-secret-management.md)
-6. [最小验收清单](/Users/newmba/Downloads/onyx-main/docs/security-platform/9-minimal-acceptance-checklist.md)
-7. [开发 Backlog](/Users/newmba/Downloads/onyx-main/docs/security-platform/12-development-backlog.md)
+5. [产品说明书](/Users/newmba/Downloads/onyx-main/docs/security-platform/21-product-manual.md)
+6. [Secret 管理说明](/Users/newmba/Downloads/onyx-main/docs/security-platform/20-secret-management.md)
+7. [最小验收清单](/Users/newmba/Downloads/onyx-main/docs/security-platform/9-minimal-acceptance-checklist.md)
+8. [开发 Backlog](/Users/newmba/Downloads/onyx-main/docs/security-platform/12-development-backlog.md)
 
 
 ## 3. 当前有效文档
@@ -34,6 +35,8 @@
 - [部署指南](/Users/newmba/Downloads/onyx-main/docs/security-platform/7-deployment.md)
 - Helm overlays 已包含 `live / gateway / demo`
 - [Secret 管理说明](/Users/newmba/Downloads/onyx-main/docs/security-platform/20-secret-management.md)
+- [产品说明书](/Users/newmba/Downloads/onyx-main/docs/security-platform/21-product-manual.md)
+- [发布开源合规清单](/Users/newmba/Downloads/onyx-main/docs/security-platform/22-release-compliance-checklist.md)
 - [专家评审记录](/Users/newmba/Downloads/onyx-main/docs/security-platform/8-expert-review-notes.md)
 - [最小验收清单](/Users/newmba/Downloads/onyx-main/docs/security-platform/9-minimal-acceptance-checklist.md)
 
@@ -95,6 +98,10 @@
   用于回答“这套东西是什么、怎么实现、怎么部署、怎么验收”。
 - `20` Secret 管理文档
   用于回答“生产环境里的敏感配置应如何注入、轮换和校验”。
+- `21` 产品说明书
+  用于回答“这套产品面向谁、解决什么问题、有哪些能力、如何使用和验收”。
+- `22` 发布开源合规清单
+  用于回答“是否可以发布、按什么许可模型发布、发布前要检查什么”。
 - `10-17` 阶段性材料
   用于沟通、汇报、发布，不作为唯一真相源。
 

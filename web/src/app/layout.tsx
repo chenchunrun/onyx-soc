@@ -19,7 +19,7 @@ import ProductGatingWrapper from "@/providers/ProductGatingWrapper";
 import SWRConfigProvider from "@/providers/SWRConfigProvider";
 
 export const metadata: Metadata = {
-  title: "Onyx",
+  title: "CMSOC",
   description: "Question answering for your documents",
 };
 

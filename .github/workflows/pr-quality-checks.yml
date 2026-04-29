@@ -47,3 +47,5 @@ jobs:
         with:
           check_permissions: false
           check_versions: false
+      - name: License Scope Gate
+        run: bash scripts/release/check_license_scope.sh
