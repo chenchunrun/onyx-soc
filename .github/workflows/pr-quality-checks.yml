@@ -49,3 +49,11 @@ jobs:
           check_versions: false
       - name: License Scope Gate
         run: bash scripts/release/check_license_scope.sh
+      - name: MIT-only Bundle Gate
+        run: |
+          bash scripts/release/build_mit_only_bundle.sh dist/release ci-check
+          tar -tzf dist/release/cmsoc-mit-ci-check.tar.gz > dist/release/manifest.txt
+          if rg -n '(^|/)backend/ee/|(^|/)web/src/app/ee/|(^|/)web/src/ee/' dist/release/manifest.txt; then
+            echo "EE-licensed paths found in MIT-only bundle. Failing gate."
+            exit 1
+          fi
