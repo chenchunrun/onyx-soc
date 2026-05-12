@@ -174,6 +174,7 @@ def _trigger_sandbox_sync(
         OnyxCeleryTask.SANDBOX_FILE_SYNC,
         kwargs={"user_id": user_id, "tenant_id": tenant_id, "source": source},
         queue=OnyxCeleryQueues.SANDBOX,
+        expires=60,
     )
 
 

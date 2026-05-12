@@ -61,6 +61,7 @@ def create_document_set(
             OnyxCeleryTask.CHECK_FOR_VESPA_SYNC_TASK,
             kwargs={"tenant_id": tenant_id},
             priority=OnyxCeleryPriority.HIGH,
+            expires=30,
         )
 
     return document_set_db_model.id
@@ -104,6 +105,7 @@ def patch_document_set(
             OnyxCeleryTask.CHECK_FOR_VESPA_SYNC_TASK,
             kwargs={"tenant_id": tenant_id},
             priority=OnyxCeleryPriority.HIGH,
+            expires=30,
         )
 
 
@@ -151,6 +153,7 @@ def delete_document_set(
             OnyxCeleryTask.CHECK_FOR_VESPA_SYNC_TASK,
             kwargs={"tenant_id": tenant_id},
             priority=OnyxCeleryPriority.HIGH,
+            expires=30,
         )
 
 

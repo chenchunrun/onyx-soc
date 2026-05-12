@@ -488,6 +488,7 @@ def delete_user_file(
             kwargs={"user_file_id": str(user_file.id), "tenant_id": tenant_id},
             queue=OnyxCeleryQueues.USER_FILE_DELETE,
             priority=OnyxCeleryPriority.HIGH,
+            expires=60,
         )
         logger.info(
             f"Triggered delete for user_file_id={user_file.id} with task_id={task.id}"

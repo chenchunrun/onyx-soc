@@ -76,6 +76,7 @@ from onyx.db.users import batch_get_user_groups
 from onyx.db.users import delete_user_from_db
 from onyx.db.users import get_all_accepted_users
 from onyx.db.users import get_all_users
+from onyx.db.users import get_existing_user_emails
 from onyx.db.users import get_page_of_filtered_users
 from onyx.db.users import get_total_filtered_users_count
 from onyx.db.users import get_user_by_email
@@ -306,7 +307,7 @@ def list_invited_users(
     invited_emails = get_invited_users()
 
     # Filter out users who are already active in the system
-    active_user_emails = {user.email for user in get_all_users(db_session)}
+    active_user_emails = get_existing_user_emails(db_session, invited_emails)
     filtered_invited_emails = [
         email for email in invited_emails if email not in active_user_emails
     ]
@@ -338,6 +339,7 @@ def list_all_users(
     invited_emails = get_invited_users()
 
     # Filter out users who are already active (either accepted or slack users)
+    # Use targeted query instead of loading all users again
     all_active_emails = accepted_emails | slack_users_emails
     invited_emails = [
         email for email in invited_emails if email not in all_active_emails
@@ -449,7 +451,7 @@ def bulk_invite_users(
         )
 
     # Count only new users (not already invited or existing) that need seats
-    existing_users = {user.email for user in get_all_users(db_session)}
+    existing_users = get_existing_user_emails(db_session, new_invited_emails)
     already_invited = set(get_invited_users())
     emails_needing_seats = [
         e

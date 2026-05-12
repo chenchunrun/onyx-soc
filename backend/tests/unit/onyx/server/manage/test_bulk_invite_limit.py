@@ -14,7 +14,7 @@ from onyx.server.manage.users import bulk_invite_users
 @patch("onyx.server.manage.users.is_tenant_on_trial_fn", return_value=True)
 @patch("onyx.server.manage.users.get_current_tenant_id", return_value="test_tenant")
 @patch("onyx.server.manage.users.get_invited_users", return_value=[])
-@patch("onyx.server.manage.users.get_all_users", return_value=[])
+@patch("onyx.server.manage.users.get_existing_user_emails", return_value=set())
 @patch("onyx.server.manage.users.NUM_FREE_TRIAL_USER_INVITES", 5)
 def test_trial_tenant_cannot_exceed_invite_limit(*_mocks: None) -> None:
     """Trial tenants cannot invite more users than the configured limit."""
@@ -33,7 +33,7 @@ def test_trial_tenant_cannot_exceed_invite_limit(*_mocks: None) -> None:
 @patch("onyx.server.manage.users.is_tenant_on_trial_fn", return_value=True)
 @patch("onyx.server.manage.users.get_current_tenant_id", return_value="test_tenant")
 @patch("onyx.server.manage.users.get_invited_users", return_value=[])
-@patch("onyx.server.manage.users.get_all_users", return_value=[])
+@patch("onyx.server.manage.users.get_existing_user_emails", return_value=set())
 @patch("onyx.server.manage.users.write_invited_users", return_value=3)
 @patch("onyx.server.manage.users.enforce_seat_limit")
 @patch("onyx.server.manage.users.NUM_FREE_TRIAL_USER_INVITES", 5)
@@ -57,7 +57,7 @@ _COMMON_PATCHES = [
     patch("onyx.server.manage.users.MULTI_TENANT", False),
     patch("onyx.server.manage.users.get_current_tenant_id", return_value="test_tenant"),
     patch("onyx.server.manage.users.get_invited_users", return_value=[]),
-    patch("onyx.server.manage.users.get_all_users", return_value=[]),
+    patch("onyx.server.manage.users.get_existing_user_emails", return_value=set()),
     patch("onyx.server.manage.users.write_invited_users", return_value=1),
     patch("onyx.server.manage.users.enforce_seat_limit"),
 ]

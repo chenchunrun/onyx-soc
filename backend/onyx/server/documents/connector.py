@@ -899,6 +899,7 @@ def update_connector_files(
                 OnyxCeleryTask.CHECK_FOR_INDEXING,
                 kwargs={"tenant_id": tenant_id},
                 priority=OnyxCeleryPriority.HIGH,
+                expires=30,
             )
             logger.info(
                 f"Marked cc_pair {cc_pair.id} for UPDATE indexing (new files) for connector {connector_id}"
@@ -1833,6 +1834,7 @@ def create_connector_with_mock_credential(
             OnyxCeleryTask.CHECK_FOR_INDEXING,
             priority=OnyxCeleryPriority.HIGH,
             kwargs={"tenant_id": tenant_id},
+            expires=30,
         )
 
         logger.info(
@@ -2315,6 +2317,7 @@ def trigger_indexing_for_cc_pair(
         OnyxCeleryTask.CHECK_FOR_INDEXING,
         priority=priority,
         kwargs={"tenant_id": tenant_id},
+        expires=30,
     )
 
     return num_triggers

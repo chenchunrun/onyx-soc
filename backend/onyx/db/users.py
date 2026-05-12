@@ -135,6 +135,17 @@ def get_all_users(
     return db_session.scalars(stmt).unique().all()
 
 
+def get_existing_user_emails(
+    db_session: Session, emails: list[str]
+) -> set[str]:
+    """Check which emails already exist in the user table.
+    Returns only the matching emails, avoiding loading full user objects."""
+    if not emails:
+        return set()
+    stmt = select(User.email).where(User.email.in_(emails))
+    return set(db_session.scalars(stmt).all())
+
+
 def _get_accepted_user_where_clause(
     email_filter_string: str | None = None,
     roles_filter: list[UserRole] = [],

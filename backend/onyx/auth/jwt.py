@@ -12,6 +12,7 @@ from jwt import InvalidTokenError
 from jwt import PyJWTError
 from jwt.algorithms import RSAAlgorithm
 
+from onyx.configs.app_configs import JWT_AUDIENCE
 from onyx.configs.app_configs import JWT_PUBLIC_KEY_URL
 from onyx.utils.logger import setup_logger
 
@@ -143,7 +144,8 @@ async def verify_jwt_token(token: str) -> dict[str, Any] | None:
                 token,
                 public_key,
                 algorithms=["RS256"],
-                options={"verify_aud": False},
+                options={"verify_aud": JWT_AUDIENCE is not None},
+                audience=JWT_AUDIENCE,
             )
         except InvalidTokenError as e:
             logger.error(f"Invalid JWT token: {str(e)}")

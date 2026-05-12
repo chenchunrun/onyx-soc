@@ -142,6 +142,13 @@ class OnyxSalesforce(Salesforce):
             query += f"(SELECT {fields_fragment} FROM {child_relationship} LIMIT {SUBQUERY_LIMIT}), "
 
         query = query.rstrip(", ")
+        from onyx.connectors.salesforce.salesforce_calls import (
+            _validate_salesforce_id,
+            _validate_salesforce_type,
+        )
+
+        _validate_salesforce_id(object_id)
+        _validate_salesforce_type(sf_type)
         query += f" FROM {sf_type} WHERE Id = '{object_id}'"
         return query
 

@@ -49,6 +49,17 @@ from onyx.utils.variable_functionality import fetch_versioned_implementation
 
 logger = setup_logger()
 
+_DEFAULT_SYSTEM_PROMPT_CACHE_KEY = "onyx:default_system_prompt"
+
+
+def _invalidate_default_system_prompt_cache() -> None:
+    try:
+        from onyx.redis.redis_pool import get_shared_redis_client
+
+        get_shared_redis_client().delete(_DEFAULT_SYSTEM_PROMPT_CACHE_KEY)
+    except Exception:
+        logger.warning("Failed to invalidate default system prompt cache")
+
 
 def get_default_behavior_persona(
     db_session: Session,
@@ -331,6 +342,9 @@ def create_update_persona(
             group_ids=create_persona_request.groups,
         )
         db_session.commit()
+
+        if persona_id == DEFAULT_PERSONA_ID:
+            _invalidate_default_system_prompt_cache()
 
     except ValueError as e:
         logger.exception("Failed to create persona")

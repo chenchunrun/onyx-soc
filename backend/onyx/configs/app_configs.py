@@ -229,6 +229,9 @@ SAML_CONF_DIR = os.environ.get("SAML_CONF_DIR") or "/app/onyx/configs/saml_confi
 # JWT Public Key URL for JWT token verification
 JWT_PUBLIC_KEY_URL: str | None = os.getenv("JWT_PUBLIC_KEY_URL", None)
 
+# Expected JWT audience claim. When set, tokens with mismatched audiences are rejected.
+JWT_AUDIENCE: str | None = os.getenv("JWT_AUDIENCE", None)
+
 USER_AUTH_SECRET = os.environ.get("USER_AUTH_SECRET", "")
 
 if AUTH_TYPE == AuthType.BASIC and not USER_AUTH_SECRET:
@@ -291,6 +294,11 @@ OPENSEARCH_ADMIN_USERNAME = os.environ.get("OPENSEARCH_ADMIN_USERNAME", "admin")
 OPENSEARCH_ADMIN_PASSWORD = os.environ.get(
     "OPENSEARCH_ADMIN_PASSWORD", "StrongPassword123!"
 )
+if OPENSEARCH_ADMIN_PASSWORD == "StrongPassword123!":
+    logger.warning(
+        "OPENSEARCH_ADMIN_PASSWORD is using the default value. "
+        "Set OPENSEARCH_ADMIN_PASSWORD to a strong password in production."
+    )
 USING_AWS_MANAGED_OPENSEARCH = (
     os.environ.get("USING_AWS_MANAGED_OPENSEARCH", "").lower() == "true"
 )
@@ -384,6 +392,11 @@ POSTGRES_USER = os.environ.get("POSTGRES_USER") or "postgres"
 POSTGRES_PASSWORD = urllib.parse.quote_plus(
     os.environ.get("POSTGRES_PASSWORD") or "password"
 )
+if not os.environ.get("POSTGRES_PASSWORD"):
+    logger.warning(
+        "POSTGRES_PASSWORD is using the default value 'password'. "
+        "Set POSTGRES_PASSWORD to a strong password in production."
+    )
 POSTGRES_HOST = os.environ.get("POSTGRES_HOST") or "127.0.0.1"
 POSTGRES_PORT = os.environ.get("POSTGRES_PORT") or "5432"
 POSTGRES_DB = os.environ.get("POSTGRES_DB") or "postgres"
@@ -443,6 +456,8 @@ if _rate_limit_window_seconds_str is not None:
         RATE_LIMIT_WINDOW_SECONDS = int(_rate_limit_window_seconds_str)
     except ValueError:
         pass
+else:
+    RATE_LIMIT_WINDOW_SECONDS = 60
 
 RATE_LIMIT_MAX_REQUESTS: int | None = None
 _rate_limit_max_requests_str = os.environ.get("RATE_LIMIT_MAX_REQUESTS")
@@ -451,6 +466,8 @@ if _rate_limit_max_requests_str is not None:
         RATE_LIMIT_MAX_REQUESTS = int(_rate_limit_max_requests_str)
     except ValueError:
         pass
+else:
+    RATE_LIMIT_MAX_REQUESTS = 10
 
 AUTH_RATE_LIMITING_ENABLED = RATE_LIMIT_MAX_REQUESTS and RATE_LIMIT_WINDOW_SECONDS
 # Used for general redis things
@@ -1143,6 +1160,11 @@ DB_READONLY_USER: str = os.environ.get("DB_READONLY_USER", "db_readonly_user")
 DB_READONLY_PASSWORD: str = urllib.parse.quote_plus(
     os.environ.get("DB_READONLY_PASSWORD") or "password"
 )
+if not os.environ.get("DB_READONLY_PASSWORD"):
+    logger.warning(
+        "DB_READONLY_PASSWORD is using the default value 'password'. "
+        "Set DB_READONLY_PASSWORD to a strong password in production."
+    )
 
 # File Store Configuration
 # Which backend to use for file storage: "s3" (S3/MinIO) or "postgres" (PostgreSQL Large Objects)

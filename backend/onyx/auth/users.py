@@ -2,7 +2,6 @@ import base64
 import hashlib
 import json
 import os
-import random
 import secrets
 import string
 import uuid
@@ -211,8 +210,10 @@ def generate_password() -> str:
     all_characters = lowercase_letters + uppercase_letters + digits + special_characters
     password.extend(secrets.choice(all_characters) for _ in range(remaining_length))
 
-    # Shuffle the password to randomize the position of the required characters
-    random.shuffle(password)
+    # Shuffle using cryptographically secure Fisher-Yates
+    for i in range(len(password) - 1, 0, -1):
+        j = secrets.randbelow(i + 1)
+        password[i], password[j] = password[j], password[i]
 
     return "".join(password)
 
@@ -988,9 +989,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     ) -> None:
         verify_email_domain(user.email)
 
-        logger.notice(
-            f"Verification requested for user {user.id}. Verification token: {token}"
-        )
+        logger.notice(f"Verification requested for user {user.id}")
         user_count = await get_user_count()
         send_user_verification_email(
             user.email, token, new_organization=user_count == 1

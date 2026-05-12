@@ -13,6 +13,8 @@ from onyx.prompts.chat_prompts import DEFAULT_SYSTEM_PROMPT
 from onyx.prompts.chat_prompts import FILE_REMINDER
 from onyx.prompts.chat_prompts import LAST_CYCLE_CITATION_REMINDER
 from onyx.prompts.chat_prompts import REQUIRE_CITATION_GUIDANCE
+
+_DEFAULT_SYSTEM_PROMPT_CACHE_KEY = "onyx:default_system_prompt"
 from onyx.prompts.prompt_utils import get_company_context
 from onyx.prompts.prompt_utils import handle_onyx_date_awareness
 from onyx.prompts.prompt_utils import replace_citation_guidance_tag
@@ -45,12 +47,22 @@ from onyx.utils.timing import log_function_time
 
 
 def get_default_base_system_prompt(db_session: Session) -> str:
+    from onyx.redis.redis_pool import get_shared_redis_client
+
+    r = get_shared_redis_client()
+    cached = r.get(_DEFAULT_SYSTEM_PROMPT_CACHE_KEY)
+    if cached is not None:
+        return cached.decode("utf-8")
+
     default_persona = get_default_behavior_persona(db_session)
-    return (
+    prompt = (
         default_persona.system_prompt
         if default_persona and default_persona.system_prompt is not None
         else DEFAULT_SYSTEM_PROMPT
     )
+
+    r.setex(_DEFAULT_SYSTEM_PROMPT_CACHE_KEY, 60, prompt)
+    return prompt
 
 
 @log_function_time(print_only=True)

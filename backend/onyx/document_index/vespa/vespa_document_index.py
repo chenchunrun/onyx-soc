@@ -515,15 +515,21 @@ class VespaDocumentIndex(DocumentIndex):
                         large_chunks_enabled=self._large_chunks_enabled,
                     )
 
-                    for doc_chunk_id in doc_chunk_ids:
-                        _update_single_chunk(
-                            doc_chunk_id,
-                            self._index_name,
-                            # NOTE: Used only for logging, raw ID is ok here.
-                            doc_id,
-                            httpx_client,
-                            update_request,
-                        )
+                    with concurrent.futures.ThreadPoolExecutor(
+                        max_workers=min(len(doc_chunk_ids), 8),
+                    ) as executor:
+                        futures = [
+                            executor.submit(
+                                _update_single_chunk,
+                                doc_chunk_id,
+                                self._index_name,
+                                doc_id,
+                                httpx_client,
+                                update_request,
+                            )
+                            for doc_chunk_id in doc_chunk_ids
+                        ]
+                        concurrent.futures.wait(futures)
 
                     logger.info(
                         f"Updated {len(doc_chunk_ids)} chunks for document {doc_id}."

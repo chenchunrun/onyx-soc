@@ -63,9 +63,20 @@ def _make_time_filter_for_sf_type(
     return None
 
 
+def _validate_salesforce_id(object_id: str) -> None:
+    if not object_id or not object_id.isalnum():
+        raise ValueError(f"Invalid Salesforce object ID: {object_id!r}")
+
+
+def _validate_salesforce_type(sf_type: str) -> None:
+    if not sf_type or not sf_type.replace("__", "").replace("_", "").isalnum():
+        raise ValueError(f"Invalid Salesforce object type: {sf_type!r}")
+
+
 def _make_time_filtered_query(
     queryable_fields: set[str], sf_type: str, time_filter: str
 ) -> str:
+    _validate_salesforce_type(sf_type)
     query = f"SELECT {', '.join(queryable_fields)} FROM {sf_type}{time_filter}"
     return query
 
@@ -73,6 +84,8 @@ def _make_time_filtered_query(
 def get_object_by_id_query(
     object_id: str, sf_type: str, queryable_fields: set[str]
 ) -> str:
+    _validate_salesforce_id(object_id)
+    _validate_salesforce_type(sf_type)
     query = (
         f"SELECT {', '.join(queryable_fields)} FROM {sf_type} WHERE Id = '{object_id}'"
     )

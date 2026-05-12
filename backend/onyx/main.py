@@ -650,13 +650,27 @@ def get_application(lifespan_override: Lifespan | None = None) -> FastAPI:
 
     application.add_exception_handler(ValueError, value_error_handler)
 
+    cors_origins = CORS_ALLOWED_ORIGIN
+    if cors_origins == ["*"]:
+        cors_origins = [WEB_DOMAIN]
+
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=CORS_ALLOWED_ORIGIN,  # Configurable via environment variable
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @application.middleware("http")
+    async def security_headers_middleware(request: Any, call_next: Any) -> Any:
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
     if LOG_ENDPOINT_LATENCY:
         add_latency_logging_middleware(application, logger)
 
