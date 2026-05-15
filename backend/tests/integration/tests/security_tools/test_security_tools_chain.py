@@ -5,9 +5,9 @@ Verifies the complete chain:
     persona → Onyx backend → HTTP call → mock server receives request
 
 Tests:
-- send_security_alert (tool 11) via emergency commander persona
-- create_security_ticket (tool 12) via security analyst persona
-- threat_intel_lookup (tool 13) via security analyst persona
+- send_security_alert via emergency commander persona
+- create_security_ticket via security analyst persona
+- threat_intel_lookup via security analyst persona
 
 Run with:
     python -m dotenv -f .vscode/.env run --
@@ -16,8 +16,7 @@ Run with:
 Requires:
     - INTEGRATION_TESTS_MODE=true (set via .env)
     - Mock server running on TEST_WEB_HOSTNAME:MOCK_SECURITY_TOOLS_PORT (default 127.0.0.1:9999)
-    - Tools 11/12 pointing to host.docker.internal:9999 (mock server inside Docker)
-    - Tool 13 pointing to https://www.virustotal.com/api/v3 (real API)
+    - Security tools pointing to host.docker.internal:9999 (mock server inside Docker)
 """
 
 from __future__ import annotations
@@ -31,11 +30,9 @@ from sqlalchemy import select
 from onyx.db.engine.sql_engine import get_session_with_current_tenant
 from onyx.db.models import Persona
 from tests.integration.common_utils.managers.chat import ChatSessionManager
+from tests.integration.common_utils.managers.persona import PersonaManager
 from tests.integration.common_utils.test_models import DATestUser
 from tests.integration.tests.security_tools.conftest import (
-    CREATE_TICKET_TOOL_ID,
-    SECURITY_ALERT_TOOL_ID,
-    THREAT_INTEL_TOOL_ID,
     clear_mock_requests,
     get_mock_requests,
 )
@@ -55,6 +52,21 @@ def _get_persona_by_name(name: str) -> int:
         return persona.id
 
 
+def _get_tool_id_for_persona(
+    user: DATestUser,
+    persona_id: int,
+    tool_name: str,
+) -> int:
+    persona = PersonaManager.get_one(
+        persona_id=persona_id,
+        user_performing_action=user,
+    )[0]
+    for tool in persona.tools:
+        if tool.name == tool_name:
+            return int(tool.id)
+    pytest.skip(f"Tool '{tool_name}' is not attached to persona id={persona_id}")
+
+
 def _force_tool_call(
     tool_name: str,
     arguments: dict[str, Any],
@@ -63,7 +75,7 @@ def _force_tool_call(
     return json.dumps({"name": tool_name, "arguments": arguments})
 
 
-# ─── send_security_alert (tool 11) ───────────────────────────────────────────
+# ─── send_security_alert ─────────────────────────────────────────────────────
 
 
 def test_send_security_alert_invocation(
@@ -74,9 +86,10 @@ def test_send_security_alert_invocation(
     """
     Verify send_security_alert is called when persona triggers the tool.
 
-    Chain: persona 3 (应急响应指挥官) → tool 11 → POST / → mock server
+    Chain: persona 3 (应急响应指挥官) → sendSecurityAlert → POST / → mock server
     """
     persona_id = _get_persona_by_name("应急响应指挥官")
+    tool_id = _get_tool_id_for_persona(admin_user, persona_id, "send_security_alert")
 
     # Clear previous requests
     clear_mock_requests(mock_security_tools_server)
@@ -90,13 +103,15 @@ def test_send_security_alert_invocation(
 
     # Force the tool call with mock LLM response
     mock_response = _force_tool_call(
-        "send_security_alert",
+        "sendSecurityAlert",
         {
-            "alert_type": "PHISHING",
-            "severity": "P1",
-            "title": "Test Phishing Alert",
-            "description": "This is a test phishing alert for automated testing",
-            "source_system": "Onyx Security Knowledge Base",
+            "requestBody": {
+                "alert_type": "PHISHING",
+                "severity": "P1",
+                "title": "Test Phishing Alert",
+                "description": "This is a test phishing alert for automated testing",
+                "source_system": "Onyx Security Knowledge Base",
+            }
         },
     )
 
@@ -104,7 +119,7 @@ def test_send_security_alert_invocation(
         chat_session_id=chat_session.id,
         message="Send a security alert about a phishing attempt",
         user_performing_action=admin_user,
-        forced_tool_ids=[SECURITY_ALERT_TOOL_ID],
+        forced_tool_ids=[tool_id],
         mock_llm_response=mock_response,
     )
 
@@ -113,9 +128,9 @@ def test_send_security_alert_invocation(
 
     # Verify tool was called
     assert len(response.tool_call_debug) == 1, f"Expected 1 tool call, got {len(response.tool_call_debug)}"
-    assert response.tool_call_debug[0].tool_name == "send_security_alert"
-    assert response.tool_call_debug[0].tool_args["alert_type"] == "PHISHING"
-    assert response.tool_call_debug[0].tool_args["severity"] == "P1"
+    assert response.tool_call_debug[0].tool_name == "sendSecurityAlert"
+    assert response.tool_call_debug[0].tool_args["requestBody"]["alert_type"] == "PHISHING"
+    assert response.tool_call_debug[0].tool_args["requestBody"]["severity"] == "P1"
 
     # Verify request reached mock server
     requests_received = get_mock_requests(mock_security_tools_server)
@@ -127,7 +142,7 @@ def test_send_security_alert_invocation(
     assert req["body"]["severity"] == "P1"
 
 
-# ─── create_security_ticket (tool 12) ────────────────────────────────────────
+# ─── create_security_ticket ──────────────────────────────────────────────────
 
 
 def test_create_security_ticket_invocation(
@@ -138,9 +153,10 @@ def test_create_security_ticket_invocation(
     """
     Verify create_security_ticket is called when persona triggers the tool.
 
-    Chain: persona 2 (安全事件分析师) → tool 12 → POST /issue → mock server
+    Chain: persona 2 (安全事件分析师) → createSecurityTicket → POST /issue → mock server
     """
     persona_id = _get_persona_by_name("安全事件分析师")
+    tool_id = _get_tool_id_for_persona(admin_user, persona_id, "create_security_ticket")
     clear_mock_requests(mock_security_tools_server)
 
     chat_session = ChatSessionManager.create(
@@ -150,13 +166,15 @@ def test_create_security_ticket_invocation(
     )
 
     mock_response = _force_tool_call(
-        "create_security_ticket",
+        "createSecurityTicket",
         {
-            "summary": "CVE-2024-1234 Critical Vulnerability Assessment",
-            "description": "Automated ticket creation from security analysis",
-            "priority": "CRITICAL",
-            "project_key": "SEC",
-            "labels": ["security", "vulnerability", "automated"],
+            "requestBody": {
+                "summary": "CVE-2024-1234 Critical Vulnerability Assessment",
+                "description": "Automated ticket creation from security analysis",
+                "priority": "CRITICAL",
+                "project_key": "SEC",
+                "labels": ["security", "vulnerability", "automated"],
+            }
         },
     )
 
@@ -164,14 +182,14 @@ def test_create_security_ticket_invocation(
         chat_session_id=chat_session.id,
         message="Create a security ticket for a critical vulnerability",
         user_performing_action=admin_user,
-        forced_tool_ids=[CREATE_TICKET_TOOL_ID],
+        forced_tool_ids=[tool_id],
         mock_llm_response=mock_response,
     )
 
     assert response.error is None, f"Unexpected error: {response.error}"
     assert len(response.tool_call_debug) == 1, f"Expected 1 tool call, got {len(response.tool_call_debug)}"
-    assert response.tool_call_debug[0].tool_name == "create_security_ticket"
-    assert response.tool_call_debug[0].tool_args["priority"] == "CRITICAL"
+    assert response.tool_call_debug[0].tool_name == "createSecurityTicket"
+    assert response.tool_call_debug[0].tool_args["requestBody"]["priority"] == "CRITICAL"
 
     # Verify request reached mock server
     requests_received = get_mock_requests(mock_security_tools_server)
@@ -183,7 +201,7 @@ def test_create_security_ticket_invocation(
     assert req["body"]["project_key"] == "SEC", f"Expected SEC, got {req['body'].get('project_key')}"
 
 
-# ─── threat_intel_lookup (tool 13) ──────────────────────────────────────────
+# ─── threat_intel_lookup ─────────────────────────────────────────────────────
 
 
 def test_threat_intel_ip_lookup(
@@ -194,9 +212,10 @@ def test_threat_intel_ip_lookup(
     """
     Verify threat_intel_lookup is called for IP lookups.
 
-    Chain: persona 2 (安全事件分析师) → tool 13 → GET /ip_addresses/{ip} → VirusTotal
+    Chain: persona 2 (安全事件分析师) → lookupIP → GET /ip_addresses/{ip} → VirusTotal
     """
     persona_id = _get_persona_by_name("安全事件分析师")
+    tool_id = _get_tool_id_for_persona(admin_user, persona_id, "threat_intel_lookup")
     clear_mock_requests(mock_security_tools_server)
 
     chat_session = ChatSessionManager.create(
@@ -206,7 +225,7 @@ def test_threat_intel_ip_lookup(
     )
 
     mock_response = _force_tool_call(
-        "threat_intel_lookup",
+        "lookupIP",
         {"ip": "1.2.3.4"},
     )
 
@@ -214,13 +233,13 @@ def test_threat_intel_ip_lookup(
         chat_session_id=chat_session.id,
         message="Check the reputation of IP 1.2.3.4",
         user_performing_action=admin_user,
-        forced_tool_ids=[THREAT_INTEL_TOOL_ID],
+        forced_tool_ids=[tool_id],
         mock_llm_response=mock_response,
     )
 
     assert response.error is None, f"Unexpected error: {response.error}"
     assert len(response.tool_call_debug) == 1, f"Expected 1 tool call, got {len(response.tool_call_debug)}"
-    assert response.tool_call_debug[0].tool_name == "threat_intel_lookup"
+    assert response.tool_call_debug[0].tool_name == "lookupIP"
     args = response.tool_call_debug[0].tool_args
     assert "ip" in args, f"Expected 'ip' in tool args, got: {args}"
 
@@ -240,9 +259,10 @@ def test_threat_intel_domain_lookup(
     """
     Verify threat_intel_lookup is called for domain lookups.
 
-    Chain: persona 2 (安全事件分析师) → tool 13 → GET /domains/{domain} → VirusTotal
+    Chain: persona 2 (安全事件分析师) → lookupDomain → GET /domains/{domain} → VirusTotal
     """
     persona_id = _get_persona_by_name("安全事件分析师")
+    tool_id = _get_tool_id_for_persona(admin_user, persona_id, "threat_intel_lookup")
     clear_mock_requests(mock_security_tools_server)
 
     chat_session = ChatSessionManager.create(
@@ -252,7 +272,7 @@ def test_threat_intel_domain_lookup(
     )
 
     mock_response = _force_tool_call(
-        "threat_intel_lookup",
+        "lookupDomain",
         {"domain": "malicious-phishing-site.com"},
     )
 
@@ -260,13 +280,13 @@ def test_threat_intel_domain_lookup(
         chat_session_id=chat_session.id,
         message="Look up threat intelligence for domain malicious-phishing-site.com",
         user_performing_action=admin_user,
-        forced_tool_ids=[THREAT_INTEL_TOOL_ID],
+        forced_tool_ids=[tool_id],
         mock_llm_response=mock_response,
     )
 
     assert response.error is None, f"Unexpected error: {response.error}"
     assert len(response.tool_call_debug) == 1, f"Expected 1 tool call, got {len(response.tool_call_debug)}"
-    assert response.tool_call_debug[0].tool_name == "threat_intel_lookup"
+    assert response.tool_call_debug[0].tool_name == "lookupDomain"
 
     # Verify request reached mock server
     requests_received = get_mock_requests(mock_security_tools_server)
@@ -284,9 +304,10 @@ def test_threat_intel_hash_lookup(
     """
     Verify threat_intel_lookup is called for file hash lookups.
 
-    Chain: persona 2 (安全事件分析师) → tool 13 → GET /files/{hash} → VirusTotal
+    Chain: persona 2 (安全事件分析师) → lookupFileHash → GET /files/{hash} → VirusTotal
     """
     persona_id = _get_persona_by_name("安全事件分析师")
+    tool_id = _get_tool_id_for_persona(admin_user, persona_id, "threat_intel_lookup")
     clear_mock_requests(mock_security_tools_server)
 
     chat_session = ChatSessionManager.create(
@@ -296,7 +317,7 @@ def test_threat_intel_hash_lookup(
     )
 
     mock_response = _force_tool_call(
-        "threat_intel_lookup",
+        "lookupFileHash",
         {"hash": "44d88612fea8a8f36de82e1278abb02f"},
     )
 
@@ -304,13 +325,13 @@ def test_threat_intel_hash_lookup(
         chat_session_id=chat_session.id,
         message="Check threat intelligence for file hash 44d88612fea8a8f36de82e1278abb02f",
         user_performing_action=admin_user,
-        forced_tool_ids=[THREAT_INTEL_TOOL_ID],
+        forced_tool_ids=[tool_id],
         mock_llm_response=mock_response,
     )
 
     assert response.error is None, f"Unexpected error: {response.error}"
     assert len(response.tool_call_debug) == 1, f"Expected 1 tool call, got {len(response.tool_call_debug)}"
-    assert response.tool_call_debug[0].tool_name == "threat_intel_lookup"
+    assert response.tool_call_debug[0].tool_name == "lookupFileHash"
 
     # Verify request reached mock server
     requests_received = get_mock_requests(mock_security_tools_server)

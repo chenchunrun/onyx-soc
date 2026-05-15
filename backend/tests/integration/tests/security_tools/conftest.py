@@ -31,7 +31,6 @@ import pytest
 import requests
 
 from tests.integration.common_utils.managers.llm_provider import LLMProviderManager
-from tests.integration.common_utils.managers.user import UserManager
 from tests.integration.common_utils.test_models import DATestUser
 
 # Mock server config
@@ -46,11 +45,7 @@ MOCK_SERVER_SCRIPT = (
     / "mock_tools_server.py"
 )
 
-# Security tool IDs (assigned in DB migration / setup)
-SECURITY_ALERT_TOOL_ID = 11
-CREATE_TICKET_TOOL_ID = 12
-THREAT_INTEL_TOOL_ID = 13
-
+_DUMMY_OPENAI_API_KEY = "sk-mock-security-tools-tests"
 
 def _wait_for_port(host: str, port: int, process: subprocess.Popen[bytes], timeout_seconds: float = 10.0) -> None:
     """Wait for a TCP port to become available."""
@@ -144,22 +139,12 @@ def mock_security_tools_server() -> Generator[str, None, None]:
             process.kill()
 
 
-@pytest.fixture(scope="module")
-def admin_user() -> DATestUser:
-    """Create and authenticate an admin user for API calls."""
-    user = UserManager.create(name="security_tools_admin")
-    return user
-
-
-@pytest.fixture(scope="module")
+@pytest.fixture
 def llm_provider(admin_user: DATestUser) -> None:
-    """Ensure an LLM provider exists for chat sessions.
-
-    Aligned with root conftest: raises on failure rather than silently swallowing.
-    The test will fail with a clear error if OPENAI_API_KEY is missing.
-    """
+    """Provision a deterministic provider for mock LLM tool-call tests."""
     LLMProviderManager.create(
         user_performing_action=admin_user,
+        api_key=_DUMMY_OPENAI_API_KEY,
     )
 
 
