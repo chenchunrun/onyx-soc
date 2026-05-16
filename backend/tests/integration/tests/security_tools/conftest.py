@@ -30,7 +30,13 @@ from pathlib import Path
 import pytest
 import requests
 
+from onyx.auth.schemas import UserRole
+from tests.integration.common_utils.constants import GENERAL_HEADERS
+from tests.integration.common_utils.constants import ADMIN_USER_NAME
 from tests.integration.common_utils.managers.llm_provider import LLMProviderManager
+from tests.integration.common_utils.managers.user import build_email
+from tests.integration.common_utils.managers.user import DEFAULT_PASSWORD
+from tests.integration.common_utils.managers.user import UserManager
 from tests.integration.common_utils.test_models import DATestUser
 
 # Mock server config
@@ -47,7 +53,29 @@ MOCK_SERVER_SCRIPT = (
 
 _DUMMY_OPENAI_API_KEY = "sk-mock-security-tools-tests"
 
-def _wait_for_port(host: str, port: int, process: subprocess.Popen[bytes], timeout_seconds: float = 10.0) -> None:
+
+def _login_as_admin_user() -> DATestUser:
+    admin_user = DATestUser(
+        id="",
+        email=build_email(ADMIN_USER_NAME),
+        password=DEFAULT_PASSWORD,
+        headers=GENERAL_HEADERS.copy(),
+        role=UserRole.ADMIN,
+        is_active=True,
+    )
+
+    try:
+        return UserManager.login_as_user(admin_user)
+    except Exception:
+        return UserManager.create(name=ADMIN_USER_NAME)
+
+
+def _wait_for_port(
+    host: str,
+    port: int,
+    process: subprocess.Popen[bytes],
+    timeout_seconds: float = 10.0,
+) -> None:
     """Wait for a TCP port to become available."""
     start = time.monotonic()
     while time.monotonic() - start < timeout_seconds:
@@ -139,13 +167,22 @@ def mock_security_tools_server() -> Generator[str, None, None]:
             process.kill()
 
 
-@pytest.fixture
-def llm_provider(admin_user: DATestUser) -> None:
+@pytest.fixture(scope="module")
+def llm_provider() -> Generator[None, None, None]:
     """Provision a deterministic provider for mock LLM tool-call tests."""
-    LLMProviderManager.create(
+    admin_user = _login_as_admin_user()
+    llm_provider = LLMProviderManager.create(
         user_performing_action=admin_user,
         api_key=_DUMMY_OPENAI_API_KEY,
+        set_as_default=False,
     )
+    try:
+        yield
+    finally:
+        LLMProviderManager.delete(
+            llm_provider=llm_provider,
+            user_performing_action=admin_user,
+        )
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
