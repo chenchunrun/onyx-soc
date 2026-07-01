@@ -68,3 +68,6 @@ plans/
 /admin_auth.json
 /admin2_auth.json
 /worker*_auth.json
+
+# Redis dump files
+*.rdb

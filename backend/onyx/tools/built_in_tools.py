@@ -12,6 +12,7 @@ from onyx.tools.tool_implementations.memory.memory_tool import MemoryTool
 from onyx.tools.tool_implementations.open_url.open_url_tool import OpenURLTool
 from onyx.tools.tool_implementations.python.python_tool import PythonTool
 from onyx.tools.tool_implementations.search.search_tool import SearchTool
+from onyx.tools.tool_implementations.skill.skill_tool import SkillTool
 from onyx.tools.tool_implementations.web_search.web_search_tool import (
     WebSearchTool,
 )
@@ -29,6 +30,7 @@ BUILT_IN_TOOL_TYPES = Union[
     PythonTool,
     FileReaderTool,
     MemoryTool,
+    SkillTool,
 ]
 
 BUILT_IN_TOOL_MAP: dict[str, Type[BUILT_IN_TOOL_TYPES]] = {
@@ -40,6 +42,7 @@ BUILT_IN_TOOL_MAP: dict[str, Type[BUILT_IN_TOOL_TYPES]] = {
     PythonTool.__name__: PythonTool,
     FileReaderTool.__name__: FileReaderTool,
     MemoryTool.__name__: MemoryTool,
+    SkillTool.__name__: SkillTool,
 }
 
 STOPPING_TOOLS_NAMES: list[str] = [ImageGenerationTool.NAME]
