@@ -79,6 +79,8 @@ interface SecurityPlatformRuntimeStatus {
       feed_name: string;
       issue: string;
       last_success_at: string | null;
+      last_error: string | null;
+      last_error_at: string | null;
     }[];
   };
   playbooks: {
@@ -1371,6 +1373,11 @@ function Main() {
                 <div className="mt-2 text-xs text-muted-foreground">
                   last success={item.last_success_at || "none"}
                 </div>
+                {item.last_error && (
+                  <div className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    last error ({item.last_error_at || "unknown"}): {item.last_error}
+                  </div>
+                )}
               </div>
             ))
           ) : (
