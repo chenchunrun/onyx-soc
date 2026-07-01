@@ -21,6 +21,14 @@ Sources:
 NOTE: CISA advisories, ICS, and medical JSON feeds are HTTP 404 (federal funding lapse).
       Replaced with NVD API keyword-based search feeds.
 
+Adding a new source:
+    1. Add an entry to the FEEDS dict (name, url, description, category, tags, source).
+    2. Implement a FeedAdapter subclass with fetch() and build_summary().
+    3. Decorate it with @register_adapter("your_feed_key").
+       Use a "prefix_*" key to handle a family of feeds with one adapter.
+    4. Add the key to DEFAULT_FEEDS in setup_security_threat_intel.py.
+    5. Add an entry to sync_plan.yaml for scheduling.
+
 Requirements:
     pip install requests
 """
@@ -32,8 +40,12 @@ import os
 import sys
 import time
 from datetime import datetime, timezone
+from functools import wraps
 from pathlib import Path
 from typing import Any
+from typing import Callable
+from typing import Protocol
+from typing import runtime_checkable
 from urllib.parse import urljoin
 
 import requests
@@ -137,6 +149,90 @@ FEEDS = {
         "deprecated": True,
     },
 }
+
+
+# ─── Feed Adapter Protocol & Registry ──────────────────────────────────────────
+
+
+@runtime_checkable
+class FeedAdapter(Protocol):
+    """Protocol for pluggable threat-intel source adapters.
+
+    Each adapter encapsulates the fetch + parse + summary logic for one feed
+    (or a family of feeds sharing the same API, e.g. NVD keyword variants).
+    """
+
+    def fetch(self, feed: dict) -> list[dict]:
+        """Fetch and parse the feed, returning a list of record dicts."""
+        ...
+
+    def build_summary(self, records: list[dict], feed: dict) -> dict:
+        """Build the summary record dict for the fetched batch."""
+        ...
+
+
+# Registry mapping feed_key (or "prefix_*") to adapter class.
+_FEED_ADAPTERS: dict[str, type[FeedAdapter]] = {}
+
+
+def register_adapter(*feed_keys: str) -> Callable[[type], type]:
+    """Class decorator registering an adapter for one or more feed keys.
+
+    A key ending in ``"_"`` (e.g. ``"nvd_"``) acts as a prefix wildcard that
+    matches any feed_key starting with that prefix, unless an exact match
+    exists. This lets a single adapter serve a family of feeds (NVD variants).
+    """
+
+    def _decorator(cls: type) -> type:
+        for key in feed_keys:
+            _FEED_ADAPTERS[key] = cls
+        return cls
+
+    return _decorator
+
+
+def get_adapter(feed_key: str) -> type[FeedAdapter] | None:
+    """Look up the adapter class for a feed key.
+
+    Exact match takes priority; otherwise the longest matching prefix key
+    (keys ending with ``"_"``) wins. Returns ``None`` if no adapter is
+    registered for the feed.
+    """
+    if feed_key in _FEED_ADAPTERS:
+        return _FEED_ADAPTERS[feed_key]
+    best: tuple[int, type[FeedAdapter]] | None = None
+    for prefix, cls in _FEED_ADAPTERS.items():
+        if prefix.endswith("_") and feed_key.startswith(prefix):
+            if best is None or len(prefix) > best[0]:
+                best = (len(prefix), cls)
+    return best[1] if best else None
+
+
+def fetch_with_retry(
+    fetch_fn: Callable[[], list[dict]],
+    *,
+    feed_key: str = "",
+    max_retries: int = 3,
+    backoff_base: float = 2.0,
+) -> list[dict]:
+    """Run a fetch callable with exponential-backoff retries.
+
+    Returns the result on success, or an empty list if all retries are
+    exhausted (matching the existing "skip on failure" behaviour).
+    """
+    for attempt in range(1, max_retries + 1):
+        try:
+            return fetch_fn()
+        except Exception as e:  # noqa: BLE001 - aggregator logs and continues
+            label = f" [{feed_key}]" if feed_key else ""
+            if attempt < max_retries:
+                delay = backoff_base ** attempt
+                print(f"  [RETRY{label}] attempt {attempt}/{max_retries} failed: {e}")
+                print(f"           backing off {delay:.1f}s...")
+                time.sleep(delay)
+            else:
+                print(f"  [RETRY FAILED{label}] exhausted {max_retries} attempts: {e}")
+    return []
 
 
 def normalize_whitespace(value: str) -> str:
@@ -1082,6 +1178,125 @@ def save_to_kb_dir(records: list[dict], category: str, dry_run: bool = False) ->
     return saved
 
 
+# ─── Built-in Feed Adapters ───────────────────────────────────────────────────
+# Each adapter wraps the existing fetch/parse/summary functions so they keep
+# their signatures (and existing unit tests). New sources follow the same
+# pattern: implement fetch() + build_summary(), then @register_adapter.
+
+
+@register_adapter("cisa_kev")
+class CisaKevAdapter:
+    """Adapter for the CISA Known Exploited Vulnerabilities catalog."""
+
+    def __init__(self) -> None:
+        # Cached during fetch() so build_summary() can reuse the raw catalog,
+        # which build_kev_summary() needs for vendor/title aggregation.
+        self._raw_data: dict = {}
+
+    def fetch(self, feed: dict) -> list[dict]:
+        print("  Fetching CISA KEV catalog...")
+
+        def _do_fetch() -> list[dict]:
+            resp = requests.get(feed["url"], timeout=60)
+            if resp.status_code != 200:
+                raise RuntimeError(f"HTTP {resp.status_code}")
+            self._raw_data = resp.json()
+            count = len(self._raw_data.get("vulnerabilities", []))
+            print(f"  [OK] Fetched {count} CISA KEV entries")
+            return [self._raw_data]
+
+        payloads = fetch_with_retry(_do_fetch, feed_key="cisa_kev")
+        if not payloads:
+            return []
+        return parse_cisa_kev(self._raw_data)
+
+    def build_summary(self, records: list[dict], feed: dict) -> dict:
+        data = self._raw_data or {"vulnerabilities": records}
+        return {
+            "semantic_identifier": "CISA_KEV_Catalog_Summary",
+            "title": "CISA KEV Catalog Summary",
+            "content": build_kev_summary(data),
+            "category": "CISA KEV",
+            "severity": "CRITICAL",
+            "tags": ["CISA", "KEV", "summary"],
+            "source": "threat-intelligence",
+            "doc_updated_at": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+        }
+
+
+@register_adapter("nvd_")
+class NvdKeywordAdapter:
+    """Adapter for NVD keyword-based feeds (nvd_security_advisories, etc.)."""
+
+    def fetch(self, feed: dict) -> list[dict]:
+        api_key = os.environ.get("NVD_API_KEY")
+        keyword = feed["nvd_keyword"]
+        max_results = feed.get("nvd_max_results", 500)
+
+        def _do_fetch() -> list[dict]:
+            vulns = fetch_nvd_feed(
+                keyword=keyword,
+                max_results=max_results,
+                api_key=api_key,
+            )
+            if not vulns:
+                raise RuntimeError("NVD returned no results")
+            return vulns
+
+        vulns = fetch_with_retry(_do_fetch, feed_key=feed.get("name", "nvd"))
+        return [parse_nvd_cve(v) for v in vulns]
+
+    def build_summary(self, records: list[dict], feed: dict) -> dict:
+        return {
+            "semantic_identifier": f'{feed["name"].split()[0].upper()}_Summary',
+            "title": f'{feed["name"]} Summary',
+            "content": build_nvd_summary(records, feed),
+            "category": feed["category"],
+            "severity": "HIGH",
+            "tags": feed["tags"],
+            "source": "threat-intelligence",
+            "doc_updated_at": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+        }
+
+
+@register_adapter("cncert_weekly_reports")
+class CncertWeeklyAdapter:
+    """Adapter for CNCERT weekly threat reports."""
+
+    def fetch(self, feed: dict) -> list[dict]:
+        print("  Fetching CNCERT weekly reports...")
+
+        def _do_fetch() -> list[dict]:
+            records = fetch_cncert_weekly_reports(
+                feed["url"],
+                max_reports=feed.get("max_reports", 12),
+                pdf_page_limit=feed.get("pdf_page_limit", 2),
+            )
+            if not records:
+                raise RuntimeError("CNCERT returned no reports")
+            return records
+
+        return fetch_with_retry(_do_fetch, feed_key="cncert_weekly_reports")
+
+    def build_summary(self, records: list[dict], feed: dict) -> dict:
+        return {
+            "semantic_identifier": "CNCERT_Weekly_Threat_Report_Summary",
+            "title": f'{feed["name"]} Summary',
+            "content": build_cncert_weekly_summary(records, feed),
+            "category": feed["category"],
+            "severity": "MEDIUM",
+            "tags": feed["tags"],
+            "source": "threat-intelligence",
+            "doc_updated_at": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+        }
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
@@ -1167,95 +1382,19 @@ def main():
         print(f"Processing: {feed['name']}")
         print(f"{'='*60}")
 
-        # ── NVD-based feeds ──────────────────────────────────────────────
-        if feed_key.startswith("nvd_"):
-            api_key = os.environ.get("NVD_API_KEY")
-            vulns = fetch_nvd_feed(
-                keyword=feed["nvd_keyword"],
-                max_results=feed.get("nvd_max_results", 500),
-                api_key=api_key,
-            )
-            if not vulns:
-                print(f"  [SKIP] Could not fetch {feed_key}")
-                continue
-
-            records = [parse_nvd_cve(v) for v in vulns]
-
-            # Build summary
-            summary_content = build_nvd_summary(records, feed)
-            summary_record = {
-                "semantic_identifier": f"{feed_key.upper()}_Summary",
-                "title": f"{feed['name']} Summary",
-                "content": summary_content,
-                "category": feed["category"],
-                "severity": "HIGH",
-                "tags": feed["tags"],
-                "source": "threat-intelligence",
-                "doc_updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            }
-
-        # ── CISA KEV ────────────────────────────────────────────────────
-        elif feed_key == "cisa_kev":
-            print(f"  Fetching CISA KEV catalog...")
-            try:
-                resp = requests.get(feed["url"], timeout=60)
-                if resp.status_code != 200:
-                    print(f"  [ERROR] HTTP {resp.status_code}")
-                    continue
-                data = resp.json()
-                vuln_count = len(data.get("vulnerabilities", []))
-                print(f"  [OK] Fetched {vuln_count} CISA KEV entries")
-            except Exception as e:
-                print(f"  [ERROR] {e}")
-                continue
-
-            records = parse_cisa_kev(data)
-
-            # Also build summary
-            summary_content = build_kev_summary(data)
-            summary_record = {
-                "semantic_identifier": "CISA_KEV_Catalog_Summary",
-                "title": "CISA KEV Catalog Summary",
-                "content": summary_content,
-                "category": "CISA KEV",
-                "severity": "CRITICAL",
-                "tags": ["CISA", "KEV", "summary"],
-                "source": "threat-intelligence",
-                "doc_updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            }
-
-        # ── CNCERT Weekly Reports ───────────────────────────────────────
-        elif feed_key == "cncert_weekly_reports":
-            print(f"  Fetching CNCERT weekly reports...")
-            try:
-                records = fetch_cncert_weekly_reports(
-                    feed["url"],
-                    max_reports=feed.get("max_reports", 12),
-                    pdf_page_limit=feed.get("pdf_page_limit", 2),
-                )
-            except Exception as e:
-                print(f"  [ERROR] {e}")
-                continue
-
-            if not records:
-                print(f"  [SKIP] Could not fetch {feed_key}")
-                continue
-
-            summary_content = build_cncert_weekly_summary(records, feed)
-            summary_record = {
-                "semantic_identifier": "CNCERT_Weekly_Threat_Report_Summary",
-                "title": f"{feed['name']} Summary",
-                "content": summary_content,
-                "category": feed["category"],
-                "severity": "MEDIUM",
-                "tags": feed["tags"],
-                "source": "threat-intelligence",
-                "doc_updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            }
-
-        else:
-            print(f"  [SKIP] No parser for {feed_key}")
+        # Look up the adapter for this feed (exact match or prefix wildcard).
+        adapter_cls = get_adapter(feed_key)
+        if adapter_cls is None:
+            print(f"  [SKIP] No adapter registered for {feed_key}")
             continue
+
+        adapter = adapter_cls()
+        records = adapter.fetch(feed)
+        if not records:
+            print(f"  [SKIP] No records for {feed_key}")
+            continue
+
+        summary_record = adapter.build_summary(records, feed)
 
         print(f"\n  Parsed {len(records)} vulnerability records")
 
