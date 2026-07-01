@@ -24,6 +24,7 @@ from onyx.prompts.tool_prompts import INTERNAL_SEARCH_GUIDANCE
 from onyx.prompts.tool_prompts import MEMORY_GUIDANCE
 from onyx.prompts.tool_prompts import OPEN_URLS_GUIDANCE
 from onyx.prompts.tool_prompts import PYTHON_TOOL_GUIDANCE
+from onyx.prompts.tool_prompts import SKILL_TOOL_GUIDANCE
 from onyx.prompts.tool_prompts import TOOL_DESCRIPTION_SEARCH_GUIDANCE
 from onyx.prompts.tool_prompts import TOOL_SECTION_HEADER
 from onyx.prompts.tool_prompts import WEB_SEARCH_GUIDANCE
@@ -42,6 +43,7 @@ from onyx.tools.tool_implementations.memory.memory_tool import MemoryTool
 from onyx.tools.tool_implementations.open_url.open_url_tool import OpenURLTool
 from onyx.tools.tool_implementations.python.python_tool import PythonTool
 from onyx.tools.tool_implementations.search.search_tool import SearchTool
+from onyx.tools.tool_implementations.skill.skill_tool import SkillTool
 from onyx.tools.tool_implementations.web_search.web_search_tool import WebSearchTool
 from onyx.utils.timing import log_function_time
 
@@ -205,6 +207,64 @@ def _build_user_information_section(
     return USER_INFORMATION_HEADER + "\n".join(sections)
 
 
+def build_tool_guidance(tools: Sequence[Tool]) -> str:
+    """Build tool guidance text for the system prompt based on available tools."""
+    if not tools:
+        return ""
+
+    has_web_search = any(isinstance(tool, WebSearchTool) for tool in tools)
+    has_internal_search = any(isinstance(tool, SearchTool) for tool in tools)
+    has_open_urls = any(isinstance(tool, OpenURLTool) for tool in tools)
+    has_python = any(isinstance(tool, PythonTool) for tool in tools)
+    has_generate_image = any(
+        isinstance(tool, ImageGenerationTool) for tool in tools
+    )
+    has_memory = any(isinstance(tool, MemoryTool) for tool in tools)
+    has_skill_tool = any(
+        isinstance(tool, SkillTool)
+        for tool in tools
+    )
+
+    tool_guidance_sections: list[str] = []
+
+    if has_web_search or has_internal_search:
+        tool_guidance_sections.append(TOOL_DESCRIPTION_SEARCH_GUIDANCE)
+
+    if has_internal_search:
+        tool_guidance_sections.append(INTERNAL_SEARCH_GUIDANCE)
+
+    if has_web_search:
+        site_disabled_guidance = ""
+        web_search_tool = next(
+            (t for t in tools if isinstance(t, WebSearchTool)), None
+        )
+        if web_search_tool and not web_search_tool.supports_site_filter:
+            site_disabled_guidance = WEB_SEARCH_SITE_DISABLED_GUIDANCE
+        tool_guidance_sections.append(
+            WEB_SEARCH_GUIDANCE.format(site_colon_disabled=site_disabled_guidance)
+        )
+
+    if has_open_urls:
+        tool_guidance_sections.append(OPEN_URLS_GUIDANCE)
+
+    if has_python:
+        tool_guidance_sections.append(PYTHON_TOOL_GUIDANCE)
+
+    if has_generate_image:
+        tool_guidance_sections.append(GENERATE_IMAGE_GUIDANCE)
+
+    if has_memory:
+        tool_guidance_sections.append(MEMORY_GUIDANCE)
+
+    if has_skill_tool:
+        tool_guidance_sections.append(SKILL_TOOL_GUIDANCE)
+
+    if tool_guidance_sections:
+        return TOOL_SECTION_HEADER + "\n".join(tool_guidance_sections)
+
+    return ""
+
+
 def build_system_prompt(
     base_system_prompt: str,
     datetime_aware: bool = False,
@@ -250,54 +310,11 @@ def build_system_prompt(
             PYTHON_TOOL_GUIDANCE,
             GENERATE_IMAGE_GUIDANCE,
             MEMORY_GUIDANCE,
+            SKILL_TOOL_GUIDANCE,
         ]
         system_prompt += TOOL_SECTION_HEADER + "\n".join(tool_sections)
         return system_prompt
 
-    if tools:
-        has_web_search = any(isinstance(tool, WebSearchTool) for tool in tools)
-        has_internal_search = any(isinstance(tool, SearchTool) for tool in tools)
-        has_open_urls = any(isinstance(tool, OpenURLTool) for tool in tools)
-        has_python = any(isinstance(tool, PythonTool) for tool in tools)
-        has_generate_image = any(
-            isinstance(tool, ImageGenerationTool) for tool in tools
-        )
-        has_memory = any(isinstance(tool, MemoryTool) for tool in tools)
-
-        tool_guidance_sections: list[str] = []
-
-        if has_web_search or has_internal_search or include_all_guidance:
-            tool_guidance_sections.append(TOOL_DESCRIPTION_SEARCH_GUIDANCE)
-
-        # These are not included at the Tool level because the ordering may matter.
-        if has_internal_search or include_all_guidance:
-            tool_guidance_sections.append(INTERNAL_SEARCH_GUIDANCE)
-
-        if has_web_search or include_all_guidance:
-            site_disabled_guidance = ""
-            if has_web_search:
-                web_search_tool = next(
-                    (t for t in tools if isinstance(t, WebSearchTool)), None
-                )
-                if web_search_tool and not web_search_tool.supports_site_filter:
-                    site_disabled_guidance = WEB_SEARCH_SITE_DISABLED_GUIDANCE
-            tool_guidance_sections.append(
-                WEB_SEARCH_GUIDANCE.format(site_colon_disabled=site_disabled_guidance)
-            )
-
-        if has_open_urls or include_all_guidance:
-            tool_guidance_sections.append(OPEN_URLS_GUIDANCE)
-
-        if has_python or include_all_guidance:
-            tool_guidance_sections.append(PYTHON_TOOL_GUIDANCE)
-
-        if has_generate_image or include_all_guidance:
-            tool_guidance_sections.append(GENERATE_IMAGE_GUIDANCE)
-
-        if has_memory or include_all_guidance:
-            tool_guidance_sections.append(MEMORY_GUIDANCE)
-
-        if tool_guidance_sections:
-            system_prompt += TOOL_SECTION_HEADER + "\n".join(tool_guidance_sections)
+    system_prompt += build_tool_guidance(tools or [])
 
     return system_prompt

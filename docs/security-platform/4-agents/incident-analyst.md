@@ -66,6 +66,15 @@
 - `create_security_ticket`
 
 
+## 7.1 绑定的技能
+
+persona 通过 `skill_keys` 绑定以下技能，运行时通过 `load_skill` 工具按需加载完整指令：
+
+- `auth-log-analysis` — 认证日志分析与异常登录检测
+- `email-osint` — 邮箱情报调查与关联分析
+- `url-analysis` — 可疑 URL 安全分析与钓鱼检测
+
+
 ## 8. 推荐输出结构
 
 - 事件判断

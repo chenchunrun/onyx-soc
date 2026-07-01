@@ -23,6 +23,7 @@ from onyx.chat.models import LlmStepResult
 from onyx.chat.models import ToolCallSimple
 from onyx.chat.prompt_utils import build_reminder_message
 from onyx.chat.prompt_utils import build_system_prompt
+from onyx.chat.prompt_utils import build_tool_guidance
 from onyx.chat.prompt_utils import (
     get_default_base_system_prompt,
 )
@@ -742,13 +743,18 @@ def run_llm_loop(
             # now that project files are loaded in.
             if persona and persona.replace_base_system_prompt:
                 # Handles the case where user has checked off the "Replace base system prompt" checkbox
+                persona_sections: list[str] = [
+                    persona.system_prompt,
+                    runtime_instruction_block,
+                ]
+                tool_guidance = build_tool_guidance(tools)
+                if tool_guidance:
+                    persona_sections.append(tool_guidance)
+
                 full_persona_system_prompt = (
                     "\n\n".join(
                         section
-                        for section in [
-                            persona.system_prompt,
-                            runtime_instruction_block,
-                        ]
+                        for section in persona_sections
                         if section
                     )
                     or None
@@ -855,6 +861,10 @@ def run_llm_loop(
             # This calls the LLM, yields packets (reasoning, answers, etc.) and returns the result
             # It also pre-processes the tool calls in preparation for running them
             tool_defs = [tool.tool_definition() for tool in final_tools]
+            logger.info(
+                "LLM loop tools: %s",
+                [t.get("function", {}).get("name", "?") for t in tool_defs],
+            )
 
             # Calculate total processing time from loop start until now
             # This measures how long the user waits before the answer starts streaming

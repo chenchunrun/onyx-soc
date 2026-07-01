@@ -459,6 +459,23 @@ def construct_tools(
                 "MemoryTool not found in the database. Run the latest alembic migration to seed it."
             )
 
+    # Auto-inject SkillTool when persona has bound skills
+    if persona.skill_keys:
+        try:
+            from onyx.tools.tool_implementations.skill.skill_tool import SkillTool
+
+            skill_tool_db_model = get_builtin_tool(db_session, SkillTool)
+            skill_tool = SkillTool(
+                tool_id=skill_tool_db_model.id,
+                emitter=emitter,
+                skill_keys=persona.skill_keys,
+            )
+            tool_dict[skill_tool_db_model.id] = [skill_tool]
+        except RuntimeError:
+            logger.warning(
+                "SkillTool not found in the database. Run the latest alembic migration to seed it."
+            )
+
     tools: list[Tool] = []
     for tool_list in tool_dict.values():
         tools.extend(tool_list)

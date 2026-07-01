@@ -61,6 +61,14 @@
 - `create_security_ticket`
 
 
+## 7.1 绑定的技能
+
+persona 通过 `skill_keys` 绑定以下技能，运行时通过 `load_skill` 工具按需加载完整指令：
+
+- `rga-knowledge-search` — 本地知识库文档检索
+- `data-desensitize` — 敏感信息识别与脱敏处理
+
+
 ## 8. 推荐输出结构
 
 - 检查项/控制项

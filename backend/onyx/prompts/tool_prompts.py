@@ -76,6 +76,16 @@ Only add memories that are specific, likely to remain true, and likely to be use
 Focus on enduring preferences, long-term goals, stable constraints, and explicit "remember this" type requests.
 """.lstrip()
 
+SKILL_TOOL_GUIDANCE = """
+## load_skill
+Use the `load_skill` tool to access skill instructions on demand. \
+When a user's request matches a bound skill listed in your system prompt, you MUST call load_skill with action="load" and the skill_key FIRST to get full instructions before responding. \
+Do NOT search the knowledge base for skills — skills are NOT in the knowledge base. \
+The load_skill tool is the ONLY way to access skill workflows, scripts, detection thresholds, and reference files. \
+To browse available skills, use action="list". \
+To read reference files within a skill (e.g. report templates, detection rules), use action="read_file" with the skill_key and file_path.
+""".lstrip()
+
 TOOL_CALL_FAILURE_PROMPT = """
 LLM attempted to call a tool but failed. Most likely the tool name or arguments were misspelled.
 """.strip()

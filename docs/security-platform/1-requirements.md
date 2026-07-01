@@ -27,6 +27,8 @@
 - 四个安全 Agent 定义文档
 - OpenAPI 安全工具创建与绑定
 - 声明式工具集成配置管理
+- 安全技能（Skills）库与 persona 绑定
+- `load_skill` 工具支持按需加载技能指令
 - 威胁情报 feed 同步与校验
 - threat-intel manifest、curation、生命周期治理、historical package 管理
 - 安全团队 RBAC 初始化
@@ -91,6 +93,15 @@
 - 工具定义与 persona 绑定关系应通过声明式配置管理
 
 
+### 5.3.1 安全技能（Skills）
+
+- 具备一组可复用的安全技能，覆盖日志分析、OSINT、漏洞评估、恶意软件分析、威胁狩猎、合规审计等场景
+- 技能以 `SKILL.md` 形式沉淀在 `skills/` 目录，包含完整工作流、脚本和参考文件
+- persona 可通过 `skill_keys` 绑定技能，运行时通过 `load_skill` 工具按需加载技能完整指令
+- 技能访问控制（risk_level / access_scope / execution_scope）通过 `registry.yaml` 声明式管理
+- 高风险技能（如主动侦察、逆向工程）默认 quarantined，需审批后方可启用
+
+
 ### 5.4 权限与团队初始化
 
 - 可创建安全团队测试账号
@@ -137,6 +148,9 @@
 - `knowledge-base/security-automation/setup_security_tools.py`
 - `knowledge-base/sso-rbac/provision_security_team.py`
 - `knowledge-base/verify_security_platform_acceptance.py`
+- `skills/` 安全技能库（35 个技能，含 `SKILL.md`、脚本和参考文件）
+- `backend/onyx/server/manage/skills/registry.yaml` 技能访问控制注册表
+- `backend/onyx/tools/tool_implementations/skill/skill_tool.py` `load_skill` 工具实现
 - `docs/ONYX_SECURITY_PLATFORM_STATUS_REPORT.md`
 - `docs/TODO.md`
 

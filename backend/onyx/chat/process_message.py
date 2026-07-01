@@ -1170,6 +1170,14 @@ def _run_models(
                 ChatMessage, setup.reserved_messages[model_idx].id
             )
             if orphaned is not None:
+                parent = db_session.get(
+                    ChatMessage, orphaned.parent_message_id
+                ) if orphaned.parent_message_id else None
+                if (
+                    parent is not None
+                    and parent.latest_child_message_id == orphaned.id
+                ):
+                    parent.latest_child_message_id = None
                 db_session.delete(orphaned)
                 db_session.commit()
         except Exception:

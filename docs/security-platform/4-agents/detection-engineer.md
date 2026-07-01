@@ -64,6 +64,15 @@
 - `create_security_ticket`
 
 
+## 7.1 绑定的技能
+
+persona 通过 `skill_keys` 绑定以下技能，运行时通过 `load_skill` 工具按需加载完整指令：
+
+- `ttp-extractor` — 攻防技战法提取与 Sigma 检测规则生成
+- `auth-log-analysis` — 认证日志分析与异常登录检测
+- `prompt-injection-detect` — 提示注入攻击检测与防御
+
+
 ## 8. 推荐输出结构
 
 - 检测目标

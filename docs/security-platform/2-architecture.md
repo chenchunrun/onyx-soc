@@ -42,12 +42,16 @@
 - 应急响应指挥官
 - 漏洞评估专家
 - 合规审计员
+- 威胁狩猎工程师
+- 恶意软件分析师
+- 检测工程师
 
 角色通过 persona 实体落地，而不是单独的运行时子系统。
 
 补充说明：
 
 - `4-agents/` 文档用于固化角色目标、提示词语义、知识边界、工具边界和风险边界
+- 每个 persona 通过 `skill_keys` 绑定若干安全技能（见 §2.8）
 - 运行时仍由 Onyx persona 机制承载
 
 
@@ -120,7 +124,38 @@
 - 建立 persona 与 user 的访问控制关系
 
 
-### 2.8 初始化编排层
+### 2.8 安全技能层
+
+入口：
+
+- `skills/`（技能内容库）
+- `backend/onyx/server/manage/skills/registry.yaml`（访问控制注册表）
+- `backend/onyx/tools/tool_implementations/skill/skill_tool.py`（`load_skill` 工具）
+- `backend/onyx/server/manage/skills/registry.py`（注册表读写与技能扫描）
+
+主要职责：
+
+- 以 `SKILL.md` 形式沉淀可复用的安全工作流、脚本和参考文件
+- 通过 `registry.yaml` 声明每个技能的 `risk_level`、`access_scope`、`execution_scope` 等访问控制属性
+- persona 通过 `skill_keys` 绑定技能，运行时由 `load_skill` 工具按需加载技能完整指令
+- 高风险技能（主动侦察、逆向工程等）默认 `quarantined` 且 `requires_approval`，启用前需审批
+
+当前技能库覆盖场景包括：
+
+- 日志分析：`auth-log-analysis`、`dns-cache-detection`
+- OSINT 与情报：`email-osint`、`url-analysis`、`domain-analysis`、`ip-analysis`
+- 漏洞与供应链：`researching-vulnerabilities`、`sca-analyzer`、`code-audit`
+- 恶意软件与逆向：`office-malware-analyzer`、`pdf-analysis`、`binary-reverse-engineering`
+- 威胁狩猎与检测：`ttp-extractor`、`prompt-injection-detect`
+- 资产与攻击面：`asset-discovery`、`asset-monitor`
+- 红队侦察与入侵：`redteam-recon-*`、`redteam-intrusion-*`
+- 取证与应急：`windows-ir`、`linux-ir`、`macos-ir`
+- 合规与知识：`data-desensitize`、`rga-knowledge-search`
+
+技能与 persona 的绑定关系在 `setup_security_personas.py` 中声明，初始化时写入 persona 的 `skill_keys` 字段。
+
+
+### 2.9 初始化编排层
 
 入口：
 
@@ -136,7 +171,7 @@
 - `rbac`
 
 
-### 2.9 Playbook 执行层
+### 2.10 Playbook 执行层
 
 入口：
 
@@ -150,7 +185,7 @@
 - 为流程化联调、验收和回归提供统一运行入口
 
 
-### 2.10 验收与观测层
+### 2.11 验收与观测层
 
 入口：
 
@@ -174,7 +209,7 @@
 
 ### 3.2 Persona
 
-当前 persona 不再依赖固定 ID，而是通过名称进行解析，降低初始化顺序和环境差异带来的风险。
+当前 persona 不再依赖固定 ID，而是通过名称进行解析，降低初始化顺序和环境差异带来的风险。每个 persona 通过 `skill_keys` 字段绑定若干安全技能，运行时由 `load_skill` 工具按需加载。
 
 
 ### 3.3 Tool
@@ -201,11 +236,13 @@
 1. 导入安全知识文档到 Onyx
 2. 同步本地威胁情报 feed 到 Onyx
 3. 创建或确保 `安全知识库` document set 存在
-4. 创建或更新四个安全 persona
+4. 创建或更新七个安全 persona，并写入 `skill_keys` 绑定
 5. 创建 OpenAPI 安全工具
 6. 将工具绑定到 persona
 7. 创建安全团队用户并绑定权限
 8. 执行 acceptance / smoke 或工作台状态检查
+
+技能内容库（`skills/`）与 `load_skill` 工具行（由 alembic 迁移 `c9f3b7e2a6d4` seed）作为平台能力预先存在，不依赖 bootstrap 阶段创建。
 
 
 ## 5. 当前实现特点
@@ -216,6 +253,7 @@
 - 已形成标准化交付结构
 - 威胁情报同步已进入 bootstrap 主链路
 - playbook 已进入可执行流程层
+- 安全技能库与 `load_skill` 工具已落地，persona 可按需加载技能指令
 - 已具备最小验收和运行状态可视化能力
 
 

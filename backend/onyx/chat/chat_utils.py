@@ -856,6 +856,13 @@ def get_persona_runtime_instruction_block(
                 skill_lines.append(
                     f"- {skill.name} ({skill.key}): {skill.description}"
                 )
+            skill_lines.append(
+                "\nIMPORTANT: When the user's request matches a skill listed above, "
+                "you MUST call the load_skill tool with action=\"load\" and the skill_key "
+                "to get the full instructions before responding. Do NOT search the knowledge base for skills. "
+                "Do NOT say you cannot find the skill. The load_skill tool is the ONLY way to access skill details. "
+                "Example: load_skill(action=\"load\", skill_key=\"auth-log-analysis\")"
+            )
             if len(skill_lines) > 3:
                 prompt_sections.append("\n".join(skill_lines))
 

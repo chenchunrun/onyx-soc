@@ -305,6 +305,24 @@ def _read_frontmatter_fields(skill_md_path: Path) -> tuple[str | None, bool]:
     return description, builtin
 
 
+def read_skill_content(skill_key: str) -> str | None:
+    """Read the full markdown content of a skill's SKILL.md, excluding YAML frontmatter."""
+    skill_md_path = SKILLS_ROOT / skill_key / "SKILL.md"
+    if not skill_md_path.exists():
+        return None
+    try:
+        content = skill_md_path.read_text(encoding="utf-8")
+        lines = content.splitlines()
+        if lines and lines[0].strip() == "---":
+            for i, line in enumerate(lines[1:], 1):
+                if line.strip() == "---":
+                    body = "\n".join(lines[i + 1 :]).strip()
+                    return body or None
+        return content.strip() or None
+    except Exception:
+        return None
+
+
 def scan_skill_directories(
     skills_root: Path | None = None,
 ) -> dict[str, ManagedSkill]:
