@@ -64,6 +64,15 @@
 - `lookup_asset_context`
 
 
+## 7.1 绑定的技能
+
+persona 通过 `skill_keys` 绑定以下技能，运行时通过 `load_skill` 工具按需加载完整指令：
+
+- `asset-monitor` — 企业攻击面资产发现与持续监控
+- `ttp-extractor` — 攻防技战法提取与 Sigma 检测规则生成
+- `dns-cache-detection` — DNS 缓存威胁检测与 C2 域名发现
+
+
 ## 8. 推荐输出结构
 
 - 狩猎假设

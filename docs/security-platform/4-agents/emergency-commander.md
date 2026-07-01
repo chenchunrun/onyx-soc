@@ -65,6 +65,14 @@
 - `create_security_ticket`
 
 
+## 7.1 绑定的技能
+
+persona 通过 `skill_keys` 绑定以下技能，运行时通过 `load_skill` 工具按需加载完整指令：
+
+- `asset-monitor` — 企业攻击面资产发现与持续监控
+- `ttp-extractor` — 攻防技战法提取与 MITRE ATT&CK 映射
+
+
 ## 8. 推荐输出结构
 
 - 当前事件级别

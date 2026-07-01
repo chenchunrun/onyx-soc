@@ -34,6 +34,8 @@
 
 - `docs/security-platform/` 交付文档结构已形成
 - 七个安全 Agent / persona 已落库并完成前端实测
+- 安全技能（Skills）库已落地，35 个技能覆盖日志分析、OSINT、漏洞评估、恶意软件分析、威胁狩猎、红队侦察等场景
+- `load_skill` 工具已集成，persona 可通过 `skill_keys` 绑定技能并按需加载完整指令
 - `bootstrap` 初始化链路已闭环
 - `安全知识库`、persona、tools、RBAC 可自动创建并校验
 - threat-intel 同步、manifest、curation、生命周期治理、historical package 管理已落地
