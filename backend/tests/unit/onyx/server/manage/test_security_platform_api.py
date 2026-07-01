@@ -598,6 +598,39 @@ def test_build_threat_intel_sync_health_summary_flags_missing_and_stale_feeds() 
     assert "refresh window" in summary.issue_entries[1].issue
 
 
+def test_build_threat_intel_sync_health_summary_surfaces_failure_details() -> None:
+    """A feed that carries last_error metadata should surface the reason,
+    even if it is technically still within its refresh window."""
+    summary = build_threat_intel_sync_health_summary(
+        configured_feeds=[
+            {"name": "cisa_kev", "min_refresh_interval_hours": 24},
+            {"name": "nvd_security_advisories", "min_refresh_interval_hours": 48},
+        ],
+        sync_state={
+            "feeds": {
+                # Healthy — recent success, no error.
+                "cisa_kev": {"last_success_at": "2026-04-10T08:00:00+00:00"},
+                # Recent success but carries a recorded failure.
+                "nvd_security_advisories": {
+                    "last_success_at": "2026-04-10T08:00:00+00:00",
+                    "last_error": "HTTP 503: Service Unavailable",
+                    "last_error_at": "2026-04-10T09:00:00+00:00",
+                },
+            },
+            "last_refreshed_feeds": ["cisa_kev", "nvd_security_advisories"],
+        },
+        now=datetime(2026, 4, 10, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert summary.healthy_feed_count == 1
+    assert summary.issue_count == 1
+    entry = summary.issue_entries[0]
+    assert entry.feed_name == "nvd_security_advisories"
+    assert entry.last_error == "HTTP 503: Service Unavailable"
+    assert entry.last_error_at is not None
+    assert "Recent sync error" in entry.issue
+
+
 def test_build_custom_permission_summary_sorts_permission_counts() -> None:
     summary = build_custom_permission_summary(
         default_group_count=2,

@@ -279,7 +279,7 @@ def test_run_scheduled_sync_updates_state(monkeypatch, tmp_path, capsys) -> None
     monkeypatch.setattr(
         module,
         "refresh_due_feeds",
-        lambda args, due_feed_configs: (0, ["cisa_kev"]),
+        lambda args, due_feed_configs: (0, ["cisa_kev"], {}),
     )
     monkeypatch.setattr(module, "apply_threat_intel", lambda args: 0)
     monkeypatch.setattr(module, "selected_profile_name", lambda args: "live")
@@ -294,6 +294,59 @@ def test_run_scheduled_sync_updates_state(monkeypatch, tmp_path, capsys) -> None
     assert result == 0
     assert "Due feeds: cisa_kev" in output
     assert saved_state["feeds"]["cisa_kev"]["last_success_at"] == "2026-04-07T00:00:00Z"
+
+
+def test_run_scheduled_sync_records_partial_failures(monkeypatch, tmp_path, capsys) -> None:
+    """When some feeds fail and others succeed, failures are recorded in
+    sync_state and the run still succeeds for the refreshed feeds."""
+    module = _load_module()
+    state_path = tmp_path / "sync_state.json"
+    state_path.write_text(json.dumps({"feeds": {}}), encoding="utf-8")
+    monkeypatch.setattr(module, "SYNC_STATE_PATH", state_path)
+    monkeypatch.setattr(
+        module,
+        "load_sync_plan",
+        lambda: {
+            "feeds": [
+                {"name": "cisa_kev", "min_refresh_interval_hours": 24},
+                {"name": "nvd_security_advisories", "min_refresh_interval_hours": 48},
+            ]
+        },
+    )
+    monkeypatch.setattr(
+        module,
+        "utc_now",
+        lambda: datetime(2026, 4, 7, 0, 0, tzinfo=timezone.utc),
+    )
+    # cisa_kev succeeds, nvd fails — partial result.
+    monkeypatch.setattr(
+        module,
+        "refresh_due_feeds",
+        lambda args, due_feed_configs: (
+            0,
+            ["cisa_kev"],
+            {"nvd_security_advisories": "HTTP 503: Service Unavailable"},
+        ),
+    )
+    monkeypatch.setattr(module, "apply_threat_intel", lambda args: 0)
+    monkeypatch.setattr(module, "selected_profile_name", lambda args: "live")
+    monkeypatch.setattr(module, "selected_profile", lambda args: {"allow_upstream_refresh": True})
+
+    result = module.run_scheduled_sync(
+        Namespace(limit=None, url="http://example.com", email="a", password="b")
+    )
+    output = capsys.readouterr().out
+    saved_state = json.loads(state_path.read_text(encoding="utf-8"))
+
+    assert result == 0  # partial success
+    assert "[WARN]" in output
+    assert "1 feed failure" in output
+    # Success recorded for cisa_kev
+    assert saved_state["feeds"]["cisa_kev"]["last_success_at"] == "2026-04-07T00:00:00Z"
+    # Failure recorded for nvd_security_advisories
+    nvd_state = saved_state["feeds"]["nvd_security_advisories"]
+    assert nvd_state["last_error"] == "HTTP 503: Service Unavailable"
+    assert nvd_state["last_error_at"] == "2026-04-07T00:00:00Z"
 
 
 def test_show_sync_plan_reports_due_status(monkeypatch, tmp_path, capsys) -> None:
@@ -362,7 +415,7 @@ def test_run_scheduled_sync_skips_upstream_in_mock_profile(
         lambda args, due_feed_configs: (_ for _ in ()).throw(
             AssertionError("refresh_due_feeds should not be called for mock profile")
         ),
-    )
+    )  # type: ignore[return-value]
     monkeypatch.setattr(module, "apply_threat_intel", lambda args: 0)
 
     result = module.run_scheduled_sync(

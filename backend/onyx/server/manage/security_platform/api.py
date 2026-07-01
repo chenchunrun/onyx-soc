@@ -480,6 +480,8 @@ class SecurityPlatformThreatIntelSyncIssueEntry(BaseModel):
     feed_name: str
     issue: str
     last_success_at: str | None
+    last_error: str | None = None
+    last_error_at: str | None = None
 
 
 class SecurityPlatformThreatIntelSyncHealthSummary(BaseModel):
@@ -3276,15 +3278,36 @@ def build_threat_intel_sync_health_summary(
         elif (now - last_success_at) > timedelta(hours=min_refresh_interval_hours):
             issue = f"Last success exceeds refresh window ({min_refresh_interval_hours}h)"
 
-        if issue is None:
+        # Surface recorded failure details (written by update_sync_state_for_failures)
+        # so operators can see *why* a feed is stale, not just that it is.
+        last_error = state.get("last_error") if isinstance(state, dict) else None
+        raw_last_error_at = state.get("last_error_at") if isinstance(state, dict) else None
+        last_error_at: str | None = None
+        if raw_last_error_at:
+            try:
+                parsed_error_at = datetime.fromisoformat(
+                    str(raw_last_error_at).replace("Z", "+00:00")
+                )
+                last_error_at = parsed_error_at.isoformat()
+            except ValueError:
+                last_error_at = str(raw_last_error_at)
+
+        if issue is None and not last_error:
             healthy_feed_count += 1
             continue
+
+        # A feed may be healthy on staleness but still carry a recent error;
+        # include it so the failure reason is visible.
+        if issue is None:
+            issue = "Recent sync error (feed may still be within window)"
 
         issue_entries.append(
             SecurityPlatformThreatIntelSyncIssueEntry(
                 feed_name=feed_name,
                 issue=issue,
                 last_success_at=last_success_at.isoformat() if last_success_at else None,
+                last_error=last_error,
+                last_error_at=last_error_at,
             )
         )
 

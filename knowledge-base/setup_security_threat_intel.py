@@ -380,8 +380,16 @@ def refresh_local_feed_files(args: argparse.Namespace) -> int:
 
 def refresh_due_feeds(
     args: argparse.Namespace, due_feed_configs: list[dict[str, Any]]
-) -> tuple[int, list[str]]:
+) -> tuple[int, list[str], dict[str, str]]:
+    """Refresh each due feed, continuing past failures.
+
+    Returns ``(return_code, refreshed_feeds, feed_errors)`` where
+    ``feed_errors`` maps feed name to a short error message for feeds that
+    failed. Unlike the previous behaviour, a single feed failure does not
+    abort the remaining feeds.
+    """
     refreshed: list[str] = []
+    feed_errors: dict[str, str] = {}
     for feed_config in due_feed_configs:
         feed = str(feed_config["name"])
         command = [
@@ -392,11 +400,27 @@ def refresh_due_feeds(
             feed,
             "--skip-onyx",
         ]
-        completed = subprocess.run(command, cwd=ROOT, check=False)
+        completed = subprocess.run(
+            command,
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        # Echo aggregator output so the operator still sees progress.
+        if completed.stdout:
+            print(completed.stdout, end="")
+        if completed.stderr:
+            print(completed.stderr, end="", file=sys.stderr)
         if completed.returncode != 0:
-            return completed.returncode, refreshed
+            # Extract a concise error message from stderr/stdout tail.
+            tail = (completed.stderr or completed.stdout or "").strip().splitlines()
+            feed_errors[feed] = tail[-1][:200] if tail else f"exit code {completed.returncode}"
+            continue
         refreshed.append(feed)
-    return 0, refreshed
+    # Non-zero only if every feed failed; partial success still returns 0
+    # so apply_threat_intel can ingest whatever was refreshed.
+    return (1 if not refreshed else 0), refreshed, feed_errors
 
 
 def update_sync_state_for_success(
@@ -410,6 +434,28 @@ def update_sync_state_for_success(
         }
     state["last_sync_run_at"] = timestamp
     state["last_refreshed_feeds"] = refreshed_feeds
+    return state
+
+
+def update_sync_state_for_failures(
+    state: dict[str, Any], feed_errors: dict[str, str], now: datetime
+) -> dict[str, Any]:
+    """Record per-feed failure details without overwriting last_success_at.
+
+    The dashboard reads ``last_error`` / ``last_attempt_at`` to surface *why*
+    a feed is stale, complementing the existing staleness check.
+    """
+    feeds_state = state.setdefault("feeds", {})
+    timestamp = now.isoformat().replace("+00:00", "Z")
+    for feed, error in feed_errors.items():
+        existing = feeds_state.get(feed, {})
+        if not isinstance(existing, dict):
+            existing = {}
+        existing["last_error"] = error
+        existing["last_error_at"] = timestamp
+        # Preserve last_success_at if present; only add failure metadata.
+        feeds_state[feed] = existing
+    state["last_sync_run_at"] = timestamp
     return state
 
 
@@ -450,9 +496,14 @@ def run_scheduled_sync(args: argparse.Namespace) -> int:
         return 0
 
     print(f"Due feeds: {', '.join(due_feed_names)}")
+    feed_errors: dict[str, str] = {}
     if profile["allow_upstream_refresh"]:
-        result, refreshed_feeds = refresh_due_feeds(args, due_feed_configs)
+        result, refreshed_feeds, feed_errors = refresh_due_feeds(args, due_feed_configs)
         if result != 0:
+            # All feeds failed — record failures and exit.
+            write_sync_state(update_sync_state_for_failures(state, feed_errors, now))
+            for feed, error in feed_errors.items():
+                print(f"  [FAIL] {feed}: {error}")
             return result
     else:
         print("[SKIP] Upstream refresh disabled; scheduled sync will use local feed corpus.")
@@ -472,7 +523,13 @@ def run_scheduled_sync(args: argparse.Namespace) -> int:
     if apply_result != 0:
         return apply_result
 
-    write_sync_state(update_sync_state_for_success(state, refreshed_feeds, now))
+    state = update_sync_state_for_success(state, refreshed_feeds, now)
+    if feed_errors:
+        state = update_sync_state_for_failures(state, feed_errors, now)
+    write_sync_state(state)
+    if feed_errors:
+        print(f"[WARN] Sync complete with {len(feed_errors)} feed failure(s): "
+              f"{', '.join(sorted(feed_errors))}")
     print(f"[OK] Scheduled threat-intel sync complete: {', '.join(refreshed_feeds)}")
     return 0
 
