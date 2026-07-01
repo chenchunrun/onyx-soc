@@ -111,17 +111,19 @@ threat-intel 同步失败追踪已增强：单个 feed 失败不再中断其余 
 
 ## 4. Later
 
-### 4.1 继续深化生产化配置管理
+### 4.1 继续深化生产化配置管理（已推进一轮）
 
-目标：
+本轮已完成：
 
-- 在现有第一轮收口基础上，按真实交付需要继续深化
+- Helm secretKeys 全量规范表（9 个 key 的权威定义 + 各 profile 使用矩阵）
+- profile ↔ values ↔ required_env 统一对照表
+- demo 占位值豁免规则（代码 + 文档）：`SECURITY_TOOLS_MOCK_API_KEY` 在 demo/mock profile 下不再误报
 
-待办：
+后续仍需按真实交付需要继续推进：
 
-- 视部署目标继续补强 Helm 生产 values 模板
-- 视组织要求继续细化 Secret Manager 接入约定
-- 持续收敛 live/demo/mock 的部署边界
+- 视部署目标继续补强 Helm 生产 values 模板（HPA / PDB / 资源 limits / 反亲和）
+- 视组织要求继续细化 Secret Manager 接入约定（Vault / KMS / External Secrets Operator）
+- 网关进程自身配置模板（VirusTotal 等）尚缺独立配置文件
 
 验收标准：
 
@@ -129,17 +131,19 @@ threat-intel 同步失败追踪已增强：单个 feed 失败不再中断其余 
 - 配置来源、档位边界、secret 注入方式持续一致
 
 
-### 4.2 继续加深回归矩阵
+### 4.2 继续加深回归矩阵（已推进一轮）
 
-目标：
+本轮已完成：
 
-- 在当前已可用的回归基线上继续增加更长链路和更多场景
+- skills 集成测试补全：persona skill_keys 绑定断言 + load_skill mock-LLM 调用回归（action=list / action=load）
+- live 测试 mark 规范化：所有 11 个 live 测试加 `@pytest.mark.live`，`-m "not live"` 可一键跳过
 
-待办：
+后续仍需继续推进：
 
 - 继续扩真实模型下的更长链路场景
-- 继续扩大 smoke / acceptance / regression 分层边界
-- 新增 persona / tool / playbook 时同步补对应回归
+- RBAC 负向集成测试（非授权用户不能访问 private persona / 文档集）
+- 旧 security_tools 套件与新 security_platform 套件的功能重叠合并
+- 新增 persona / tool / skill / playbook 时同步补对应回归
 
 验收标准：
 
@@ -167,16 +171,19 @@ threat-intel 同步失败追踪已增强：单个 feed 失败不再中断其余 
 
 ## 5. 建议推进顺序
 
-§3.1-§3.3 的 Next 项已全部完成。后续推进重点转向 §4 Later 项：
+§3.1-§3.3 的 Next 项已全部完成。§4 Later 项已推进一轮（skills 集成测试、live mark 规范化、Helm secretKeys 规范化、demo 占位值豁免）。
 
-1. 按需深化生产化配置管理（Helm values、Secret Manager 接入）
-2. 持续加深回归矩阵
+后续推进重点：
+
+1. 按需继续深化生产化配置（HPA/PDB、Vault/KMS、网关配置模板）
+2. 继续加深回归矩阵（RBAC 负向、更长链路、套件合并）
 3. 维持 threat-intel 生命周期治理节奏
 
 原因：
 
 - 当前主要主线能力已经成立
 - skills 能力、threat-intel 适配器架构、运维观测基线和文档收口均已完成
+- 回归矩阵和生产化配置已完成第一轮深化
 - 下一阶段重点转向生产化深度、覆盖面扩展和长期维护性
 
 
