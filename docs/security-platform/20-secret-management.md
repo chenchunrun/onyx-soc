@@ -50,6 +50,30 @@
 - `deployment/helm/charts/onyx/values.security-platform.existing-secret.example.yaml`
 
 
+### 3.3 secretKeys 全量规范
+
+`auth.securityPlatform.secretKeys` 的权威全量清单如下（共 9 项）。各 Helm overlay 可按 profile 使用子集，但 key 名称必须与下表一致：
+
+| env 变量名 | secretKey（Helm values 中的 key） | 用途 | live | gateway | demo |
+|---|---|---|---|---|---|
+| `SECURITY_ALERT_WEBHOOK_URL` | `security_alert_webhook_url` | 告警 webhook | ✓ | — | — |
+| `SECURITY_TICKET_API_KEY` | `security_ticket_api_key` | 工单系统 API key | ✓ | — | — |
+| `THREAT_INTEL_API_KEY` | `threat_intel_api_key` | 威胁情报 API key | ✓ | — | — |
+| `SECURITY_SIEM_API_KEY` | `security_siem_api_key` | SIEM 检索 API key | ✓ | — | — |
+| `SECURITY_EDR_API_KEY` | `security_edr_api_key` | EDR 响应 API key | ✓ | — | — |
+| `SECURITY_ASSET_API_KEY` | `security_asset_api_key` | 资产 CMDB API key | ✓ | — | — |
+| `SECURITY_TOOLS_GATEWAY_API_KEY` | `security_tools_gateway_api_key` | 内部网关鉴权 key | — | ✓ | — |
+| `SECURITY_TOOLS_MOCK_API_KEY` | `security_tools_mock_api_key` | Mock 工具服务 key | — | — | ✓ |
+| `ENCRYPTION_KEY_SECRET` | `encryption_key_secret` | 平台加密密钥 | ✓ | ✓ | — |
+
+说明：
+
+- `✓` = 该 profile 下应配置此项；`—` = 该 profile 不使用此项
+- gateway profile 通过 `SECURITY_TOOLS_GATEWAY_URL` + `SECURITY_TOOLS_GATEWAY_API_KEY` 路由所有工具请求，上游厂商真实 key（如 `VIRUSTOTAL_API_KEY`）只配在网关进程，不进入 Onyx 容器
+- demo profile 只需 `SECURITY_TOOLS_MOCK_API_KEY` + `SECURITY_TOOLS_MOCK_SERVER_URL`
+- 对应的 URL 类变量（如 `SECURITY_TICKET_API_URL`）不是 Secret，放在 `configMap` 或 env 中
+
+
 ## 4. 环境建议
 
 ### 4.1 生产环境
@@ -74,6 +98,28 @@
 - 可使用 `SECURITY_TOOLS_PROFILE=mock`
 - 可使用 `THREAT_INTEL_SOURCE_PROFILE=mock`
 - 仍建议使用独立演示 Secret，而不是长期保留模板占位值
+
+占位值豁免规则：
+
+- `mock-api-key-for-testing` 是 demo profile 下 mock 工具服务的约定值
+- 当 `SECURITY_TOOLS_PROFILE=mock` 时，工作台和验收脚本的占位值检查会对 `SECURITY_TOOLS_MOCK_API_KEY` 豁免
+- 当 `SECURITY_TOOLS_PROFILE` 为 `live` 或 `gateway` 时，`mock-api-key-for-testing` 仍被判为占位值并告警
+- `replace-me` 在任何 profile 下都不被豁免
+
+
+### 4.4 Profile ↔ Values ↔ Required Env 对照表
+
+| Profile | 部署档位 | 推荐 Helm overlay | 工具档位 | 情报档位 | 必需 Secret/Env |
+|---|---|---|---|---|---|
+| `live` | 生产/联调 | `values.security-platform.live.yaml` | live | live | 6 个工具 key + URL + `ENCRYPTION_KEY_SECRET` |
+| `gateway` | 网关路由 | `values.security-platform.gateway.yaml` | gateway | live | `SECURITY_TOOLS_GATEWAY_URL` + `SECURITY_TOOLS_GATEWAY_API_KEY` + `ENCRYPTION_KEY_SECRET` |
+| `demo` | 演示/离线 | `values.security-platform.demo.yaml` | mock | mock | `SECURITY_TOOLS_MOCK_SERVER_URL` + `SECURITY_TOOLS_MOCK_API_KEY` |
+
+说明：
+
+- 权威 profile 定义见 `docs/security-platform/deployment-profiles.yaml`
+- `existingSecret` 模式可叠加在任意 profile 上（示例见 `values.security-platform.existing-secret.example.yaml`）
+- 三个 profile 是 `SECURITY_PLATFORM_DEPLOYMENT_PROFILE` 的值；`SECURITY_TOOLS_PROFILE` 和 `THREAT_INTEL_SOURCE_PROFILE` 是子档位，由 profile 隐含但可单独覆盖
 
 
 ## 5. 当前支持方式

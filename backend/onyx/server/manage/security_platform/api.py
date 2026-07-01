@@ -1690,9 +1690,22 @@ def _looks_like_placeholder_value(env_name: str, env_value: str) -> bool:
     return False
 
 
+# Env vars whose placeholder values are acceptable under a given tools profile.
+# For demo/mock deployments the mock API key is the expected shared secret, not
+# a placeholder that needs replacing.
+_PROFILE_PLACEHOLDER_EXEMPTIONS: dict[str, set[str]] = {
+    "mock": {"SECURITY_TOOLS_MOCK_API_KEY"},
+    "demo": {"SECURITY_TOOLS_MOCK_API_KEY"},
+}
+
+
 def get_placeholder_required_env(required_env: list[str]) -> list[str]:
+    tools_profile = str(os.environ.get("SECURITY_TOOLS_PROFILE", "")).strip().lower()
+    exempt = _PROFILE_PLACEHOLDER_EXEMPTIONS.get(tools_profile, set())
     placeholders: list[str] = []
     for env_name in required_env:
+        if env_name in exempt:
+            continue
         env_value = str(os.environ.get(env_name, "")).strip()
         if _looks_like_placeholder_value(env_name, env_value):
             placeholders.append(env_name)

@@ -109,6 +109,35 @@ def test_get_placeholder_required_env_detects_example_values(monkeypatch) -> Non
     assert placeholders == ["SECURITY_TICKET_API_URL", "SECURITY_TICKET_API_KEY"]
 
 
+def test_get_placeholder_required_env_exempts_mock_key_in_demo_profile(
+    monkeypatch,
+) -> None:
+    """Under demo/mock tools profile, the mock API key placeholder is expected,
+    not a misconfiguration that should trigger a health alert."""
+    monkeypatch.setenv("SECURITY_TOOLS_PROFILE", "demo")
+    monkeypatch.setenv("SECURITY_TOOLS_MOCK_API_KEY", "mock-api-key-for-testing")
+    monkeypatch.setenv("SECURITY_TICKET_API_KEY", "replace-me")
+
+    placeholders = get_placeholder_required_env(
+        ["SECURITY_TOOLS_MOCK_API_KEY", "SECURITY_TICKET_API_KEY"]
+    )
+
+    # Mock key is exempt under demo profile; replace-me is still flagged.
+    assert placeholders == ["SECURITY_TICKET_API_KEY"]
+
+
+def test_get_placeholder_required_env_flags_mock_key_in_live_profile(
+    monkeypatch,
+) -> None:
+    """Under live profile, the mock API key is a real misconfiguration."""
+    monkeypatch.setenv("SECURITY_TOOLS_PROFILE", "live")
+    monkeypatch.setenv("SECURITY_TOOLS_MOCK_API_KEY", "mock-api-key-for-testing")
+
+    placeholders = get_placeholder_required_env(["SECURITY_TOOLS_MOCK_API_KEY"])
+
+    assert placeholders == ["SECURITY_TOOLS_MOCK_API_KEY"]
+
+
 def test_build_tool_status_extracts_server_headers_and_personas() -> None:
     tool = SimpleNamespace(
         id=15,
