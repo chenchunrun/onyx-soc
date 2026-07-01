@@ -984,6 +984,7 @@ def test_security_platform_load_skill_invocation_regression(
     assert len(requests_received) == 0
 
 
+@pytest.mark.live
 @pytest.mark.parametrize(
     ("persona_name", "token", "prompt"), PERSONA_LIVE_CHAT_SCENARIOS
 )
@@ -1014,6 +1015,7 @@ def test_security_platform_persona_live_chat_regression(
     )
 
 
+@pytest.mark.live
 @pytest.mark.glm5_live
 def test_security_platform_glm5_reasoning_regression(
     seeded_security_platform: SeededSecurityPlatform,
@@ -1047,6 +1049,7 @@ def test_security_platform_glm5_reasoning_regression(
     assert "finance-host-01" in response["full_message"], response["full_message"]
 
 
+@pytest.mark.live
 @pytest.mark.glm5_live
 def test_security_platform_glm5_tool_selection_regression(
     seeded_security_platform: SeededSecurityPlatform,
@@ -1084,6 +1087,7 @@ def test_security_platform_glm5_tool_selection_regression(
     ), response["full_message"]
 
 
+@pytest.mark.live
 @pytest.mark.glm5_live
 def test_security_platform_glm5_multi_step_live_regression(
     seeded_security_platform: SeededSecurityPlatform,
@@ -1135,6 +1139,7 @@ def test_security_platform_glm5_multi_step_live_regression(
     ), second_response["full_message"]
 
 
+@pytest.mark.live
 @pytest.mark.glm5_live
 def test_security_platform_glm5_investigation_to_ticket_live_regression(
     seeded_security_platform: SeededSecurityPlatform,
@@ -1196,6 +1201,7 @@ def test_security_platform_glm5_investigation_to_ticket_live_regression(
     ), second_response["full_message"]
 
 
+@pytest.mark.live
 @pytest.mark.glm5_live
 def test_security_platform_glm5_investigation_to_isolation_live_regression(
     seeded_security_platform: SeededSecurityPlatform,
@@ -1256,6 +1262,7 @@ def test_security_platform_glm5_investigation_to_isolation_live_regression(
     ), second_response["full_message"]
 
 
+@pytest.mark.live
 def test_security_platform_threat_intel_live_regression(
     seeded_security_platform: SeededSecurityPlatform,
 ) -> None:
@@ -1285,6 +1292,7 @@ def test_security_platform_threat_intel_live_regression(
     ), response["full_message"]
 
 
+@pytest.mark.live
 @pytest.mark.parametrize("scenario", LIVE_TOOL_INVOCATION_SCENARIOS)
 def test_security_platform_live_tool_invocation_regression(
     seeded_security_platform: SeededSecurityPlatform,
@@ -1328,6 +1336,7 @@ def test_security_platform_live_tool_invocation_regression(
     ), response["full_message"]
 
 
+@pytest.mark.live
 def test_security_platform_live_multi_step_ticket_chain_regression(
     seeded_security_platform: SeededSecurityPlatform,
 ) -> None:
@@ -1434,6 +1443,7 @@ def test_security_platform_live_multi_step_ticket_chain_regression(
     assert "PowerShell" in ticket_request["body"]["description"]
 
 
+@pytest.mark.live
 def test_security_platform_cross_persona_live_containment_chain_regression(
     seeded_security_platform: SeededSecurityPlatform,
 ) -> None:
@@ -1580,6 +1590,7 @@ def test_security_platform_cross_persona_live_containment_chain_regression(
     )
 
 
+@pytest.mark.live
 def test_security_platform_hunt_detection_malware_live_chain_regression(
     seeded_security_platform: SeededSecurityPlatform,
 ) -> None:

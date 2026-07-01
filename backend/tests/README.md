@@ -43,6 +43,16 @@ python -m dotenv -f .vscode/.env run -- \
 pytest -xv backend/tests/integration/tests/security_platform/test_security_platform_regression.py -m glm5_live
 ```
 
+### Skipping Live Tests
+
+All tests that call a real LLM or external service carry the `live` marker
+(glm5_live tests also carry `live`). To run only the fast, deterministic
+mock-LLM tests:
+
+```bash
+pytest backend/tests/integration/tests/security_platform/ -m "not live"
+```
+
 Current coverage includes:
 
 - live security reasoning with the default `glm-5` model
