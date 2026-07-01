@@ -98,6 +98,16 @@ USER_PERSONA_BY_EMAIL = {
     "malware@security.local": "恶意软件分析师",
     "detection@security.local": "检测工程师",
 }
+# Expected skill_keys per persona (must match knowledge-base/setup_security_personas.py).
+SECURITY_PERSONA_SKILL_REQUIREMENTS: dict[str, set[str]] = {
+    "安全事件分析师": {"auth-log-analysis", "email-osint", "url-analysis"},
+    "应急响应指挥官": {"asset-monitor", "ttp-extractor"},
+    "漏洞评估专家": {"researching-vulnerabilities", "sca-analyzer", "asset-discovery"},
+    "合规审计员": {"rga-knowledge-search", "data-desensitize"},
+    "威胁狩猎工程师": {"asset-monitor", "ttp-extractor", "dns-cache-detection"},
+    "恶意软件分析师": {"office-malware-analyzer", "pdf-analysis", "binary-reverse-engineering"},
+    "检测工程师": {"ttp-extractor", "auth-log-analysis", "prompt-injection-detect"},
+}
 PERSONA_CHAT_SCENARIOS = [
     ("安全事件分析师", "REGRESSION_OK_ANALYST"),
     ("应急响应指挥官", "REGRESSION_OK_COMMANDER"),
@@ -876,6 +886,102 @@ def test_security_platform_tool_matrix_regression(
             expected["custom_tools"],
             aliases,
         )
+
+
+def test_security_platform_skill_binding_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+) -> None:
+    """Every persona should carry the expected skill_keys, and personas with
+    bound skills should expose the load_skill tool (via any alias)."""
+    persona_map = _get_persona_map(seeded_security_platform.admin_user)
+
+    for persona_name, expected_skills in SECURITY_PERSONA_SKILL_REQUIREMENTS.items():
+        persona = persona_map[persona_name]
+        # skill_keys may be absent on personas without skills; for the 7
+        # security personas we expect exactly the configured set.
+        actual_skills = set(persona.get("skill_keys") or [])
+        assert actual_skills == expected_skills, (
+            persona_name,
+            "expected",
+            expected_skills,
+            "actual",
+            actual_skills,
+        )
+
+        # When a persona has bound skills, load_skill is auto-injected.
+        aliases = _tool_aliases(persona)
+        assert "SkillTool" in aliases or "load_skill" in aliases, (
+            persona_name,
+            "load_skill tool not found despite bound skills",
+            aliases,
+        )
+
+
+# Scenarios for load_skill tool invocation (mock LLM).
+# SkillTool runs in-process (reads local files), so unlike custom OpenAPI tools
+# it produces no HTTP traffic to the mock server. We assert tool_call_debug.
+LOAD_SKILL_INVOCATION_SCENARIOS = [
+    {
+        "persona_name": "安全事件分析师",
+        "prompt": "列出我可用的安全技能。",
+        "mock_llm_response": json.dumps(
+            {"name": "load_skill", "arguments": {"action": "list"}}
+        ),
+    },
+    {
+        "persona_name": "安全事件分析师",
+        "prompt": "加载 auth-log-analysis 技能的完整指令。",
+        "mock_llm_response": json.dumps(
+            {
+                "name": "load_skill",
+                "arguments": {"action": "load", "skill_key": "auth-log-analysis"},
+            }
+        ),
+    },
+]
+
+
+@pytest.mark.parametrize("scenario", LOAD_SKILL_INVOCATION_SCENARIOS)
+def test_security_platform_load_skill_invocation_regression(
+    seeded_security_platform: SeededSecurityPlatform,
+    scenario: dict[str, Any],
+) -> None:
+    """Verify load_skill is callable and returns skill content in-process."""
+    if not seeded_security_platform.supports_mock_llm:
+        pytest.skip("mock_llm_response is not enabled in the current deployment")
+
+    persona = _get_persona_map(seeded_security_platform.admin_user)[scenario["persona_name"]]
+    persona_detail = _get_persona_detail(
+        seeded_security_platform.admin_user, int(persona["id"])
+    )
+    tool_id = next(
+        int(tool["id"])
+        for tool in persona_detail.get("tools", [])
+        if tool["name"] == "load_skill"
+    )
+
+    clear_mock_requests(seeded_security_platform.mock_server_url)
+    chat_session_id = _create_chat_session(
+        seeded_security_platform.admin_user,
+        int(persona["id"]),
+        description=f"regression-skill-{scenario['mock_llm_response'][:32]}-{uuid.uuid4()}",
+    )
+
+    response = _send_chat_message(
+        seeded_security_platform.admin_user,
+        chat_session_id,
+        message=scenario["prompt"],
+        forced_tool_id=tool_id,
+        mock_llm_response=scenario["mock_llm_response"],
+    )
+
+    assert response["error"] is None, f"Unexpected error: {response['error']}"
+    assert len(response["tool_call_debug"]) >= 1
+    assert response["tool_call_debug"][0]["tool_name"] == "load_skill"
+
+    # load_skill is in-process: no HTTP traffic should reach the mock server.
+    requests_received = get_mock_requests(seeded_security_platform.mock_server_url)
+    assert len(requests_received) == 0
 
 
 @pytest.mark.parametrize(
