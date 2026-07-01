@@ -249,31 +249,33 @@
 
 ## 5. 当前仍待完成的内容
 
-### 5.1 Threat-Intel 扩源还未完成
+### 5.1 Threat-Intel 扩源（架构已就绪，待按需接入）
 
-当前 threat-intel 仍以 CISA / NVD 为主，生命周期治理已经走在前面，但上游源覆盖仍有扩展空间。
+当前 threat-intel 以 CISA / NVD / CNCERT 为活跃源，上游同步已重构为注册式适配器架构：
 
-后续仍需决定：
+- 新增源只需实现 `FeedAdapter` + `@register_adapter` 即可接入
+- 已支持指数退避重试和部分失败容错（单源失败不中断其余源）
+- 同步失败原因（`last_error`/`last_error_at`）已写入 `sync_state.json` 并在工作台展示
 
-- 是否引入更多公开情报源
-- 是否引入商业 API
-- 每个新增源的刷新、鉴权、失败策略如何约束
+后续仍需按运营需要决定：
+
+- 是否引入更多公开情报源（如 MITRE ATT&CK、GitHub Security Advisories）
+- 是否引入商业 API（如 Recorded Future、Mandiant）
+- 商业源的鉴权注入方式
 
 
-### 5.2 运维观测与审计仍需增强
+### 5.2 运维观测与审计（已完成基线收口）
 
-当前已经有健康状态、修复建议和运行摘要，并新增了：
+当前已落地以下运维观测能力：
 
+- persona 使用统计（活跃 persona 数、session/message/tool_call 计数、逐 persona 明细）
+- threat-intel 同步健康看板（含逐 feed 失败原因）
+- 按阶段失败分布（stage / persona / tool / 7d trend 四列）
 - 工具调用审计摘要
-- 最近失败项摘要
 - 配置漂移检查
-- 权限、SCIM、Service Account、Query History、Hooks、自托管等运营摘要
+- 最近失败项摘要与修复建议
 
-但仍未扩展到更强的运营视角能力，例如：
-
-- persona 使用统计
-- threat-intel 同步失败看板
-- 更细的阶段级失败分布与长期趋势
+当前阶段满足"管理员已能定位关键失败阶段和配置漂移"的验收标准。后续如需继续增强，应保持轻量，不演变成独立 BI 系统。
 
 
 ### 5.3 版本说明与历史文档仍需继续收敛

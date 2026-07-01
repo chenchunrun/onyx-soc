@@ -43,7 +43,32 @@
 - [最小验收清单](/Users/newmba/Downloads/onyx-main/docs/security-platform/9-minimal-acceptance-checklist.md)
 
 
-## 4. 角色与集成文档
+## 4. 版本基线与已知限制
+
+### 4.1 当前版本基线
+
+- 版本定位：`PoC / 内部试运行基线版本`
+- 主要主线能力已成立：安全知识库、7 个 persona、6 个安全工具、35 个 skills、threat-intel 同步与治理、playbook、安全工作台
+- 企业能力已完成管理面可见性收口（RBAC、SCIM、加密、Query History、Hooks、白标等）
+
+### 4.2 升级说明
+
+从历史版本升级到当前基线时，需注意：
+
+- 执行 `alembic upgrade head`，当前 head 为 `c9f3b7e2a6d4`（含 `SkillTool` seed）
+- 运行 `python knowledge-base/bootstrap_security_platform.py --apply` 刷新 persona 的 `skill_keys` 绑定
+- 确认 `load_skill` 工具在 `tool` 表中存在且 `enabled=true`
+- 如需 threat-intel 同步，运行 `python knowledge-base/setup_security_threat_intel.py --show-sync-plan` 确认源 profile 和 feed 状态
+
+### 4.3 已知限制
+
+- threat-intel 上游源仍以公开免费源为主，商业 API 接入待按需推进
+- 真正的一键部署资产仍以主仓部署方式叠加，非独立 Helm chart
+- 生产化 Secret 管理已完成第一轮收口，深度接入（Vault、KMS 等）视部署目标细化
+- 安全技能中高风险技能（主动侦察、逆向工程）默认 `quarantined`，启用前需审批
+
+
+## 5. 角色与集成文档
 
 ### 4.1 Agent 定义
 
@@ -69,7 +94,7 @@
 - [事件止损与工单联动流程](/Users/newmba/Downloads/onyx-main/docs/security-platform/playbooks/incident-containment-and-ticketing.yaml)
 
 
-## 5. 阶段性材料
+## 6. 阶段性材料
 
 以下文档主要用于阶段性沟通、汇报或外部同步，不应替代当前状态报告和 backlog：
 
@@ -88,7 +113,7 @@
 - 若和当前实现冲突，以 [项目状态报告](/Users/newmba/Downloads/onyx-main/docs/ONYX_SECURITY_PLATFORM_STATUS_REPORT.md)、[项目 TODO](/Users/newmba/Downloads/onyx-main/docs/TODO.md)、[开发 Backlog](/Users/newmba/Downloads/onyx-main/docs/security-platform/12-development-backlog.md) 为准。
 
 
-## 6. 当前文档分工
+## 7. 当前文档分工
 
 - [项目状态报告](/Users/newmba/Downloads/onyx-main/docs/ONYX_SECURITY_PLATFORM_STATUS_REPORT.md)
   用于回答“当前做到了什么、还差什么”。
@@ -110,7 +135,7 @@
   用于沟通、汇报、发布，不作为唯一真相源。
 
 
-## 7. 企业能力收口状态
+## 8. 企业能力收口状态
 
 当前这轮优先级清单里的企业能力，已经按“管理面可见 + 验收可记录 + 健康检查可诊断”的标准完成最小收口：
 
@@ -136,7 +161,7 @@
 - `Enterprise SLAs and Priority Support` 不属于代码功能项，不纳入本收口列表。
 
 
-## 8. 维护建议
+## 9. 维护建议
 
 - 新增正式能力时，优先更新 `1-9` 正式文档和本索引。
 - 进度变化时，优先更新 [项目状态报告](/Users/newmba/Downloads/onyx-main/docs/ONYX_SECURITY_PLATFORM_STATUS_REPORT.md)、[项目 TODO](/Users/newmba/Downloads/onyx-main/docs/TODO.md)、[开发 Backlog](/Users/newmba/Downloads/onyx-main/docs/security-platform/12-development-backlog.md)。
