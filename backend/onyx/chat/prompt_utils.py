@@ -195,7 +195,33 @@ def _build_user_information_section(
                 USER_PREFERENCES_PROMPT.format(user_preferences=ctx.user_preferences)
             )
 
-        if ctx.memories:
+        # Two-tier memory display: distilled summary first, then recent raw.
+        distilled = getattr(ctx, "distilled_memories", ())
+        raw = getattr(ctx, "raw_memories", ())
+
+        if distilled:
+            formatted_distilled = "\n".join(f"- {m}" for m in distilled)
+            sections.append(
+                USER_MEMORIES_PROMPT.format(
+                    user_memories=formatted_distilled,
+                ).replace(
+                    "## User Memories", "## User Memories (Summary)"
+                )
+            )
+
+        if raw:
+            formatted_raw = "\n".join(f"- {m}" for m in raw)
+            sections.append(
+                USER_MEMORIES_PROMPT.format(
+                    user_memories=formatted_raw,
+                ).replace(
+                    "## User Memories", "## User Memories (Recent)"
+                )
+            )
+
+        # Backward-compatible flat fallback when layers are empty but
+        # the legacy ``memories`` field has content.
+        if not distilled and not raw and ctx.memories:
             formatted_memories = "\n".join(f"- {memory}" for memory in ctx.memories)
             sections.append(
                 USER_MEMORIES_PROMPT.format(user_memories=formatted_memories)

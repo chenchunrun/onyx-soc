@@ -1070,6 +1070,41 @@ def run_llm_loop(
                         index=tool_response.rich_response.index_to_replace,
                     )
 
+                    # Threshold-triggered async distillation: if the user has
+                    # accumulated enough raw memories, kick off a background
+                    # distillation task without blocking the conversation.
+                    if operation == "add":
+                        try:
+                            from onyx.db.memory import count_raw_memories
+                            from onyx.secondary_llm_flows.memory_distillation import (
+                                DISTILLATION_THRESHOLD,
+                            )
+
+                            raw_count = count_raw_memories(
+                                user_memory_context.user_id, db_session
+                            )
+                            if raw_count >= DISTILLATION_THRESHOLD:
+                                from onyx.context.context import get_tenant_id
+                                from onyx.background.celery.tasks.periodic.memory_distillation_task import (
+                                    memory_distillation_task,
+                                )
+
+                                tenant_id = get_tenant_id()
+                                memory_distillation_task.delay(
+                                    tenant_id, str(user_memory_context.user_id)
+                                )
+                                logger.info(
+                                    "Triggered async memory distillation for "
+                                    "user %s (raw_count=%d)",
+                                    user_memory_context.user_id,
+                                    raw_count,
+                                )
+                        except Exception:
+                            logger.debug(
+                                "Failed to trigger memory distillation",
+                                exc_info=True,
+                            )
+
                 if memory_snapshot:
                     saved_response = json.dumps(memory_snapshot.model_dump())
                 elif isinstance(tool_response.rich_response, CustomToolCallSummary):

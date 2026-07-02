@@ -30,6 +30,7 @@ from sqlalchemy import func
 from sqlalchemy import Index
 from sqlalchemy import Integer
 from sqlalchemy import BigInteger
+from sqlalchemy import JSON
 
 from sqlalchemy import Sequence
 from sqlalchemy import String
@@ -472,6 +473,14 @@ class Memory(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+    # Two-tier memory: "raw" (original) or "distilled" (consolidated).
+    layer: Mapped[str] = mapped_column(String, nullable=False, server_default="raw")
+    importance: Mapped[float] = mapped_column(Float, nullable=False, server_default="0.5")
+    last_accessed_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    distilled_from_ids: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="memories")
 

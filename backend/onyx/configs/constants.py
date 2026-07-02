@@ -397,6 +397,7 @@ class MilestoneRecordType(str, Enum):
 
 class PostgresAdvisoryLocks(Enum):
     KOMBU_MESSAGE_CLEANUP_LOCK_ID = auto()
+    MEMORY_DISTILLATION_LOCK_ID = auto()
 
 
 class OnyxCeleryQueues:
@@ -559,6 +560,9 @@ class OnyxCeleryTask:
     CHECK_FOR_DOC_PERMISSIONS_SYNC = "check_for_doc_permissions_sync"
     CHECK_FOR_EXTERNAL_GROUP_SYNC = "check_for_external_group_sync"
     CHECK_FOR_AUTO_LLM_UPDATE = "check_for_auto_llm_update"
+
+    # Memory distillation (periodic consolidation of raw → distilled)
+    MEMORY_DISTILLATION_TASK = "memory_distillation_task"
 
     # User file processing
     CHECK_FOR_USER_FILE_PROCESSING = "check_for_user_file_processing"

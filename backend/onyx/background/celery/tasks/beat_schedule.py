@@ -153,6 +153,15 @@ beat_task_templates: list[dict] = [
             "queue": OnyxCeleryQueues.SANDBOX,
         },
     },
+    {
+        "name": "memory-distillation",
+        "task": OnyxCeleryTask.MEMORY_DISTILLATION_TASK,
+        "schedule": timedelta(hours=6),
+        "options": {
+            "priority": OnyxCeleryPriority.LOW,
+            "expires": 30 * 60,
+        },
+    },
 ]
 
 if ENTERPRISE_EDITION_ENABLED:
