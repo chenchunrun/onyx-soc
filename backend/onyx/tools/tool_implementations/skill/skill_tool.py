@@ -17,7 +17,31 @@ ACTION_FIELD = "action"
 SKILL_KEY_FIELD = "skill_key"
 FILE_PATH_FIELD = "file_path"
 
-MAX_CONTENT_CHARS = 32000
+MAX_CONTENT_CHARS = 16000
+
+
+def _truncate_at_section_boundary(content: str, max_chars: int) -> str:
+    """Truncate content at a ``##`` section boundary to avoid cutting code
+    blocks or tables mid-way.
+
+    Returns the truncated content with a hint about how many sections were
+    omitted, so the LLM knows it can use ``read_file`` to fetch them.
+    """
+    if len(content) <= max_chars:
+        return content
+    # Search backwards for the nearest ## heading within the budget.
+    cut = content.rfind("\n## ", 0, max_chars)
+    # If no heading found in the back half, fall back to a hard cut.
+    if cut < max_chars * 0.5:
+        cut = max_chars
+    truncated = content[:cut].rstrip()
+    omitted = content[cut:]
+    section_count = omitted.count("\n## ")
+    hint = (
+        f"\n\n[... {section_count} section(s) omitted. "
+        "Use action='read_file' to read specific reference files. ...]"
+    )
+    return truncated + hint
 
 
 class SkillTool(Tool[None]):
@@ -127,7 +151,14 @@ class SkillTool(Tool[None]):
         )
         return ToolResponse(rich_response=None, llm_facing_response="\n".join(lines))
 
-    def _load_skill(self, skill_key: str) -> ToolResponse:
+    def _verify_skill_accessible(self, skill_key: str) -> None:
+        """Check that the skill is both bound to this tool instance and
+        currently enabled in the registry.
+
+        The ``_skill_keys`` set is captured at construction time; this
+        runtime check guards against an admin disabling a skill *after*
+        the tool was constructed (e.g. mid-message processing).
+        """
         if skill_key not in self._skill_keys:
             raise ToolCallException(
                 message=f"Skill '{skill_key}' not available",
@@ -136,6 +167,17 @@ class SkillTool(Tool[None]):
                     f"Available skills: {', '.join(sorted(self._skill_keys))}"
                 ),
             )
+        from onyx.server.manage.skills.registry import list_managed_skills
+
+        managed = {s.key: s for s in list_managed_skills(enabled=True)}
+        if skill_key not in managed:
+            raise ToolCallException(
+                message=f"Skill '{skill_key}' is not enabled",
+                llm_facing_message=f"Skill '{skill_key}' is currently disabled.",
+            )
+
+    def _load_skill(self, skill_key: str) -> ToolResponse:
+        self._verify_skill_accessible(skill_key)
 
         from onyx.server.manage.skills.registry import read_skill_content
         from onyx.server.manage.skills.registry import SKILLS_ROOT
@@ -149,20 +191,12 @@ class SkillTool(Tool[None]):
 
         header = f"# Skill: {skill_key}\nFiles: {SKILLS_ROOT / skill_key}/\n\n"
         full = header + content
-        if len(full) > MAX_CONTENT_CHARS:
-            full = full[:MAX_CONTENT_CHARS] + "\n\n[Content truncated. Use read_file to access specific sections.]"
+        full = _truncate_at_section_boundary(full, MAX_CONTENT_CHARS)
 
         return ToolResponse(rich_response=None, llm_facing_response=full)
 
     def _read_file(self, skill_key: str, file_path: str) -> ToolResponse:
-        if skill_key not in self._skill_keys:
-            raise ToolCallException(
-                message=f"Skill '{skill_key}' not available",
-                llm_facing_message=(
-                    f"Skill '{skill_key}' is not bound to this agent. "
-                    f"Available skills: {', '.join(sorted(self._skill_keys))}"
-                ),
-            )
+        self._verify_skill_accessible(skill_key)
 
         if ".." in file_path or file_path.startswith("/"):
             raise ToolCallException(
@@ -204,8 +238,7 @@ class SkillTool(Tool[None]):
                 llm_facing_message=f"Could not read file '{file_path}'.",
             )
 
-        if len(content) > MAX_CONTENT_CHARS:
-            content = content[:MAX_CONTENT_CHARS] + "\n\n[Content truncated.]"
+        content = _truncate_at_section_boundary(content, MAX_CONTENT_CHARS)
 
         return ToolResponse(rich_response=None, llm_facing_response=content)
 

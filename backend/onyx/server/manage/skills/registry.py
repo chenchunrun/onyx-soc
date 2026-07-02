@@ -4,6 +4,7 @@ from enum import Enum
 import ipaddress
 import json
 import os
+import threading
 from datetime import datetime
 from datetime import timezone
 from pathlib import Path
@@ -50,6 +51,15 @@ AUTHORIZED_SCAN_AUDIT_PATH = Path(__file__).resolve().parent / "authorized_scan_
 RUNTIME_SKILL_AUDIT_PATH = Path(__file__).resolve().parent / "runtime_skill_audit.jsonl"
 SCAN_CACHE_TTL_SECONDS = 10
 _SCANNED_SKILLS_CACHE: dict[str, tuple[float, dict[str, "ManagedSkill"]]] = {}
+
+# Registry-wide lock protecting cache reads/writes and file writes.
+# GIL makes dict ops atomic-ish, but this prevents thundering-herd disk scans
+# and concurrent registry.yaml overwrites from interleaving.
+_REGISTRY_LOCK = threading.Lock()
+
+# mtime-keyed caches so file edits invalidate automatically without a TTL.
+_REGISTRY_PAYLOAD_CACHE: tuple[float, dict[str, Any]] | None = None
+_SKILL_CONTENT_CACHE: dict[str, tuple[float, str | None]] = {}
 
 SECURITY_TEAM_EMAILS = {
     "commander@security.local",
@@ -233,8 +243,20 @@ class BoundSkillRuntimeResolution(BaseModel):
 
 
 def _load_registry_payload() -> dict[str, Any]:
+    global _REGISTRY_PAYLOAD_CACHE
+
     if not REGISTRY_PATH.exists():
         return {"skills": {}}
+
+    try:
+        mtime = REGISTRY_PATH.stat().st_mtime
+    except OSError:
+        return {"skills": {}}
+
+    # Fast path: cached payload whose mtime still matches.
+    with _REGISTRY_LOCK:
+        if _REGISTRY_PAYLOAD_CACHE and _REGISTRY_PAYLOAD_CACHE[0] == mtime:
+            return _REGISTRY_PAYLOAD_CACHE[1]
 
     with open(REGISTRY_PATH, "r", encoding="utf-8") as handle:
         payload = yaml.safe_load(handle) or {}
@@ -243,18 +265,26 @@ def _load_registry_payload() -> dict[str, Any]:
     if not isinstance(skills_payload, dict):
         raise ValueError(f"Invalid skill registry at {REGISTRY_PATH}")
 
-    return {"skills": skills_payload}
+    result = {"skills": skills_payload}
+    with _REGISTRY_LOCK:
+        _REGISTRY_PAYLOAD_CACHE = (mtime, result)
+    return result
 
 
 def _write_registry_payload(payload: dict[str, Any]) -> None:
-    with open(REGISTRY_PATH, "w", encoding="utf-8") as handle:
-        yaml.safe_dump(
-            payload,
-            handle,
-            allow_unicode=True,
-            sort_keys=True,
-            default_flow_style=False,
-        )
+    global _REGISTRY_PAYLOAD_CACHE
+    with _REGISTRY_LOCK:
+        with open(REGISTRY_PATH, "w", encoding="utf-8") as handle:
+            yaml.safe_dump(
+                payload,
+                handle,
+                allow_unicode=True,
+                sort_keys=True,
+                default_flow_style=False,
+            )
+        # Invalidate caches so the next read picks up the new content.
+        _REGISTRY_PAYLOAD_CACHE = None
+        _SCANNED_SKILLS_CACHE.clear()
 
 
 def _load_authorized_targets_payload() -> dict[str, Any]:
@@ -306,10 +336,25 @@ def _read_frontmatter_fields(skill_md_path: Path) -> tuple[str | None, bool]:
 
 
 def read_skill_content(skill_key: str) -> str | None:
-    """Read the full markdown content of a skill's SKILL.md, excluding YAML frontmatter."""
+    """Read the full markdown content of a skill's SKILL.md, excluding YAML frontmatter.
+
+    Results are cached by file mtime so repeated ``load_skill`` calls in a
+    multi-turn conversation don't re-read the same file from disk.
+    """
     skill_md_path = SKILLS_ROOT / skill_key / "SKILL.md"
     if not skill_md_path.exists():
         return None
+    try:
+        mtime = skill_md_path.stat().st_mtime
+    except OSError:
+        return None
+
+    # Fast path: cache hit with unchanged mtime.
+    with _REGISTRY_LOCK:
+        cached = _SKILL_CONTENT_CACHE.get(skill_key)
+        if cached and cached[0] == mtime:
+            return cached[1]
+
     try:
         content = skill_md_path.read_text(encoding="utf-8")
         lines = content.splitlines()
@@ -317,10 +362,18 @@ def read_skill_content(skill_key: str) -> str | None:
             for i, line in enumerate(lines[1:], 1):
                 if line.strip() == "---":
                     body = "\n".join(lines[i + 1 :]).strip()
-                    return body or None
-        return content.strip() or None
+                    result: str | None = body or None
+                    break
+            else:
+                result = content.strip() or None
+        else:
+            result = content.strip() or None
     except Exception:
         return None
+
+    with _REGISTRY_LOCK:
+        _SKILL_CONTENT_CACHE[skill_key] = (mtime, result)
+    return result
 
 
 def scan_skill_directories(
@@ -329,16 +382,18 @@ def scan_skill_directories(
     skills_root = skills_root or SKILLS_ROOT
     cache_key = str(skills_root.resolve())
     now = monotonic()
-    cached_entry = _SCANNED_SKILLS_CACHE.get(cache_key)
-    if cached_entry and now - cached_entry[0] < SCAN_CACHE_TTL_SECONDS:
-        return {
-            skill_key: skill.model_copy(deep=True)
-            for skill_key, skill in cached_entry[1].items()
-        }
+    with _REGISTRY_LOCK:
+        cached_entry = _SCANNED_SKILLS_CACHE.get(cache_key)
+        if cached_entry and now - cached_entry[0] < SCAN_CACHE_TTL_SECONDS:
+            return {
+                skill_key: skill.model_copy(deep=True)
+                for skill_key, skill in cached_entry[1].items()
+            }
 
     scanned: dict[str, ManagedSkill] = {}
     if not skills_root.exists():
-        _SCANNED_SKILLS_CACHE[cache_key] = (now, scanned)
+        with _REGISTRY_LOCK:
+            _SCANNED_SKILLS_CACHE[cache_key] = (now, scanned)
         return scanned
 
     for skill_dir in sorted(skills_root.iterdir()):
@@ -376,7 +431,8 @@ def scan_skill_directories(
             notes=None,
         )
 
-    _SCANNED_SKILLS_CACHE[cache_key] = (now, scanned)
+    with _REGISTRY_LOCK:
+        _SCANNED_SKILLS_CACHE[cache_key] = (now, scanned)
     return scanned
 
 
@@ -876,7 +932,8 @@ def resolve_bound_skill_runtime_state(
 def build_skill_registry_summary(
     managed_skills: list[ManagedSkill] | None = None,
 ) -> SkillRegistrySummary:
-    skills = managed_skills or list_managed_skills()
+    skills = managed_skills if managed_skills is not None else list_managed_skills()
+    discovered = scan_skill_directories()
 
     admin_user = User()
     admin_user.role = UserRole.ADMIN
@@ -890,8 +947,20 @@ def build_skill_registry_summary(
     basic_user.role = UserRole.BASIC
     basic_user.email = "user@example.com"
 
+    # Compute role-based access from the already-loaded skills list instead of
+    # calling get_allowed_skill_names_for_user (which re-invokes list_managed_skills)
+    # three times.
+    def _allowed_keys(user: User) -> set[str]:
+        return {
+            skill.key for skill in skills if user_can_access_skill(skill, user)
+        }
+
+    basic_keys = _allowed_keys(basic_user)
+    security_keys = _allowed_keys(security_user)
+    admin_keys = _allowed_keys(admin_user)
+
     return SkillRegistrySummary(
-        discovered_count=len(scan_skill_directories()),
+        discovered_count=len(discovered),
         managed_count=len(skills),
         enabled_count=sum(1 for skill in skills if skill.enabled),
         quarantined_count=sum(
@@ -925,20 +994,18 @@ def build_skill_registry_summary(
         role_previews=[
             SkillRolePreview(
                 role="basic_user",
-                allowed_count=len(get_allowed_skill_names_for_user(basic_user)),
-                allowed_skill_keys=sorted(get_allowed_skill_names_for_user(basic_user)),
+                allowed_count=len(basic_keys),
+                allowed_skill_keys=sorted(basic_keys),
             ),
             SkillRolePreview(
                 role="security_team",
-                allowed_count=len(get_allowed_skill_names_for_user(security_user)),
-                allowed_skill_keys=sorted(
-                    get_allowed_skill_names_for_user(security_user)
-                ),
+                allowed_count=len(security_keys),
+                allowed_skill_keys=sorted(security_keys),
             ),
             SkillRolePreview(
                 role="admin",
-                allowed_count=len(get_allowed_skill_names_for_user(admin_user)),
-                allowed_skill_keys=sorted(get_allowed_skill_names_for_user(admin_user)),
+                allowed_count=len(admin_keys),
+                allowed_skill_keys=sorted(admin_keys),
             ),
         ],
     )
