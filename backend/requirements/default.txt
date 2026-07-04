@@ -145,7 +145,7 @@ charset-normalizer==3.4.4
     #   unstructured
 chevron==0.14.0
     # via braintrust
-chonkie==1.0.10
+chonkie==1.6.8
     # via onyx
 claude-agent-sdk==0.1.19
     # via onyx
