@@ -291,7 +291,7 @@ pyasn1==0.6.3
     #   rsa
 pyasn1-modules==0.4.2
     # via google-auth
-pycparser==2.23 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
+pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
 pydantic==2.11.7
     # via
