@@ -517,7 +517,7 @@ mdurl==0.1.2
     # via markdown-it-py
 mistune==3.2.0
     # via onyx
-more-itertools==10.8.0
+more-itertools==11.1.0
     # via
     #   jaraco-classes
     #   jaraco-functools
