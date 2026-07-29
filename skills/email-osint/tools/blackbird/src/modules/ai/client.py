@@ -37,12 +37,12 @@ def send_prompt(prompt, config):
             try:
                 data = response.json()
             except json.JSONDecodeError:
-                data = None        
+                data = None
 
         if response.status_code != 200 and data:
             config.console.print(f":x: {data['message']}")
             return None
-        
+
         if response.status_code == 200 and data:
 
             if data["success"]:

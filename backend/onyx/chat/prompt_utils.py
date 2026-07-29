@@ -13,8 +13,6 @@ from onyx.prompts.chat_prompts import DEFAULT_SYSTEM_PROMPT
 from onyx.prompts.chat_prompts import FILE_REMINDER
 from onyx.prompts.chat_prompts import LAST_CYCLE_CITATION_REMINDER
 from onyx.prompts.chat_prompts import REQUIRE_CITATION_GUIDANCE
-
-_DEFAULT_SYSTEM_PROMPT_CACHE_KEY = "onyx:default_system_prompt"
 from onyx.prompts.prompt_utils import get_company_context
 from onyx.prompts.prompt_utils import handle_onyx_date_awareness
 from onyx.prompts.prompt_utils import replace_citation_guidance_tag
@@ -46,6 +44,8 @@ from onyx.tools.tool_implementations.search.search_tool import SearchTool
 from onyx.tools.tool_implementations.skill.skill_tool import SkillTool
 from onyx.tools.tool_implementations.web_search.web_search_tool import WebSearchTool
 from onyx.utils.timing import log_function_time
+
+_DEFAULT_SYSTEM_PROMPT_CACHE_KEY = "onyx:default_system_prompt"
 
 
 def get_default_base_system_prompt(db_session: Session) -> str:

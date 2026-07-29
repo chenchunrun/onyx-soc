@@ -25,7 +25,7 @@ def do_sync_request(method, url, config, data=None, customHeaders=None, cookies=
         "data": data,
         "cookies": cookies,
     }
-    
+
     # Only add proxies parameter if a proxy is actually configured
     if config.proxy:
         request_kwargs["proxies"] = {"http": config.proxy, "https": config.proxy}

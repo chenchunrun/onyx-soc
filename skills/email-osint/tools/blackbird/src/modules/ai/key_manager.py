@@ -21,7 +21,7 @@ def fetch_api_key_from_server(config):
             config=config,
             data=None
         )
-        
+
         data = response.json()
 
         if (data["success"]) and data["status"] == 200:
@@ -29,7 +29,7 @@ def fetch_api_key_from_server(config):
             config.console.print(f":white_check_mark: {data['message']}")
             save_api_key_to_file(apikey, config)
             return True
-            
+
 
         if (data["status"] == 200 and not data["success"]):
             config.console.print(f":closed_lock_with_key: {data['message']}")
@@ -37,11 +37,11 @@ def fetch_api_key_from_server(config):
                 apikey = data["data"]["api_key"]
                 save_api_key_to_file(apikey, config)
                 return True
-        
+
         if (data["status"] == 500):
             config.console.print(f":x: {data['message']}")
             return None
-            
+
         return None
     except Exception as e:
         logError(e, "Error obtaining API Key", config)

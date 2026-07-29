@@ -20,7 +20,7 @@ async def xnxx(email, client, out):
     if XNXX.status_code == 200:
         headers['Referer'] = 'https://www.xnxx.com/video-holehe/palenath_fucks_xnxx_with_holehe'
         headers['X-Requested-With'] = 'XMLHttpRequest'
-        
+
         email = email.replace('@', '%40')
         APIRQST = await client.get(f'https://www.xnxx.com/account/checkemail?email={email}', headers=headers, cookies=XNXX.cookies)
         if APIRQST.status_code == 200:

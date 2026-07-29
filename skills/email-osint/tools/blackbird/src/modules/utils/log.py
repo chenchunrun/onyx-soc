@@ -7,7 +7,7 @@ def logError(e, message, config):
     else:
         error = repr(e)
     stacktrace = traceback.format_exc()
-    
+
     logging.error(f"{message} | {error}")
     logging.error(stacktrace)
     if config.verbose:
