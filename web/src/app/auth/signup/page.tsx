@@ -74,10 +74,10 @@ const Page = async (props: {
         >
           <div className="w-full">
             <Text as="p" headingH2 text05>
-              {cloud ? "Complete your sign up" : "Create account"}
+              {cloud ? "完成注册" : "创建账号"}
             </Text>
             <Text as="p" text03>
-              Get started with Onyx
+              开始使用 CMSOC 智能安全底座
             </Text>
           </div>
           {cloud && authUrl && (

@@ -78,7 +78,7 @@ const ForgotPasswordPage: React.FC = () => {
         <Spacer rem={1} />
         <div className="flex">
           <div className="mx-auto">
-            <Text as="p">{markdown("[Back to Login](/auth/login)")}</Text>
+            <Text as="p">{markdown("[返回登录](/auth/login)")}</Text>
           </div>
         </div>
       </div>

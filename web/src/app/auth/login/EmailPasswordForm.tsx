@@ -50,12 +50,12 @@ export default function EmailPasswordForm({
     () => ({
       loading: isSignup
         ? isJoin
-          ? "Joining..."
-          : "Creating account..."
-        : "Signing in...",
+          ? "正在加入..."
+          : "正在创建账号..."
+        : "正在登录...",
       success: isSignup
-        ? "Account created. Signing in..."
-        : "Signed in successfully.",
+        ? "账号创建成功，正在登录..."
+        : "登录成功。",
       error: errorMessage,
     }),
     [isSignup, isJoin, errorMessage]
@@ -110,24 +110,24 @@ export default function EmailPasswordForm({
 
               const errorBody: any = await response.json();
               const errorDetail = errorBody.detail;
-              let errorMsg: string = "Unknown error";
+              let errorMsg: string = "未知错误";
               if (errorDetail === "REGISTER_USER_ALREADY_EXISTS") {
                 errorMsg =
-                  "An account already exists with the specified email.";
+                  "该邮箱已注册账号。";
               } else if (typeof errorDetail === "string" && errorDetail) {
                 errorMsg = errorDetail;
               }
               if (response.status === 429) {
-                errorMsg = "Too many requests. Please try again later.";
+                errorMsg = "请求过于频繁，请稍后重试。";
               }
               setErrorMessage(errorMsg);
               setApiStatus("error");
-              toast.error(`Failed to sign up - ${errorMsg}`);
+              toast.error(`注册失败 - ${errorMsg}`);
               setIsWorking(false);
               return;
             } else {
               setApiStatus("success");
-              toast.success("Account created successfully. Please log in.");
+              toast.success("账号创建成功，请登录。");
             }
           }
 
@@ -153,20 +153,20 @@ export default function EmailPasswordForm({
           } else {
             setIsWorking(false);
             const errorDetail: any = (await loginResponse.json()).detail;
-            let errorMsg: string = "Unknown error";
+            let errorMsg: string = "未知错误";
             if (errorDetail === "LOGIN_BAD_CREDENTIALS") {
-              errorMsg = "Invalid email or password";
+              errorMsg = "邮箱或密码错误";
             } else if (errorDetail === "NO_WEB_LOGIN_AND_HAS_NO_PASSWORD") {
-              errorMsg = "Create an account to set a password";
+              errorMsg = "请创建账号以设置密码";
             } else if (typeof errorDetail === "string") {
               errorMsg = errorDetail;
             }
             if (loginResponse.status === 429) {
-              errorMsg = "Too many requests. Please try again later.";
+              errorMsg = "请求过于频繁，请稍后重试。";
             }
             setErrorMessage(errorMsg);
             setApiStatus("error");
-            toast.error(`Failed to login - ${errorMsg}`);
+            toast.error(`登录失败 - ${errorMsg}`);
           }
         }}
       >
@@ -177,7 +177,7 @@ export default function EmailPasswordForm({
                 name="email"
                 render={(field, helper, meta, state) => (
                   <FormField name="email" state={state} className="w-full">
-                    <FormField.Label>Email Address</FormField.Label>
+                    <FormField.Label>邮箱地址</FormField.Label>
                     <FormField.Control>
                       <InputTypeIn
                         {...field}
@@ -204,7 +204,7 @@ export default function EmailPasswordForm({
                 name="password"
                 render={(field, helper, meta, state) => (
                   <FormField name="password" state={state} className="w-full">
-                    <FormField.Label>Password</FormField.Label>
+                    <FormField.Label>密码</FormField.Label>
                     <FormField.Control>
                       <PasswordInputTypeIn
                         {...field}
@@ -226,9 +226,9 @@ export default function EmailPasswordForm({
                     {isSignup && !showApiMessage && (
                       <FormField.Message
                         messages={{
-                          idle: `Password must be at least ${passwordMinLength} characters`,
+                          idle: `密码至少需要 ${passwordMinLength} 个字符`,
                           error: meta.error,
-                          success: `Password must be at least ${passwordMinLength} characters`,
+                          success: `密码至少需要 ${passwordMinLength} 个字符`,
                         }}
                       />
                     )}
@@ -249,7 +249,7 @@ export default function EmailPasswordForm({
                   width="full"
                   rightIcon={SvgArrowRightCircle}
                 >
-                  {isJoin ? "Join" : isSignup ? "Create Account" : "Sign In"}
+                  {isJoin ? "加入" : isSignup ? "创建账号" : "登录"}
                 </Button>
               </Disabled>
               {user?.is_anonymous_user && (
