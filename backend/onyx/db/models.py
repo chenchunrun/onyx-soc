@@ -476,7 +476,9 @@ class Memory(Base):
 
     # Two-tier memory: "raw" (original) or "distilled" (consolidated).
     layer: Mapped[str] = mapped_column(String, nullable=False, server_default="raw")
-    importance: Mapped[float] = mapped_column(Float, nullable=False, server_default="0.5")
+    importance: Mapped[float] = mapped_column(
+        Float, nullable=False, server_default="0.5"
+    )
     last_accessed_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

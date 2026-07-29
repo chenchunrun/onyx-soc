@@ -9,11 +9,9 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 from uuid import uuid4
 
-import pytest
 
 from onyx.secondary_llm_flows.memory_distillation import DISTILLATION_THRESHOLD
 from onyx.secondary_llm_flows.memory_distillation import PRESERVE_RECENT_RAW
-from onyx.secondary_llm_flows.memory_distillation import DistillationResult
 from onyx.secondary_llm_flows import memory_distillation  # noqa: F401 — ensure import
 
 
@@ -96,7 +94,7 @@ class TestDistillationLogic:
             patch(
                 "onyx.secondary_llm_flows.memory_distillation.delete_raw_memories",
                 return_value=5,
-            ) as mock_delete,
+            ),
             patch(
                 "onyx.secondary_llm_flows.memory_distillation.count_raw_safe",
                 return_value=20,
@@ -222,7 +220,7 @@ class TestDistillationLogic:
 
         captured_importance: list[float] = []
 
-        def _capture_importance(*args, **kwargs):
+        def _capture_importance(*_args: object, **kwargs: object) -> MagicMock:
             captured_importance.append(kwargs.get("importance", 0.5))
             return MagicMock(id=1)
 
@@ -238,9 +236,7 @@ class TestDistillationLogic:
                 "onyx.secondary_llm_flows.memory_distillation.add_distilled_memory",
                 side_effect=_capture_importance,
             ),
-            patch(
-                "onyx.secondary_llm_flows.memory_distillation.delete_raw_memories"
-            ),
+            patch("onyx.secondary_llm_flows.memory_distillation.delete_raw_memories"),
             patch(
                 "onyx.secondary_llm_flows.memory_distillation.count_raw_safe",
                 return_value=25,

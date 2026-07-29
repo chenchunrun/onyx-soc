@@ -101,9 +101,7 @@ def get_memories(user: User, db_session: Session) -> UserMemoryContext:
         user_preferences = user.user_preferences
 
     all_rows = db_session.scalars(
-        select(Memory)
-        .where(Memory.user_id == user.id)
-        .order_by(Memory.id.asc())
+        select(Memory).where(Memory.user_id == user.id).order_by(Memory.id.asc())
     ).all()
 
     distilled_texts: list[str] = []
@@ -158,16 +156,17 @@ def get_distilled_memories(user_id: UUID, db_session: Session) -> list[Memory]:
 
 def count_raw_memories(user_id: UUID, db_session: Session) -> int:
     """Count raw-layer memories for a user."""
-    return db_session.scalar(
-        select(func.count(Memory.id)).where(
-            Memory.user_id == user_id, Memory.layer == MEMORY_LAYER_RAW
+    return (
+        db_session.scalar(
+            select(func.count(Memory.id)).where(
+                Memory.user_id == user_id, Memory.layer == MEMORY_LAYER_RAW
+            )
         )
-    ) or 0
+        or 0
+    )
 
 
-def get_distillable_users(
-    db_session: Session, threshold: int
-) -> list[UUID]:
+def get_distillable_users(db_session: Session, threshold: int) -> list[UUID]:
     """Return user IDs that have at least ``threshold`` raw memories."""
     rows = db_session.execute(
         select(Memory.user_id)
@@ -244,11 +243,14 @@ def add_distilled_memory(
 ) -> Memory | None:
     """Insert a distilled memory. Returns None if the distilled cap is reached
     and eviction is not desired (caller should manage eviction explicitly)."""
-    existing_count = db_session.scalar(
-        select(func.count(Memory.id)).where(
-            Memory.user_id == user_id, Memory.layer == MEMORY_LAYER_DISTILLED
+    existing_count = (
+        db_session.scalar(
+            select(func.count(Memory.id)).where(
+                Memory.user_id == user_id, Memory.layer == MEMORY_LAYER_DISTILLED
+            )
         )
-    ) or 0
+        or 0
+    )
 
     if existing_count >= MAX_DISTILLED_MEMORIES_PER_USER:
         return None
@@ -293,9 +295,7 @@ def delete_raw_memories(
     return result.rowcount
 
 
-def touch_memory_access(
-    user_id: UUID, db_session: Session
-) -> None:
+def touch_memory_access(user_id: UUID, db_session: Session) -> None:
     """Update last_accessed_at for all of a user's memories (called when
     memories are injected into a prompt)."""
     now = datetime.now(timezone.utc)

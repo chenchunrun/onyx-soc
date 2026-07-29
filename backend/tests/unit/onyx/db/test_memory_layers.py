@@ -6,7 +6,6 @@ the functions are tested via SQLite in-memory sessions where possible,
 and via direct function logic for pure-Python parts.
 """
 
-from uuid import uuid4
 
 import pytest
 
@@ -17,7 +16,6 @@ from onyx.db.memory import MEMORY_LAYER_RAW
 from onyx.db.memory import RECENT_RAW_MEMORIES_IN_PROMPT
 from onyx.db.memory import UserInfo
 from onyx.db.memory import UserMemoryContext
-
 
 # ─── UserMemoryContext two-tier tests ──────────────────────────────────────────
 

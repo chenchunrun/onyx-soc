@@ -13,14 +13,10 @@ Requires: PostgreSQL running (external dependency unit test environment).
 """
 
 import json
-from datetime import datetime
-from datetime import timezone
 from unittest.mock import MagicMock
-from unittest.mock import patch
 from uuid import UUID
 
 import pytest
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from onyx.db.memory import MAX_DISTILLED_MEMORIES_PER_USER
@@ -37,7 +33,6 @@ from onyx.db.memory import get_distillable_users
 from onyx.db.memory import get_distilled_memories
 from onyx.db.memory import get_memories
 from onyx.db.memory import get_raw_memories
-from onyx.db.memory import update_memory_at_index
 from onyx.db.models import Memory
 from onyx.db.models import User
 from onyx.secondary_llm_flows.memory_distillation import DISTILLATION_THRESHOLD
@@ -79,7 +74,9 @@ class TestDBSchema:
         assert mem.last_accessed_at is None
         assert mem.distilled_from_ids is None
 
-    def test_distilled_from_ids_stores_json(self, db_session: Session, test_user: User) -> None:
+    def test_distilled_from_ids_stores_json(
+        self, db_session: Session, test_user: User
+    ) -> None:
         """distilled_from_ids should store a list of ints."""
         _cleanup_user_memories(test_user.id, db_session)
         mem = add_distilled_memory(
@@ -111,7 +108,9 @@ class TestDBSchema:
 
 
 class TestLayeredCRUD:
-    def test_add_memory_creates_raw_layer(self, db_session: Session, test_user: User) -> None:
+    def test_add_memory_creates_raw_layer(
+        self, db_session: Session, test_user: User
+    ) -> None:
         _cleanup_user_memories(test_user.id, db_session)
         add_memory(test_user.id, "raw memory 1", db_session)
         raw = get_raw_memories(test_user.id, db_session)
@@ -156,7 +155,10 @@ class TestLayeredCRUD:
         # One more should return None (cap reached)
         overflow = add_distilled_memory(test_user.id, "overflow", db_session)
         assert overflow is None
-        assert len(get_distilled_memories(test_user.id, db_session)) == MAX_DISTILLED_MEMORIES_PER_USER
+        assert (
+            len(get_distilled_memories(test_user.id, db_session))
+            == MAX_DISTILLED_MEMORIES_PER_USER
+        )
 
     def test_clear_distilled_only_affects_distilled(
         self, db_session: Session, test_user: User
@@ -172,9 +174,11 @@ class TestLayeredCRUD:
         assert len(get_raw_memories(test_user.id, db_session)) == 1
         assert len(get_distilled_memories(test_user.id, db_session)) == 0
 
-    def test_delete_raw_memories_by_id(self, db_session: Session, test_user: User) -> None:
+    def test_delete_raw_memories_by_id(
+        self, db_session: Session, test_user: User
+    ) -> None:
         _cleanup_user_memories(test_user.id, db_session)
-        m1 = add_memory(test_user.id, "keep me", db_session)
+        add_memory(test_user.id, "keep me", db_session)
         m2 = add_memory(test_user.id, "delete me", db_session)
 
         deleted = delete_raw_memories(test_user.id, [m2.id], db_session)
@@ -276,7 +280,7 @@ class TestDistillationFlow:
         raw_before = count_raw_memories(test_user.id, db_session)
 
         # Mock LLM to consolidate first 3 raw into 1 distilled.
-        distillable = raw_memories[:-PRESERVE_RECENT_RAW]
+        # (distillable set is raw_memories[:-PRESERVE_RECENT_RAW])
         llm_response = {
             "distilled_memories": [
                 {
@@ -326,7 +330,11 @@ class TestDistillationFlow:
         total_distillable = len(all_mems) - PRESERVE_RECENT_RAW
         llm_response = {
             "distilled_memories": [
-                {"text": "Everything", "importance": 0.5, "source_ids": list(range(1, total_distillable + 1))}
+                {
+                    "text": "Everything",
+                    "importance": 0.5,
+                    "source_ids": list(range(1, total_distillable + 1)),
+                }
             ],
             "raw_to_delete": list(range(1, total_distillable + 1)),
         }
@@ -335,7 +343,7 @@ class TestDistillationFlow:
         resp.choice.message.content = json.dumps(llm_response)
         llm.invoke.return_value = resp
 
-        result = distill_user_memories(test_user.id, db_session, llm)
+        distill_user_memories(test_user.id, db_session, llm)
 
         # Recent raw should still exist.
         raw_after = get_raw_memories(test_user.id, db_session)
@@ -393,14 +401,14 @@ class TestDistillationFlow:
 
 
 class TestPromptInjection:
-    def test_two_section_display(self, db_session: Session, test_user: User) -> None:
+    def test_two_section_display(self) -> None:
         """System prompt should have Summary + Recent sections."""
         from onyx.chat.prompt_utils import _build_user_information_section
         from onyx.db.memory import UserMemoryContext
         from onyx.db.memory import UserInfo
 
         ctx = UserMemoryContext(
-            user_id=test_user.id,
+            user_id=UUID("00000000-0000-0000-0000-000000000001"),
             user_info=UserInfo(name="Alice"),
             distilled_memories=("Prefers dark mode", "Uses Python"),
             raw_memories=("Working on auth fix",),
@@ -413,15 +421,13 @@ class TestPromptInjection:
         assert "Prefers dark mode" in section
         assert "Working on auth fix" in section
 
-    def test_empty_layers_no_memory_section(
-        self, db_session: Session, test_user: User
-    ) -> None:
+    def test_empty_layers_no_memory_section(self) -> None:
         from onyx.chat.prompt_utils import _build_user_information_section
         from onyx.db.memory import UserMemoryContext
         from onyx.db.memory import UserInfo
 
         ctx = UserMemoryContext(
-            user_id=test_user.id,
+            user_id=UUID("00000000-0000-0000-0000-000000000002"),
             user_info=UserInfo(),
             distilled_memories=(),
             raw_memories=(),

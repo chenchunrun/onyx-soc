@@ -204,9 +204,7 @@ def _build_user_information_section(
             sections.append(
                 USER_MEMORIES_PROMPT.format(
                     user_memories=formatted_distilled,
-                ).replace(
-                    "## User Memories", "## User Memories (Summary)"
-                )
+                ).replace("## User Memories", "## User Memories (Summary)")
             )
 
         if raw:
@@ -214,9 +212,7 @@ def _build_user_information_section(
             sections.append(
                 USER_MEMORIES_PROMPT.format(
                     user_memories=formatted_raw,
-                ).replace(
-                    "## User Memories", "## User Memories (Recent)"
-                )
+                ).replace("## User Memories", "## User Memories (Recent)")
             )
 
         # Backward-compatible flat fallback when layers are empty but
@@ -242,14 +238,9 @@ def build_tool_guidance(tools: Sequence[Tool]) -> str:
     has_internal_search = any(isinstance(tool, SearchTool) for tool in tools)
     has_open_urls = any(isinstance(tool, OpenURLTool) for tool in tools)
     has_python = any(isinstance(tool, PythonTool) for tool in tools)
-    has_generate_image = any(
-        isinstance(tool, ImageGenerationTool) for tool in tools
-    )
+    has_generate_image = any(isinstance(tool, ImageGenerationTool) for tool in tools)
     has_memory = any(isinstance(tool, MemoryTool) for tool in tools)
-    has_skill_tool = any(
-        isinstance(tool, SkillTool)
-        for tool in tools
-    )
+    has_skill_tool = any(isinstance(tool, SkillTool) for tool in tools)
 
     tool_guidance_sections: list[str] = []
 
@@ -261,9 +252,7 @@ def build_tool_guidance(tools: Sequence[Tool]) -> str:
 
     if has_web_search:
         site_disabled_guidance = ""
-        web_search_tool = next(
-            (t for t in tools if isinstance(t, WebSearchTool)), None
-        )
+        web_search_tool = next((t for t in tools if isinstance(t, WebSearchTool)), None)
         if web_search_tool and not web_search_tool.supports_site_filter:
             site_disabled_guidance = WEB_SEARCH_SITE_DISABLED_GUIDANCE
         tool_guidance_sections.append(

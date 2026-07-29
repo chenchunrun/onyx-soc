@@ -74,9 +74,7 @@ def memory_distillation_task(
 
             target_user_ids: list[UUID] = [UUID(user_id)]
         else:
-            target_user_ids = get_distillable_users(
-                db_session, DISTILLATION_THRESHOLD
-            )
+            target_user_ids = get_distillable_users(db_session, DISTILLATION_THRESHOLD)
 
         task_logger.info(
             f"memory_distillation_task: processing {len(target_user_ids)} user(s)"
@@ -84,9 +82,7 @@ def memory_distillation_task(
 
         for uid in target_user_ids:
             if self.is_aborted():
-                raise TaskRevokedError(
-                    "memory_distillation_task was aborted."
-                )
+                raise TaskRevokedError("memory_distillation_task was aborted.")
 
             # Get basic user info for the prompt.
             user_info: dict | None = None

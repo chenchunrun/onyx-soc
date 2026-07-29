@@ -11,7 +11,6 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from onyx.db.memory import MEMORY_LAYER_RAW
 from onyx.db.memory import clear_distilled_memories
 from onyx.db.memory import add_distilled_memory
 from onyx.db.memory import delete_raw_memories

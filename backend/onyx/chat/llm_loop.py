@@ -752,11 +752,7 @@ def run_llm_loop(
                     persona_sections.append(tool_guidance)
 
                 full_persona_system_prompt = (
-                    "\n\n".join(
-                        section
-                        for section in persona_sections
-                        if section
-                    )
+                    "\n\n".join(section for section in persona_sections if section)
                     or None
                 )
                 system_prompt = (
