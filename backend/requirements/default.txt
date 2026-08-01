@@ -1184,7 +1184,7 @@ zict==3.0.0
     # via distributed
 zipp==3.23.0
     # via importlib-metadata
-zstandard==0.23.0
+zstandard==0.25.0
     # via langsmith
 zulip==0.8.2
     # via onyx
