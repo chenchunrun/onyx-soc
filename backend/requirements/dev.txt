@@ -489,7 +489,7 @@ types-html5lib==1.1.11.13
     # via
     #   onyx
     #   types-beautifulsoup4
-types-oauthlib==3.2.0.9
+types-oauthlib==3.3.0.20260724
     # via onyx
 types-passlib==1.7.7.20240106
     # via onyx
